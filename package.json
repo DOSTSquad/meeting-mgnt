@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "format": "prettier --check .",
     "format:fix": "prettier --write ."
   },
