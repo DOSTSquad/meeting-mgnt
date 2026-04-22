@@ -6,12 +6,18 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test tests/auth.test.js",
+    "test:db": "RUN_DB_TESTS=true node --test tests/auth.test.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
