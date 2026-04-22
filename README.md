@@ -23,6 +23,14 @@ The root `package.json` declares both as npm workspaces.
 
 The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions.
 
+## Database Migrations
+
+Run server migrations with:
+
+`npm run migrate --workspace=server`
+
+Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migrations` table.
+
 ## Health Checks
 
 The API exposes three health endpoints once the server is running:

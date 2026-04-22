@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, beforeAll, beforeEach, afterAll, it, expect, jest } from '@jest/globals'
 import { parse } from 'dotenv'
 
+import { runMigrations } from '../db/migrate.js'
 import { closePool, query } from '../db/postgres.js'
 import { requireAuth } from '../middleware/auth-middleware.js'
 import { getUserForToken, loginUser, registerUser } from '../services/auth-service.js'
@@ -40,17 +41,7 @@ beforeAll(async () => {
     return
   }
 
-  await query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'staff',
-      department TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `)
+  await runMigrations()
 })
 
 beforeEach(async () => {
