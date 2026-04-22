@@ -1,9 +1,8 @@
-import test from 'node:test'
-import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { describe, beforeAll, beforeEach, afterAll, it, expect, jest } from '@jest/globals'
 import { parse } from 'dotenv'
 
 import { closePool, query } from '../db/postgres.js'
@@ -19,114 +18,108 @@ const envPath = existsSync(path.join(repoRoot, '.env'))
 const projectEnv = parse(readFileSync(envPath))
 const runDatabaseTests = process.env.RUN_DB_TESTS === 'true' && Boolean(projectEnv.DATABASE_URL)
 
-const createResponseRecorder = () => {
-  const response = {
-    statusCode: 200,
-    body: null,
-    status(code) {
-      this.statusCode = code
-      return this
-    },
-    json(payload) {
-      this.body = payload
-      return this
-    },
-  }
+const createResponseRecorder = () => ({
+  statusCode: 200,
+  body: null,
+  status(code) {
+    this.statusCode = code
+    return this
+  },
+  json(payload) {
+    this.body = payload
+    return this
+  },
+})
 
-  return response
-}
-
-test.before(async () => {
+beforeAll(async () => {
   process.env.JWT_SECRET = TEST_SECRET
   process.env.JWT_EXPIRES_IN = '1h'
   process.env.DATABASE_URL = projectEnv.DATABASE_URL
 
-  if (runDatabaseTests) {
-    await query(
-      `
-        CREATE TABLE IF NOT EXISTS users (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          name TEXT NOT NULL,
-          email TEXT NOT NULL UNIQUE,
-          password_hash TEXT NOT NULL,
-          role TEXT NOT NULL DEFAULT 'staff',
-          department TEXT,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `
+  if (!runDatabaseTests) {
+    return
+  }
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'staff',
+      department TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
-  }
+  `)
 })
 
-test.beforeEach(async () => {
-  if (runDatabaseTests) {
-    await query('TRUNCATE TABLE users')
+beforeEach(async () => {
+  if (!runDatabaseTests) {
+    return
   }
+
+  await query('TRUNCATE TABLE users')
 })
 
-test.after(async () => {
-  if (runDatabaseTests) {
-    await closePool()
+afterAll(async () => {
+  if (!runDatabaseTests) {
+    return
   }
+
+  await closePool()
 })
 
-test(
-  'registerUser hashes passwords and returns a token plus sanitized user',
-  { skip: !runDatabaseTests },
-  async () => {
+const dbDescribe = runDatabaseTests ? describe : describe.skip
+
+dbDescribe('DB-backed auth service', () => {
+  it('registerUser hashes passwords and returns a token plus sanitized user', async () => {
     const result = await registerUser({
       name: 'Test User',
       email: 'test@example.com',
       password: 'password123',
     })
 
-    assert.equal(typeof result.token, 'string')
-    assert.equal(result.user.name, 'Test User')
-    assert.equal(result.user.email, 'test@example.com')
-    assert.equal(result.user.role, 'staff')
-    assert.equal(result.user.department, null)
-    assert.equal(typeof result.user.id, 'string')
-    assert.equal(typeof result.user.createdAt, 'string')
+    expect(typeof result.token).toBe('string')
+    expect(result.user.name).toBe('Test User')
+    expect(result.user.email).toBe('test@example.com')
+    expect(result.user.role).toBe('staff')
+    expect(result.user.department).toBeNull()
+    expect(typeof result.user.id).toBe('string')
+    expect(typeof result.user.createdAt).toBe('string')
 
     const storedUserResult = await query(
       'SELECT name, email, password_hash, role, department FROM users WHERE email = $1',
       ['test@example.com']
     )
 
-    assert.equal(storedUserResult.rows.length, 1)
-    assert.equal(storedUserResult.rows[0].name, 'Test User')
-    assert.equal(storedUserResult.rows[0].email, 'test@example.com')
-    assert.equal(storedUserResult.rows[0].role, 'staff')
-    assert.equal(storedUserResult.rows[0].department, null)
-    assert.notEqual(storedUserResult.rows[0].password_hash, 'password123')
-  }
-)
-
-test('registerUser rejects duplicate email addresses', { skip: !runDatabaseTests }, async () => {
-  await registerUser({
-    name: 'Test User',
-    email: 'test@example.com',
-    password: 'password123',
+    expect(storedUserResult.rows).toHaveLength(1)
+    expect(storedUserResult.rows[0].name).toBe('Test User')
+    expect(storedUserResult.rows[0].email).toBe('test@example.com')
+    expect(storedUserResult.rows[0].role).toBe('staff')
+    expect(storedUserResult.rows[0].department).toBeNull()
+    expect(storedUserResult.rows[0].password_hash).not.toBe('password123')
   })
 
-  await assert.rejects(
-    registerUser({
-      name: 'Another User',
+  it('registerUser rejects duplicate email addresses', async () => {
+    await registerUser({
+      name: 'Test User',
       email: 'test@example.com',
       password: 'password123',
-    }),
-    (error) => {
-      assert.equal(error.statusCode, 409)
-      assert.equal(error.message, 'A user with this email already exists')
-      return true
-    }
-  )
-})
+    })
 
-test(
-  'loginUser returns a token for valid credentials and rejects invalid ones',
-  { skip: !runDatabaseTests },
-  async () => {
+    await expect(
+      registerUser({
+        name: 'Another User',
+        email: 'test@example.com',
+        password: 'password123',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'A user with this email already exists',
+    })
+  })
+
+  it('loginUser returns a token for valid credentials and rejects invalid ones', async () => {
     await registerUser({
       name: 'Test User',
       email: 'test@example.com',
@@ -138,28 +131,22 @@ test(
       password: 'password123',
     })
 
-    assert.equal(typeof success.token, 'string')
-    assert.equal(success.user.email, 'test@example.com')
-    assert.equal(success.user.role, 'staff')
+    expect(typeof success.token).toBe('string')
+    expect(success.user.email).toBe('test@example.com')
+    expect(success.user.role).toBe('staff')
 
-    await assert.rejects(
+    await expect(
       loginUser({
         email: 'test@example.com',
         password: 'wrong-password',
-      }),
-      (error) => {
-        assert.equal(error.statusCode, 401)
-        assert.equal(error.message, 'Invalid email or password')
-        return true
-      }
-    )
-  }
-)
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: 'Invalid email or password',
+    })
+  })
 
-test(
-  'getUserForToken returns the sanitized user for a valid token',
-  { skip: !runDatabaseTests },
-  async () => {
+  it('getUserForToken returns the sanitized user for a valid token', async () => {
     const registration = await registerUser({
       name: 'Test User',
       email: 'test@example.com',
@@ -168,38 +155,36 @@ test(
 
     const user = await getUserForToken(registration.token)
 
-    assert.equal(user.email, 'test@example.com')
-    assert.equal(user.name, 'Test User')
-    assert.equal(user.role, 'staff')
-    assert.equal(user.department, null)
-  }
-)
-
-test('requireAuth returns 401 JSON when no bearer token is provided', async () => {
-  const req = {
-    path: '/meetings',
-    get() {
-      return undefined
-    },
-  }
-  const res = createResponseRecorder()
-  let nextCalled = false
-
-  await requireAuth(req, res, () => {
-    nextCalled = true
-  })
-
-  assert.equal(nextCalled, false)
-  assert.equal(res.statusCode, 401)
-  assert.deepEqual(res.body, {
-    error: 'Authorization token is required',
+    expect(user.email).toBe('test@example.com')
+    expect(user.name).toBe('Test User')
+    expect(user.role).toBe('staff')
+    expect(user.department).toBeNull()
   })
 })
 
-test(
-  'requireAuth attaches the user and calls next for a valid bearer token',
-  { skip: !runDatabaseTests },
-  async () => {
+describe('Auth middleware', () => {
+  it('requireAuth returns 401 JSON when no bearer token is provided', async () => {
+    const req = {
+      path: '/meetings',
+      get() {
+        return undefined
+      },
+    }
+    const res = createResponseRecorder()
+    const next = jest.fn()
+
+    await requireAuth(req, res, next)
+
+    expect(next).not.toHaveBeenCalled()
+    expect(res.statusCode).toBe(401)
+    expect(res.body).toEqual({
+      error: 'Authorization token is required',
+    })
+  })
+
+  const maybeIt = runDatabaseTests ? it : it.skip
+
+  maybeIt('requireAuth attaches the user and calls next for a valid bearer token', async () => {
     const registration = await registerUser({
       name: 'Test User',
       email: 'test@example.com',
@@ -217,15 +202,13 @@ test(
       },
     }
     const res = createResponseRecorder()
-    let nextCalled = false
+    const next = jest.fn()
 
-    await requireAuth(req, res, () => {
-      nextCalled = true
-    })
+    await requireAuth(req, res, next)
 
-    assert.equal(nextCalled, true)
-    assert.equal(req.user.email, 'test@example.com')
-    assert.equal(req.user.role, 'staff')
-    assert.equal(res.body, null)
-  }
-)
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(req.user.email).toBe('test@example.com')
+    expect(req.user.role).toBe('staff')
+    expect(res.body).toBeNull()
+  })
+})
