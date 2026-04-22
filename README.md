@@ -45,6 +45,23 @@ Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migra
 | Run DB-backed server tests | `npm run test:db --workspace=server` |
 | Run server migrations      | `npm run migrate --workspace=server` |
 
+## How to Run Tests
+
+From the repo root:
+
+- Run all workspace tests:
+  `npm run test`
+- Run server tests only (Jest):
+  `npm run test --workspace=server`
+- Run DB-backed server tests:
+  `npm run test:db --workspace=server`
+
+DB-backed test prerequisites:
+
+- Start PostgreSQL:
+  `docker compose up -d postgres`
+- Ensure `DATABASE_URL` in `.env` matches your running Postgres credentials.
+
 ## Health Checks
 
 The API exposes three health endpoints once the server is running:
