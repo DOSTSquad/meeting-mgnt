@@ -31,6 +31,20 @@ Run server migrations with:
 
 Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migrations` table.
 
+## Common Commands
+
+| Task                       | Command                              |
+| -------------------------- | ------------------------------------ |
+| Lint all workspaces        | `npm run lint`                       |
+| Test all workspaces        | `npm run test`                       |
+| Format check               | `npm run format`                     |
+| Format write               | `npm run format:fix`                 |
+| Run server                 | `npm run dev --workspace=server`     |
+| Run client                 | `npm run dev --workspace=client`     |
+| Run server tests (Jest)    | `npm run test --workspace=server`    |
+| Run DB-backed server tests | `npm run test:db --workspace=server` |
+| Run server migrations      | `npm run migrate --workspace=server` |
+
 ## Health Checks
 
 The API exposes three health endpoints once the server is running:
