@@ -1,9 +1,16 @@
-import 'dotenv/config'
+import { config as loadDotenv } from 'dotenv'
 import cors from 'cors'
 import express from 'express'
 import http from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+loadDotenv({
+  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env'),
+  override: true,
+})
 
 import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'
@@ -217,13 +224,34 @@ export const createApp = () => {
     res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` })
   })
 
-  app.use((error, _req, res, _next) => {
-    const statusCode = error.statusCode || 500
-    const message = statusCode >= 500 ? 'Internal server error' : error.message || 'Request failed'
+  const databaseErrorCodes = new Set([
+    '28P01', // invalid_password
+    '28000', // invalid_authorization_specification
+    '3D000', // invalid_catalog_name (database does not exist)
+    '57P03', // cannot_connect_now
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'ETIMEDOUT',
+    'EHOSTUNREACH',
+  ])
 
-    if (statusCode >= 500) {
-      console.error(error)
-    }
+  app.use((error, _req, res, _next) => {
+    const isDatabaseUnavailableError = databaseErrorCodes.has(error.code)
+    const statusCode = error.statusCode || (isDatabaseUnavailableError ? 503 : 500)
+    const message =
+      statusCode >= 500
+        ? isDatabaseUnavailableError
+          ? 'Database unavailable'
+          : 'Internal server error'
+        : error.message || 'Request failed'
+
+    console.error('Request failed', {
+      method: _req.method,
+      path: _req.originalUrl,
+      statusCode,
+      code: error.code,
+      message: error.message,
+    })
 
     res.status(statusCode).json({ error: message })
   })

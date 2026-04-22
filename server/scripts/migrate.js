@@ -1,7 +1,15 @@
-import 'dotenv/config'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { config as loadDotenv } from 'dotenv'
 
 import { runMigrations } from '../db/migrate.js'
 import { closePool } from '../db/postgres.js'
+
+loadDotenv({
+  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env'),
+  override: true,
+})
 
 const main = async () => {
   const result = await runMigrations()
