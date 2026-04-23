@@ -73,3 +73,12 @@ The API exposes three health endpoints once the server is running:
 | `/health`       | Combined readiness response with uptime              |
 
 When dependencies are unavailable, `/health` and `/health/ready` return `503` with per-service details.
+
+## API
+
+The server exposes JWT-protected REST endpoints under `/api`:
+
+- `/api/auth` — register, login, current user
+- `/api/meetings` — full CRUD with RFC 5988 `Link`-header pagination and filters by status / department / date range
+
+See [`server/README.md`](server/README.md#api-endpoints) for the full endpoint matrix and request/response shapes, and [`docs/postman/dost-meeting-mgnt.postman_collection.json`](docs/postman/dost-meeting-mgnt.postman_collection.json) for an importable Postman collection.
