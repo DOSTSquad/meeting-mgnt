@@ -5,6 +5,7 @@ import {
   listMeetings,
   updateMeeting,
 } from '../repositories/meeting-repository.js'
+import { listByMeeting } from '../repositories/participant-repository.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -89,7 +90,9 @@ export const getMeetingById = async (id) => {
     throw createHttpError('Meeting not found', 404)
   }
 
-  return meeting
+  const participants = await listByMeeting(id)
+
+  return { ...meeting, participants }
 }
 
 export const updateMeetingById = async (id, input) => {

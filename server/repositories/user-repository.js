@@ -74,3 +74,20 @@ export const findUserById = async (id) => {
 
   return mapUser(result.rows[0])
 }
+
+export const findUsersByIds = async (ids) => {
+  if (!ids || ids.length === 0) {
+    return []
+  }
+
+  const result = await query(
+    `
+      SELECT ${USER_COLUMNS}
+      FROM users
+      WHERE id = ANY($1)
+    `,
+    [ids]
+  )
+
+  return result.rows.map(mapUser)
+}
