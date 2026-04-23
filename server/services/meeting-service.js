@@ -13,7 +13,7 @@ const createHttpError = (message, statusCode) => {
   return error
 }
 
-const ALLOWED_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
+export const ALLOWED_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
 
 const validateTimezone = (value) => {
   try {

@@ -9,8 +9,7 @@ import {
   update,
 } from '../controllers/meeting-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
-
-const ALLOWED_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
+import { ALLOWED_STATUSES } from '../services/meeting-service.js'
 
 const meetingRouter = Router()
 
