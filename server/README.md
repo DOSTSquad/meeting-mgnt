@@ -65,4 +65,14 @@ Only the meeting creator or a participant with `role='organizer'` can add, updat
 
 `GET /api/meetings/:id` now includes a `participants` array alongside the meeting.
 
+### RSVP (self-service)
+
+| Method | Path                    | Body                    | Returns                |
+| ------ | ----------------------- | ----------------------- | ---------------------- |
+| PUT    | `/meetings/:id/rsvp`    | `{ rsvpStatus }`        | `200 { participant }`  |
+
+Participants update their own attendance response. Allowed `rsvpStatus`: `accepted`, `declined` (self-reset to `pending` is not allowed — it's the system-assigned initial state). Non-participants receive 403.
+
+`GET /api/meetings/:id` now also returns an `rsvpCounts` object: `{ accepted, declined, pending }` computed from the meeting's participants.
+
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).
