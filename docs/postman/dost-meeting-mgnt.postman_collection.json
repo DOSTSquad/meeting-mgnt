@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "DOST Meeting Management",
-    "description": "Auth + Meeting CRUD endpoints for the DOST meeting management API. Run **Login** first to populate the `token` collection variable; subsequent requests use it via Bearer auth.",
+    "description": "Auth, Meeting CRUD, and Participant management endpoints for the DOST meeting management API. Run **Login** first to populate the `token` collection variable; subsequent requests use it via Bearer auth.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "dost-meeting-mgnt-collection"
   },
@@ -13,6 +13,7 @@
     { "key": "baseUrl", "value": "http://localhost:3001/api", "type": "string" },
     { "key": "token", "value": "", "type": "string" },
     { "key": "meetingId", "value": "", "type": "string" },
+    { "key": "participantUserId", "value": "", "type": "string" },
     { "key": "email", "value": "smoke@test.local", "type": "string" },
     { "key": "password", "value": "password123", "type": "string" }
   ],
@@ -189,6 +190,86 @@
               "path": ["meetings", "{{meetingId}}"]
             },
             "description": "Hard delete. Returns 204 on success, 404 if not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Participants",
+      "description": "Manage participants on a meeting. All requests target `/meetings/{{meetingId}}/participants`. Only the meeting creator or a participant with `role='organizer'` can add / update / remove participants. The last organizer cannot be demoted or removed.",
+      "item": [
+        {
+          "name": "List participants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants"]
+            },
+            "description": "Returns `{ participants: [...] }`. Each row includes `userId`, `name`, `email`, `role`, `rsvpStatus`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
+          }
+        },
+        {
+          "name": "Add participants (bulk)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\"<user-uuid-1>\", \"<user-uuid-2>\"],\n  \"role\": \"attendee\"\n}"
+            },
+            "description": "Adds one or more users to the meeting. `userIds` is a 1–50 element array of user UUIDs. `role` is optional (default `attendee`); allowed: `organizer`, `attendee`, `optional`.\n\nIdempotent — re-posting an existing `userId` is a no-op (use PATCH to change role). Returns `201 { participants }` containing the current rows for every requested id.\n\nThe test script auto-saves the first returned `userId` to `participantUserId` so the PATCH/DELETE requests below work out of the box."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.participants && data.participants.length > 0) {",
+                  "    pm.collectionVariables.set('participantUserId', data.participants[0].userId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update participant (role / RSVP)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"organizer\",\n  \"rsvpStatus\": \"accepted\"\n}"
+            },
+            "description": "Update a participant's `role` and/or `rsvpStatus`. At least one field is required (empty body returns 400).\n\nAllowed `role`: `organizer`, `attendee`, `optional`.\nAllowed `rsvpStatus`: `pending`, `accepted`, `declined`.\n\nDemoting the last organizer returns 400."
+          }
+        },
+        {
+          "name": "Remove participant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
+            },
+            "description": "Removes the participant from the meeting. Returns 204 on success, 404 if not a participant, 400 if they are the last organizer."
           }
         }
       ]

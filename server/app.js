@@ -15,6 +15,7 @@ loadDotenv({
 import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'
 import meetingRouter from './routes/meeting-routes.js'
+import participantRouter from './routes/participant-routes.js'
 
 const HEALTH_TIMEOUT_MS = 1500
 
@@ -221,6 +222,7 @@ export const createApp = () => {
   app.use('/api/auth', authRouter)
   app.use('/api', requireAuth)
   app.use('/api/meetings', meetingRouter)
+  app.use('/api/meetings/:meetingId/participants', participantRouter)
 
   app.use((req, res) => {
     res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` })

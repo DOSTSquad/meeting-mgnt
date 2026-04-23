@@ -48,4 +48,21 @@ Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g.
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
 
+### Meeting Participants (`/api/meetings/:meetingId/participants`)
+
+| Method | Path         | Body / Query                                         | Returns                    |
+| ------ | ------------ | ---------------------------------------------------- | -------------------------- |
+| GET    | `/`          | —                                                    | `200 { participants }`     |
+| POST   | `/`          | `{ userIds: string[], role? }`                       | `201 { participants }`     |
+| PATCH  | `/:userId`   | `{ role?, rsvpStatus? }` (at least one required)     | `200 { participant }`      |
+| DELETE | `/:userId`   | —                                                    | `204`                      |
+
+Allowed `role` values: `organizer`, `attendee`, `optional` (default `attendee`).
+Allowed `rsvpStatus` values: `pending`, `accepted`, `declined` (default `pending`).
+
+`POST` is idempotent — re-adding an existing participant is a no-op (use `PATCH` to change role).
+Only the meeting creator or a participant with `role='organizer'` can add, update, or remove participants. The last organizer cannot be demoted or removed.
+
+`GET /api/meetings/:id` now includes a `participants` array alongside the meeting.
+
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).
