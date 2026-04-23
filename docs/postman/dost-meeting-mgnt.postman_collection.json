@@ -1,0 +1,218 @@
+{
+  "info": {
+    "name": "DOST Meeting Management",
+    "description": "Auth + Meeting CRUD endpoints for the DOST meeting management API. Run **Login** first to populate the `token` collection variable; subsequent requests use it via Bearer auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "dost-meeting-mgnt-collection"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "meetingId", "value": "", "type": "string" },
+    { "key": "email", "value": "smoke@test.local", "type": "string" },
+    { "key": "password", "value": "password123", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "description": "Creates a new user. Returns `{ token, user }` and sets the `token` collection variable on success."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.token) pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "description": "Returns `{ token, user }`. Test script auto-saves `token` to the collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.token) pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] },
+            "description": "Returns the user attached to the current bearer token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meetings",
+      "item": [
+        {
+          "name": "Create meeting",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/meetings", "host": ["{{baseUrl}}"], "path": ["meetings"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\",\n  \"department\": \"engineering\"\n}"
+            },
+            "description": "Creates a meeting. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.meeting && data.meeting.id) pm.collectionVariables.set('meetingId', data.meeting.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List meetings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params."
+          }
+        },
+        {
+          "name": "List meetings (filters + pagination)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings?status=scheduled&department=engineering&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
+              "query": [
+                { "key": "status", "value": "scheduled", "description": "scheduled | in_progress | completed | cancelled" },
+                { "key": "department", "value": "engineering" },
+                { "key": "from", "value": "2026-05-01T00:00:00Z", "description": "ISO 8601; starts_at >= from" },
+                { "key": "to", "value": "2026-05-31T23:59:59Z", "description": "ISO 8601; starts_at <= to" },
+                { "key": "page", "value": "1", "description": "default 1, min 1" },
+                { "key": "limit", "value": "10", "description": "default 20, min 1, max 100" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get meeting by id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update meeting",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"location\": \"Room 5.2\"\n}"
+            },
+            "description": "Partial update — send only the fields you want to change."
+          }
+        },
+        {
+          "name": "Delete meeting",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
+            },
+            "description": "Hard delete. Returns 204 on success, 404 if not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/../health/live", "host": ["{{baseUrl}}"], "path": ["..", "health", "live"] }
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/../health/ready", "host": ["{{baseUrl}}"], "path": ["..", "health", "ready"] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,7 @@ loadDotenv({
 
 import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'
+import meetingRouter from './routes/meeting-routes.js'
 
 const HEALTH_TIMEOUT_MS = 1500
 
@@ -193,7 +194,7 @@ export const createApp = () => {
   const app = express()
 
   app.use(express.json())
-  app.use(cors())
+  app.use(cors({ exposedHeaders: ['Link', 'X-Total-Count'] }))
 
   app.get('/health/live', (_req, res) => {
     res.json({
@@ -219,6 +220,7 @@ export const createApp = () => {
 
   app.use('/api/auth', authRouter)
   app.use('/api', requireAuth)
+  app.use('/api/meetings', meetingRouter)
 
   app.use((req, res) => {
     res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` })

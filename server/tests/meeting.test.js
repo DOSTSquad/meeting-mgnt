@@ -1,0 +1,417 @@
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { describe, beforeAll, beforeEach, afterAll, it, expect } from '@jest/globals'
+import { parse } from 'dotenv'
+
+import { runMigrations } from '../db/migrate.js'
+import { closePool, query } from '../db/postgres.js'
+import { create, getOne, list, remove, update } from '../controllers/meeting-controller.js'
+import { buildLinkHeader } from '../middleware/pagination.js'
+import { createUser } from '../repositories/user-repository.js'
+
+const TEST_SECRET = 'test-secret'
+const serverDir = fileURLToPath(new URL('../', import.meta.url))
+const repoRoot = path.resolve(serverDir, '..')
+const envPath = existsSync(path.join(repoRoot, '.env'))
+  ? path.join(repoRoot, '.env')
+  : path.join(repoRoot, '.env.example')
+const projectEnv = parse(readFileSync(envPath))
+const runDatabaseTests = process.env.RUN_DB_TESTS === 'true' && Boolean(projectEnv.DATABASE_URL)
+
+const createResponseRecorder = () => ({
+  statusCode: 200,
+  body: null,
+  headers: {},
+  ended: false,
+  status(code) {
+    this.statusCode = code
+    return this
+  },
+  set(name, value) {
+    this.headers[name] = value
+    return this
+  },
+  json(payload) {
+    this.body = payload
+    return this
+  },
+  end() {
+    this.ended = true
+    return this
+  },
+})
+
+const buildRequest = ({
+  body = {},
+  params = {},
+  query: queryParams = {},
+  user,
+  baseUrl = '/api/meetings',
+  reqPath = '/',
+} = {}) => ({
+  body,
+  params,
+  query: queryParams,
+  user,
+  protocol: 'http',
+  baseUrl,
+  path: reqPath,
+  get(headerName) {
+    if (headerName.toLowerCase() === 'host') {
+      return 'localhost:3000'
+    }
+
+    return undefined
+  },
+})
+
+const runHandler = async (handler, req) => {
+  const res = createResponseRecorder()
+  let nextError
+
+  await handler(req, res, (error) => {
+    nextError = error
+  })
+
+  return { res, nextError }
+}
+
+let testUser
+
+beforeAll(async () => {
+  process.env.JWT_SECRET = TEST_SECRET
+  process.env.JWT_EXPIRES_IN = '1h'
+  process.env.DATABASE_URL = projectEnv.DATABASE_URL
+
+  if (!runDatabaseTests) {
+    return
+  }
+
+  await runMigrations()
+})
+
+beforeEach(async () => {
+  if (!runDatabaseTests) {
+    return
+  }
+
+  await query('TRUNCATE TABLE meetings RESTART IDENTITY CASCADE')
+  await query('TRUNCATE TABLE users RESTART IDENTITY CASCADE')
+
+  testUser = await createUser({
+    name: 'Test Organizer',
+    email: 'organizer@example.com',
+    passwordHash: 'fake-hash-not-used',
+    role: 'staff',
+    department: 'engineering',
+  })
+})
+
+afterAll(async () => {
+  if (!runDatabaseTests) {
+    return
+  }
+
+  await closePool()
+})
+
+const dbDescribe = runDatabaseTests ? describe : describe.skip
+
+const baseCreateBody = (overrides = {}) => ({
+  title: 'Sprint Planning',
+  description: 'Plan the next sprint',
+  startsAt: '2026-05-01T09:00:00+10:00',
+  endsAt: '2026-05-01T10:00:00+10:00',
+  timezoneName: 'Australia/Brisbane',
+  location: 'Room A',
+  status: 'scheduled',
+  department: 'engineering',
+  ...overrides,
+})
+
+const createMeetingViaController = async (overrides = {}) => {
+  const req = buildRequest({
+    body: baseCreateBody(overrides),
+    user: { id: testUser.id },
+  })
+  const { res, nextError } = await runHandler(create, req)
+  expect(nextError).toBeUndefined()
+  expect(res.statusCode).toBe(201)
+  return res.body.meeting
+}
+
+dbDescribe('Meeting controller (DB-backed)', () => {
+  it(
+    'creates a meeting and normalises datetimes to UTC while preserving timezoneName',
+    async () => {
+      const meeting = await createMeetingViaController()
+
+      expect(meeting.id).toEqual(expect.any(String))
+      expect(meeting.title).toBe('Sprint Planning')
+      expect(meeting.timezoneName).toBe('Australia/Brisbane')
+      expect(meeting.createdBy).toBe(testUser.id)
+      expect(meeting.status).toBe('scheduled')
+
+      expect(new Date(meeting.startsAt).toISOString()).toBe(
+        new Date('2026-05-01T09:00:00+10:00').toISOString()
+      )
+      expect(new Date(meeting.endsAt).toISOString()).toBe(
+        new Date('2026-05-01T10:00:00+10:00').toISOString()
+      )
+    }
+  )
+
+  it('rejects creation when endsAt is not after startsAt', async () => {
+    const req = buildRequest({
+      body: baseCreateBody({
+        startsAt: '2026-05-01T10:00:00+10:00',
+        endsAt: '2026-05-01T10:00:00+10:00',
+      }),
+      user: { id: testUser.id },
+    })
+    const { nextError } = await runHandler(create, req)
+
+    expect(nextError).toBeDefined()
+    expect(nextError.statusCode).toBe(400)
+    expect(nextError.message).toMatch(/endsAt/)
+  })
+
+  it('rejects creation with an invalid IANA timezone name', async () => {
+    const req = buildRequest({
+      body: baseCreateBody({ timezoneName: 'Mars/Olympus' }),
+      user: { id: testUser.id },
+    })
+    const { nextError } = await runHandler(create, req)
+
+    expect(nextError).toBeDefined()
+    expect(nextError.statusCode).toBe(400)
+    expect(nextError.message).toMatch(/timezoneName/)
+  })
+
+  it('returns a meeting by id and 404 when missing', async () => {
+    const created = await createMeetingViaController()
+
+    const found = await runHandler(
+      getOne,
+      buildRequest({ params: { id: created.id }, user: { id: testUser.id } })
+    )
+
+    expect(found.nextError).toBeUndefined()
+    expect(found.res.body.meeting.id).toBe(created.id)
+
+    const missing = await runHandler(
+      getOne,
+      buildRequest({
+        params: { id: '00000000-0000-0000-0000-000000000000' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(missing.nextError).toBeDefined()
+    expect(missing.nextError.statusCode).toBe(404)
+  })
+
+  it('lists meetings filtered by status, department, from, and to', async () => {
+    await createMeetingViaController({
+      title: 'Past completed',
+      startsAt: '2026-04-01T09:00:00+10:00',
+      endsAt: '2026-04-01T10:00:00+10:00',
+      status: 'completed',
+      department: 'engineering',
+    })
+
+    await createMeetingViaController({
+      title: 'Upcoming planning',
+      startsAt: '2026-05-01T09:00:00+10:00',
+      endsAt: '2026-05-01T10:00:00+10:00',
+      status: 'scheduled',
+      department: 'engineering',
+    })
+
+    await createMeetingViaController({
+      title: 'Marketing chat',
+      startsAt: '2026-05-02T09:00:00+10:00',
+      endsAt: '2026-05-02T10:00:00+10:00',
+      status: 'scheduled',
+      department: 'marketing',
+    })
+
+    const byStatus = await runHandler(
+      list,
+      buildRequest({ query: { status: 'completed' }, user: { id: testUser.id } })
+    )
+    expect(byStatus.res.body.meetings.map((m) => m.title)).toEqual(['Past completed'])
+
+    const byDepartment = await runHandler(
+      list,
+      buildRequest({ query: { department: 'marketing' }, user: { id: testUser.id } })
+    )
+    expect(byDepartment.res.body.meetings.map((m) => m.title)).toEqual(['Marketing chat'])
+
+    const byFrom = await runHandler(
+      list,
+      buildRequest({
+        query: { from: new Date('2026-04-15T00:00:00Z').toISOString() },
+        user: { id: testUser.id },
+      })
+    )
+    expect(byFrom.res.body.meetings.map((m) => m.title)).toEqual([
+      'Upcoming planning',
+      'Marketing chat',
+    ])
+
+    const byTo = await runHandler(
+      list,
+      buildRequest({
+        query: { to: new Date('2026-04-15T00:00:00Z').toISOString() },
+        user: { id: testUser.id },
+      })
+    )
+    expect(byTo.res.body.meetings.map((m) => m.title)).toEqual(['Past completed'])
+  })
+
+  it('emits pagination headers and preserves filter query params in link URLs', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const day = String(i + 1).padStart(2, '0')
+      await createMeetingViaController({
+        title: `Meeting ${i + 1}`,
+        startsAt: `2026-06-${day}T09:00:00+10:00`,
+        endsAt: `2026-06-${day}T10:00:00+10:00`,
+        status: 'scheduled',
+        department: 'engineering',
+      })
+    }
+
+    const page1 = await runHandler(
+      list,
+      buildRequest({
+        query: { page: 1, limit: 2, status: 'scheduled', department: 'engineering' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(page1.res.headers['X-Total-Count']).toBe('3')
+    expect(page1.res.body.meetings).toHaveLength(2)
+
+    const page1Link = page1.res.headers['Link']
+    expect(page1Link).toContain('rel="first"')
+    expect(page1Link).toContain('rel="last"')
+    expect(page1Link).toContain('rel="next"')
+    expect(page1Link).not.toContain('rel="prev"')
+    expect(page1Link).toContain('status=scheduled')
+    expect(page1Link).toContain('department=engineering')
+    expect(page1Link).toContain('limit=2')
+
+    const page2 = await runHandler(
+      list,
+      buildRequest({
+        query: { page: 2, limit: 2, status: 'scheduled', department: 'engineering' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(page2.res.body.meetings).toHaveLength(1)
+    const page2Link = page2.res.headers['Link']
+    expect(page2Link).toContain('rel="first"')
+    expect(page2Link).toContain('rel="last"')
+    expect(page2Link).toContain('rel="prev"')
+    expect(page2Link).not.toContain('rel="next"')
+    expect(page2Link).toContain('status=scheduled')
+    expect(page2Link).toContain('department=engineering')
+  })
+
+  it('updates only the provided fields and bumps updated_at', async () => {
+    const created = await createMeetingViaController()
+
+    const result = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { title: 'Renamed planning', status: 'in_progress' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(result.nextError).toBeUndefined()
+    expect(result.res.body.meeting.title).toBe('Renamed planning')
+    expect(result.res.body.meeting.status).toBe('in_progress')
+    expect(result.res.body.meeting.description).toBe(created.description)
+    expect(new Date(result.res.body.meeting.updatedAt).getTime()).toBeGreaterThanOrEqual(
+      new Date(created.updatedAt).getTime()
+    )
+  })
+
+  it('deletes a meeting and returns 404 on subsequent fetch', async () => {
+    const created = await createMeetingViaController()
+
+    const deleteRes = await runHandler(
+      remove,
+      buildRequest({ params: { id: created.id }, user: { id: testUser.id } })
+    )
+
+    expect(deleteRes.nextError).toBeUndefined()
+    expect(deleteRes.res.statusCode).toBe(204)
+    expect(deleteRes.res.ended).toBe(true)
+
+    const fetchRes = await runHandler(
+      getOne,
+      buildRequest({ params: { id: created.id }, user: { id: testUser.id } })
+    )
+
+    expect(fetchRes.nextError).toBeDefined()
+    expect(fetchRes.nextError.statusCode).toBe(404)
+  })
+})
+
+describe('buildLinkHeader', () => {
+  const baseReq = (queryParams = {}) => ({
+    protocol: 'http',
+    baseUrl: '/api/meetings',
+    path: '/',
+    query: queryParams,
+    get(headerName) {
+      if (headerName.toLowerCase() === 'host') {
+        return 'localhost:3000'
+      }
+
+      return undefined
+    },
+  })
+
+  it('always includes first and last; omits prev on page 1 and next on the last page', async () => {
+    const onlyPage = buildLinkHeader({
+      req: baseReq({ page: 1, limit: 10 }),
+      page: 1,
+      limit: 10,
+      total: 0,
+    })
+    expect(onlyPage).toContain('rel="first"')
+    expect(onlyPage).toContain('rel="last"')
+    expect(onlyPage).not.toContain('rel="prev"')
+    expect(onlyPage).not.toContain('rel="next"')
+
+    const lastPage = buildLinkHeader({
+      req: baseReq({ page: 2, limit: 10 }),
+      page: 2,
+      limit: 10,
+      total: 20,
+    })
+    expect(lastPage).toContain('rel="prev"')
+    expect(lastPage).not.toContain('rel="next"')
+  })
+
+  it('preserves existing filter query params in the generated URLs', () => {
+    const link = buildLinkHeader({
+      req: baseReq({ page: 1, limit: 5, status: 'scheduled', department: 'sales' }),
+      page: 1,
+      limit: 5,
+      total: 12,
+    })
+
+    expect(link).toContain('status=scheduled')
+    expect(link).toContain('department=sales')
+    expect(link).toContain('limit=5')
+  })
+})

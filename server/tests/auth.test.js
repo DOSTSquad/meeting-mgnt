@@ -49,7 +49,7 @@ beforeEach(async () => {
     return
   }
 
-  await query('TRUNCATE TABLE users')
+  await query('TRUNCATE TABLE users CASCADE')
 })
 
 afterAll(async () => {
