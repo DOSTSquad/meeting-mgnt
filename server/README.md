@@ -78,7 +78,7 @@ Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, and WEBP files up to **50 
 
 Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
 
-Only the meeting creator or a participant with `role='organizer'` can upload or delete files. Any meeting participant (any role) can list files and request download URLs. Non-participants receive `403`.
+Any meeting participant (creator or any role) can upload, list, and request download URLs. Only the meeting creator or a participant with `role='organizer'` can delete files. Non-participants receive `403`.
 
 ### RSVP (self-service)
 

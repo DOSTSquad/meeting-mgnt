@@ -75,7 +75,7 @@ export const uploadFile = async (meetingId, callerId, file, description) => {
 
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listByMeeting(meetingId)
-  assertManagePermission(meeting, callerId, participants)
+  assertIsParticipant(meeting, callerId, participants)
 
   const id = randomUUID()
   const objectKey = `meetings/${meetingId}/${id}`

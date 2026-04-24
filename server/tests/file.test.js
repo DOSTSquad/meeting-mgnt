@@ -247,12 +247,7 @@ dbDescribe('File controller (DB-backed)', () => {
       expect(mockPutObject).toHaveBeenCalledTimes(1)
     })
 
-    it('participant with organizer role can upload a file', async () => {
-      await query(
-        `UPDATE meeting_participants SET role = 'organizer' WHERE meeting_id = $1 AND user_id = $2`,
-        [baseMeeting.id, participantUser.id]
-      )
-
+    it('plain attendee participant can upload a file', async () => {
       const { res, nextError } = await runHandler(
         uploadHandler,
         buildRequest({
@@ -278,20 +273,6 @@ dbDescribe('File controller (DB-backed)', () => {
 
       expect(nextError).toBeUndefined()
       expect(res.statusCode).toBe(400)
-    })
-
-    it('returns 403 when caller is not creator or organizer (plain attendee)', async () => {
-      const { nextError } = await runHandler(
-        uploadHandler,
-        buildRequest({
-          params: { meetingId: baseMeeting.id },
-          user: { id: participantUser.id },
-          file: makeFakeFile(),
-        })
-      )
-
-      expect(nextError).toBeDefined()
-      expect(nextError.statusCode).toBe(403)
     })
 
     it('returns 403 when caller is not a participant at all', async () => {
