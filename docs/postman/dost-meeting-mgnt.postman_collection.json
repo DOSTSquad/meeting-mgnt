@@ -15,6 +15,7 @@
     { "key": "meetingId", "value": "", "type": "string" },
     { "key": "participantUserId", "value": "", "type": "string" },
     { "key": "fileId", "value": "", "type": "string" },
+    { "key": "actionItemId", "value": "", "type": "string" },
     { "key": "email", "value": "smoke@test.local", "type": "string" },
     { "key": "password", "value": "password123", "type": "string" }
   ],
@@ -369,6 +370,88 @@
               "path": ["files", "{{fileId}}"]
             },
             "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only creator or organizer can delete."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Action items",
+      "description": "Create, list, update, and delete action items attached to a meeting. Any meeting participant (including the creator) can CRUD action items.",
+      "item": [
+        {
+          "name": "Create action item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "action-items"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Write the design doc\",\n  \"description\": \"Capture decisions from today\",\n  \"assigneeId\": \"<user-uuid>\",\n  \"dueDate\": \"2026-05-10T17:00:00+10:00\",\n  \"priority\": \"high\"\n}"
+            },
+            "description": "Creates an action item. `title` is required (≤255 chars). `assigneeId`, `dueDate`, `description`, `priority` are optional. Defaults: `status='todo'`, `priority='medium'`, `source='manual'`. Auto-saves `actionItemId` to collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.actionItem && data.actionItem.id) pm.collectionVariables.set('actionItemId', data.actionItem.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List action items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items?status=todo",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "action-items"],
+              "query": [
+                { "key": "status", "value": "todo", "description": "Optional: todo | in_progress | blocked | completed | cancelled", "disabled": true },
+                { "key": "assigneeId", "value": "", "description": "Optional: filter to items assigned to a user", "disabled": true }
+              ]
+            },
+            "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters."
+          }
+        },
+        {
+          "name": "Update action item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"priority\": \"high\"\n}"
+            },
+            "description": "Partial update — send only the fields to change. Allowed: `title`, `description`, `assigneeId`, `dueDate`, `status`, `priority`. Empty body returns 400. Transitioning `status` to `completed` stamps `completedAt`; transitioning away clears it."
+          }
+        },
+        {
+          "name": "Delete action item",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
+            },
+            "description": "Hard delete. Returns 204 on success, 404 if not found. Any meeting participant can delete."
           }
         }
       ]
