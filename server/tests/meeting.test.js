@@ -343,6 +343,117 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     )
   })
 
+  it('walks the full status workflow: scheduled → in_progress → completed → archived', async () => {
+    const created = await createMeetingViaController()
+
+    const steps = ['in_progress', 'completed', 'archived']
+
+    for (const target of steps) {
+      const result = await runHandler(
+        update,
+        buildRequest({
+          params: { id: created.id },
+          body: { status: target },
+          user: { id: testUser.id },
+        })
+      )
+
+      expect(result.nextError).toBeUndefined()
+      expect(result.res.body.meeting.status).toBe(target)
+    }
+  })
+
+  it('allows cancelling from scheduled and then archiving', async () => {
+    const created = await createMeetingViaController()
+
+    const cancelRes = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { status: 'cancelled' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(cancelRes.nextError).toBeUndefined()
+    expect(cancelRes.res.body.meeting.status).toBe('cancelled')
+
+    const archiveRes = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { status: 'archived' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(archiveRes.nextError).toBeUndefined()
+    expect(archiveRes.res.body.meeting.status).toBe('archived')
+  })
+
+  it('rejects invalid status transitions with 400', async () => {
+    const created = await createMeetingViaController()
+
+    const cases = [
+      { from: 'scheduled', to: 'completed' },
+      { from: 'scheduled', to: 'archived' },
+      { from: 'completed', to: 'scheduled' },
+    ]
+
+    for (const { from, to } of cases) {
+      if (from !== 'scheduled') {
+        await query('UPDATE meetings SET status = $1 WHERE id = $2', [from, created.id])
+      }
+
+      const result = await runHandler(
+        update,
+        buildRequest({
+          params: { id: created.id },
+          body: { status: to },
+          user: { id: testUser.id },
+        })
+      )
+
+      expect(result.nextError).toBeDefined()
+      expect(result.nextError.statusCode).toBe(400)
+      expect(result.nextError.message).toMatch(/Invalid status transition/)
+    }
+  })
+
+  it('treats same-status updates as a no-op (200)', async () => {
+    const created = await createMeetingViaController()
+
+    const result = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { status: 'scheduled' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(result.nextError).toBeUndefined()
+    expect(result.res.body.meeting.status).toBe('scheduled')
+  })
+
+  it('treats archived as terminal — any transition out is rejected', async () => {
+    const created = await createMeetingViaController()
+
+    await query('UPDATE meetings SET status = $1 WHERE id = $2', ['archived', created.id])
+
+    const result = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { status: 'in_progress' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(result.nextError).toBeDefined()
+    expect(result.nextError.statusCode).toBe(400)
+  })
+
   it('deletes a meeting and returns 404 on subsequent fetch', async () => {
     const created = await createMeetingViaController()
 

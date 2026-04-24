@@ -14,7 +14,27 @@ const createHttpError = (message, statusCode) => {
   return error
 }
 
-export const ALLOWED_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled']
+export const ALLOWED_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled', 'archived']
+
+const ALLOWED_TRANSITIONS = {
+  scheduled: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'cancelled'],
+  completed: ['archived'],
+  cancelled: ['archived'],
+  archived: [],
+}
+
+const assertValidTransition = (from, to) => {
+  if (from === to) {
+    return
+  }
+
+  const allowed = ALLOWED_TRANSITIONS[from] ?? []
+
+  if (!allowed.includes(to)) {
+    throw createHttpError(`Invalid status transition: ${from} → ${to}`, 400)
+  }
+}
 
 const validateTimezone = (value) => {
   try {
@@ -130,8 +150,12 @@ export const updateMeetingById = async (id, input) => {
     validateTimezone(updates.timezoneName)
   }
 
-  if (updates.status !== undefined && !ALLOWED_STATUSES.includes(updates.status)) {
-    throw createHttpError(`Invalid status: ${updates.status}`, 400)
+  if (updates.status !== undefined) {
+    if (!ALLOWED_STATUSES.includes(updates.status)) {
+      throw createHttpError(`Invalid status: ${updates.status}`, 400)
+    }
+
+    assertValidTransition(existing.status, updates.status)
   }
 
   const startsAt = updates.startsAt ?? existing.startsAt
