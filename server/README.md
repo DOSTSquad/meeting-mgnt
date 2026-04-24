@@ -44,7 +44,17 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 | PUT    | `/:id`  | partial subset of POST body fields                                                       | `200 { meeting }` or `404`                             |
 | DELETE | `/:id`  | —                                                                                        | `204` or `404`                                         |
 
-Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`.
+Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`, `archived`.
+
+**Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
+
+```
+scheduled ──▶ in_progress ──▶ completed ──▶ archived
+    │               │                           ▲
+    └──────────────▶└───▶ cancelled ────────────┘
+```
+
+Updating `status` to the same value is a no-op. `archived` is terminal. Any other transition returns `400` with `Invalid status transition: <from> → <to>`.
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
 
