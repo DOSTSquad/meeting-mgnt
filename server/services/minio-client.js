@@ -22,8 +22,8 @@ const getClient = () => {
 export const putObject = (bucket, key, stream, size, metadata) =>
   getClient().putObject(bucket, key, stream, size, metadata)
 
-export const presignedGetObject = (bucket, key, ttlSeconds) =>
-  getClient().presignedGetObject(bucket, key, ttlSeconds)
+export const presignedGetObject = (bucket, key, ttlSeconds, reqParams) =>
+  getClient().presignedGetObject(bucket, key, ttlSeconds, reqParams)
 
 export const presignedPutObject = (bucket, key, ttlSeconds) =>
   getClient().presignedPutObject(bucket, key, ttlSeconds)

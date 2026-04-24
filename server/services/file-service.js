@@ -108,6 +108,14 @@ export const listFiles = async (meetingId, callerId) => {
   return { files }
 }
 
+const buildContentDisposition = (fileName) => {
+  // RFC 6266: ASCII fallback + UTF-8 extended form for non-ASCII names.
+  const asciiFallback = fileName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '')
+  const utf8Encoded = encodeURIComponent(fileName)
+
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Encoded}`
+}
+
 export const getDownloadUrl = async (fileId, callerId) => {
   const fileRow = await findFileById(fileId)
 
@@ -119,7 +127,10 @@ export const getDownloadUrl = async (fileId, callerId) => {
   const participants = await listByMeeting(fileRow.meetingId)
   assertIsParticipant(meeting, callerId, participants)
 
-  const url = await presignedGetObject(BUCKET_FILES, fileRow.objectKey, TTL_SECONDS)
+  const url = await presignedGetObject(BUCKET_FILES, fileRow.objectKey, TTL_SECONDS, {
+    'response-content-disposition': buildContentDisposition(fileRow.fileName),
+    'response-content-type': fileRow.mimeType,
+  })
   const expiresAt = new Date(Date.now() + TTL_SECONDS * 1000).toISOString()
 
   return { url, expiresAt }

@@ -29,7 +29,19 @@ const upload = multer({
   },
 })
 
-export const uploadSingle = upload.single('file')
+const rawUploadSingle = upload.single('file')
+
+// multer/busboy decodes the form-data filename as latin1; when the client sends
+// a UTF-8 name (e.g. Chinese characters) the string we get is the latin1 view
+// of UTF-8 bytes. Re-decode to recover the original name. No-op for ASCII.
+const normalizeFilename = (req, _res, next) => {
+  if (req.file?.originalname) {
+    req.file.originalname = Buffer.from(req.file.originalname, 'latin1').toString('utf8')
+  }
+  next()
+}
+
+export const uploadSingle = [rawUploadSingle, normalizeFilename]
 
 // Express 4-arg error middleware — converts multer errors to the shape
 // expected by app.js's central error handler (error.statusCode + error.message).

@@ -399,6 +399,15 @@ dbDescribe('File controller (DB-backed)', () => {
       expect(res.body.url).toBe('https://minio.local/presigned-url')
       expect(res.body.expiresAt).toBeDefined()
       expect(mockPresignedGetObject).toHaveBeenCalledTimes(1)
+      expect(mockPresignedGetObject).toHaveBeenCalledWith(
+        'meeting-files',
+        expect.any(String),
+        60,
+        expect.objectContaining({
+          'response-content-disposition': expect.stringMatching(/^attachment; filename="agenda\.pdf"/),
+          'response-content-type': 'application/pdf',
+        })
+      )
     })
 
     it('participant (attendee) can get a download URL', async () => {
