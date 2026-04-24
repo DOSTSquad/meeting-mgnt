@@ -16,6 +16,7 @@ import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'
 import meetingRouter from './routes/meeting-routes.js'
 import participantRouter from './routes/participant-routes.js'
+import { fileRouter, meetingFileRouter } from './routes/file-routes.js'
 
 const HEALTH_TIMEOUT_MS = 1500
 
@@ -223,6 +224,8 @@ export const createApp = () => {
   app.use('/api', requireAuth)
   app.use('/api/meetings', meetingRouter)
   app.use('/api/meetings/:meetingId/participants', participantRouter)
+  app.use('/api/meetings/:meetingId/files', meetingFileRouter)
+  app.use('/api/files', fileRouter)
 
   app.use((req, res) => {
     res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` })

@@ -14,6 +14,7 @@
     { "key": "token", "value": "", "type": "string" },
     { "key": "meetingId", "value": "", "type": "string" },
     { "key": "participantUserId", "value": "", "type": "string" },
+    { "key": "fileId", "value": "", "type": "string" },
     { "key": "email", "value": "smoke@test.local", "type": "string" },
     { "key": "password", "value": "password123", "type": "string" }
   ],
@@ -293,6 +294,81 @@
               "raw": "{\n  \"rsvpStatus\": \"accepted\"\n}"
             },
             "description": "Set the authenticated user's RSVP on the meeting to `accepted` or `declined`. Self-reset to `pending` is rejected (400). Non-participants get 403."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "description": "Upload, list, download, and delete files attached to a meeting. Upload/delete requires creator or organizer role; list/download requires any participant role. Max 50 MB; allowed types: PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP.",
+      "item": [
+        {
+          "name": "Upload file",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "files"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "Select a PDF/DOCX/XLSX/PPTX/image ≤ 50 MB" },
+                { "key": "description", "value": "Meeting agenda", "type": "text", "description": "Optional description" }
+              ]
+            },
+            "description": "Multipart upload. Field name must be `file`. Returns `201 { file }`. Auto-saves `fileId` to collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.file && data.file.id) pm.collectionVariables.set('fileId', data.file.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List files",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "files"]
+            },
+            "description": "Returns `{ files: [...] }` for the meeting. Any participant can list."
+          }
+        },
+        {
+          "name": "Download file (presigned URL)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "download"]
+            },
+            "description": "Returns `{ url, expiresAt }`. The presigned URL is valid for 60 seconds — paste it into a browser or use it in a fetch to retrieve the file bytes directly from MinIO."
+          }
+        },
+        {
+          "name": "Delete file",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}"]
+            },
+            "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only creator or organizer can delete."
           }
         }
       ]

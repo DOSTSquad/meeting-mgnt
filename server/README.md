@@ -65,6 +65,21 @@ Only the meeting creator or a participant with `role='organizer'` can add, updat
 
 `GET /api/meetings/:id` now includes a `participants` array alongside the meeting.
 
+### Meeting Files (`/api/meetings/:meetingId/files` and `/api/files`)
+
+| Method | Path                            | Body / Query                                      | Returns                      |
+| ------ | ------------------------------- | ------------------------------------------------- | ---------------------------- |
+| POST   | `/meetings/:meetingId/files`    | `multipart/form-data`: field `file`, optional `description` | `201 { file }`   |
+| GET    | `/meetings/:meetingId/files`    | —                                                 | `200 { files }`              |
+| GET    | `/files/:id/download`           | —                                                 | `200 { url, expiresAt }`     |
+| DELETE | `/files/:id`                    | —                                                 | `204`                        |
+
+Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, and Markdown files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`.
+
+Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
+
+Any meeting participant (creator or any role) can upload, list, and request download URLs. Only the meeting creator or a participant with `role='organizer'` can delete files. Non-participants receive `403`.
+
 ### RSVP (self-service)
 
 | Method | Path                    | Body                    | Returns                |
