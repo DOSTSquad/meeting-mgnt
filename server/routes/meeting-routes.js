@@ -8,6 +8,7 @@ import {
   remove,
   update,
 } from '../controllers/meeting-controller.js'
+import { updateOwnRsvp } from '../controllers/participant-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 import { ALLOWED_STATUSES } from '../services/meeting-service.js'
 
@@ -153,6 +154,18 @@ meetingRouter.delete(
   [param('id').isUUID().withMessage('id must be a UUID')],
   handleValidationErrors,
   remove
+)
+
+meetingRouter.put(
+  '/:id/rsvp',
+  [
+    param('id').isUUID().withMessage('id must be a UUID'),
+    body('rsvpStatus')
+      .notEmpty().withMessage('rsvpStatus is required').bail()
+      .isIn(['accepted', 'declined']).withMessage('rsvpStatus must be accepted or declined'),
+  ],
+  handleValidationErrors,
+  updateOwnRsvp
 )
 
 export default meetingRouter

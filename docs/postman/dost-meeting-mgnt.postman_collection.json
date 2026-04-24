@@ -275,6 +275,29 @@
       ]
     },
     {
+      "name": "RSVP",
+      "description": "Self-service RSVP. The authenticated user must be a participant on the target meeting.",
+      "item": [
+        {
+          "name": "Update my RSVP",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/rsvp",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "rsvp"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rsvpStatus\": \"accepted\"\n}"
+            },
+            "description": "Set the authenticated user's RSVP on the meeting to `accepted` or `declined`. Self-reset to `pending` is rejected (400). Non-participants get 403."
+          }
+        }
+      ]
+    },
+    {
       "name": "Health",
       "item": [
         {

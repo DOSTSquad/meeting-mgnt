@@ -2,6 +2,7 @@ import {
   addParticipantsToMeeting,
   listParticipantsForMeeting,
   removeParticipant,
+  updateOwnRsvp as updateOwnRsvpService,
   updateParticipant,
 } from '../services/participant-service.js'
 
@@ -36,6 +37,20 @@ export const update = async (req, res, next) => {
       req.params.userId,
       req.body ?? {},
       req.user?.id
+    )
+
+    res.json({ participant })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const updateOwnRsvp = async (req, res, next) => {
+  try {
+    const { participant } = await updateOwnRsvpService(
+      req.params.id,
+      req.user?.id,
+      req.body ?? {}
     )
 
     res.json({ participant })
