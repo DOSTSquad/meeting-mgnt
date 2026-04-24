@@ -83,5 +83,6 @@ The server exposes JWT-protected REST endpoints under `/api`:
 - `/api/meetings/:id/participants` — add, list, update role/RSVP, and remove meeting participants
 - `/api/meetings/:id/rsvp` — participants update their own accept/decline response (aggregate counts on meeting detail)
 - `/api/meetings/:id/files` + `/api/files/:id` — upload (PDF/DOCX/XLSX/PPTX/images, 50 MB cap), list, presigned download (60 s URL), and delete meeting files
+- `/api/meetings/:id/action-items` + `/api/action-items/:id` — create, list (filter by status/assignee), update, and delete meeting action items (statuses: todo, in_progress, blocked, completed, cancelled)
 
 See [`server/README.md`](server/README.md#api-endpoints) for the full endpoint matrix and request/response shapes, and [`docs/postman/dost-meeting-mgnt.postman_collection.json`](docs/postman/dost-meeting-mgnt.postman_collection.json) for an importable Postman collection.

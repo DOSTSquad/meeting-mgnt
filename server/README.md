@@ -90,4 +90,18 @@ Participants update their own attendance response. Allowed `rsvpStatus`: `accept
 
 `GET /api/meetings/:id` now also returns an `rsvpCounts` object: `{ accepted, declined, pending }` computed from the meeting's participants.
 
+### Action Items (`/api/meetings/:meetingId/action-items` and `/api/action-items`)
+
+| Method | Path                                    | Body / Query                                                                                         | Returns                |
+| ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
+| POST   | `/meetings/:meetingId/action-items`     | `{ title, description?, assigneeId?, dueDate?, priority? }`                                          | `201 { actionItem }`   |
+| GET    | `/meetings/:meetingId/action-items`     | `?status=...&assigneeId=...` (both optional)                                                         | `200 { actionItems }`  |
+| PUT    | `/action-items/:id`                     | partial: `{ title?, description?, assigneeId?, dueDate?, status?, priority? }` (at least one)        | `200 { actionItem }`   |
+| DELETE | `/action-items/:id`                     | —                                                                                                    | `204`                  |
+
+- `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
+- `priority` — one of `low`, `medium` (default), `high`.
+- Any meeting participant (including the creator) can create, read, update, or delete action items. Non-participants receive `403`.
+- Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
+
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).
