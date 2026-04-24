@@ -74,7 +74,7 @@ Only the meeting creator or a participant with `role='organizer'` can add, updat
 | GET    | `/files/:id/download`           | —                                                 | `200 { url, expiresAt }`     |
 | DELETE | `/files/:id`                    | —                                                 | `204`                        |
 
-Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, and WEBP files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`.
+Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, and Markdown files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`.
 
 Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
 

@@ -9,6 +9,8 @@ export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/gif',
   'image/webp',
+  'text/plain',
+  'text/markdown',
 ]
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
