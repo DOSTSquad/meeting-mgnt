@@ -343,6 +343,93 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     )
   })
 
+  it('filters by full-text q against title and description', async () => {
+    await createMeetingViaController({
+      title: 'Quarterly budget review',
+      description: 'Finance team walkthrough',
+    })
+    await createMeetingViaController({
+      title: 'Engineering sprint planning',
+      description: 'Plan the next two-week cycle',
+    })
+    await createMeetingViaController({
+      title: 'Customer onboarding sync',
+      description: 'Discuss budget allocations for new accounts',
+    })
+
+    const matchTitle = await runHandler(
+      list,
+      buildRequest({ query: { q: 'planning' }, user: { id: testUser.id } })
+    )
+
+    expect(matchTitle.nextError).toBeUndefined()
+    expect(matchTitle.res.body.meetings).toHaveLength(1)
+    expect(matchTitle.res.body.meetings[0].title).toBe('Engineering sprint planning')
+
+    const matchBoth = await runHandler(
+      list,
+      buildRequest({ query: { q: 'budget' }, user: { id: testUser.id } })
+    )
+
+    expect(matchBoth.nextError).toBeUndefined()
+    expect(matchBoth.res.body.meetings).toHaveLength(2)
+
+    const noMatch = await runHandler(
+      list,
+      buildRequest({ query: { q: 'unicorn' }, user: { id: testUser.id } })
+    )
+
+    expect(noMatch.nextError).toBeUndefined()
+    expect(noMatch.res.body.meetings).toEqual([])
+  })
+
+  it('applies english-language stemming for q (plan matches planning)', async () => {
+    await createMeetingViaController({ title: 'Engineering sprint planning' })
+
+    const result = await runHandler(
+      list,
+      buildRequest({ query: { q: 'plan' }, user: { id: testUser.id } })
+    )
+
+    expect(result.nextError).toBeUndefined()
+    expect(result.res.body.meetings).toHaveLength(1)
+  })
+
+  it('combines q with status and department filters', async () => {
+    await createMeetingViaController({
+      title: 'Finance budget review',
+      status: 'completed',
+      department: 'finance',
+    })
+    await createMeetingViaController({
+      title: 'Engineering budget review',
+      status: 'scheduled',
+      department: 'engineering',
+    })
+
+    const result = await runHandler(
+      list,
+      buildRequest({
+        query: { q: 'budget', status: 'scheduled', department: 'engineering' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(result.nextError).toBeUndefined()
+    expect(result.res.body.meetings).toHaveLength(1)
+    expect(result.res.body.meetings[0].department).toBe('engineering')
+  })
+
+  it('rejects q longer than 200 characters with 400', async () => {
+    const result = await runHandler(
+      list,
+      buildRequest({ query: { q: 'a'.repeat(201) }, user: { id: testUser.id } })
+    )
+
+    expect(result.nextError).toBeDefined()
+    expect(result.nextError.statusCode).toBe(400)
+  })
+
   it('walks the full status workflow: scheduled → in_progress → completed → archived', async () => {
     const created = await createMeetingViaController()
 

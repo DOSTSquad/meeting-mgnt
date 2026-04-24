@@ -144,12 +144,27 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings"],
               "query": [
-                { "key": "status", "value": "scheduled", "description": "scheduled | in_progress | completed | cancelled" },
+                { "key": "status", "value": "scheduled", "description": "scheduled | in_progress | completed | cancelled | archived" },
                 { "key": "department", "value": "engineering" },
                 { "key": "from", "value": "2026-05-01T00:00:00Z", "description": "ISO 8601; starts_at >= from" },
                 { "key": "to", "value": "2026-05-31T23:59:59Z", "description": "ISO 8601; starts_at <= to" },
                 { "key": "page", "value": "1", "description": "default 1, min 1" },
                 { "key": "limit", "value": "10", "description": "default 20, min 1, max 100" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search meetings (full-text)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings?q=budget&status=scheduled",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
+              "query": [
+                { "key": "q", "value": "budget", "description": "plainto_tsquery over title + description (english config, stemmed); max 200 chars" },
+                { "key": "status", "value": "scheduled", "description": "optional; composes with q" }
               ]
             }
           }

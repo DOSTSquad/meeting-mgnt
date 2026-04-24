@@ -39,7 +39,7 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 | Method | Path    | Body / Query                                                                             | Returns                                                |
 | ------ | ------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | POST   | `/`     | `{ title, description?, startsAt, endsAt, timezoneName?, location?, status?, department? }` | `201 { meeting }`                                      |
-| GET    | `/`     | `?page=&limit=&from=&to=&status=&department=`                                            | `200 { meetings }` + `Link` & `X-Total-Count` headers  |
+| GET    | `/`     | `?page=&limit=&from=&to=&status=&department=&q=`                                         | `200 { meetings }` + `Link` & `X-Total-Count` headers  |
 | GET    | `/:id`  | —                                                                                        | `200 { meeting }` or `404`                             |
 | PUT    | `/:id`  | partial subset of POST body fields                                                       | `200 { meeting }` or `404`                             |
 | DELETE | `/:id`  | —                                                                                        | `204` or `404`                                         |
@@ -57,6 +57,8 @@ scheduled ──▶ in_progress ──▶ completed ──▶ archived
 Updating `status` to the same value is a no-op. `archived` is terminal. Any other transition returns `400` with `Invalid status transition: <from> → <to>`.
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
+
+**Full-text search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`. Stemming applies (e.g., `q=plan` matches "planning"); multi-word queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled&department=finance`.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)
 

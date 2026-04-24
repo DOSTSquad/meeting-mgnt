@@ -153,9 +153,15 @@ const buildWhereClause = (filters) => {
   }
 
   const params = []
-  const clauses = filters.map(({ column, op, value }, index) => {
-    params.push(value)
-    return `${column} ${op} $${index + 1}`
+  const clauses = filters.map((filter) => {
+    params.push(filter.value)
+    const placeholder = `$${params.length}`
+
+    if (filter.sql) {
+      return filter.sql.replace('$?', placeholder)
+    }
+
+    return `${filter.column} ${filter.op} ${placeholder}`
   })
 
   return {
@@ -171,6 +177,7 @@ export const listMeetings = async ({
   to,
   status,
   department,
+  q,
 } = {}) => {
   const filters = []
 
@@ -188,6 +195,13 @@ export const listMeetings = async ({
 
   if (department) {
     filters.push({ column: 'department', op: '=', value: department })
+  }
+
+  if (q) {
+    filters.push({
+      sql: `to_tsvector('english', title || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', $?)`,
+      value: q,
+    })
   }
 
   const { whereSql, params } = buildWhereClause(filters)
