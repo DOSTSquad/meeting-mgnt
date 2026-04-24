@@ -91,6 +91,14 @@ meetingRouter.get(
       .trim()
       .isLength({ max: 100 })
       .withMessage('Department must be at most 100 characters'),
+    query('q')
+      .optional()
+      .isString()
+      .withMessage('q must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 200 })
+      .withMessage('q must be at most 200 characters'),
   ],
   handleValidationErrors,
   list

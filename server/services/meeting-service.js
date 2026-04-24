@@ -191,9 +191,16 @@ export const listMeetingsForQuery = async ({
   to,
   status,
   department,
+  q,
 } = {}) => {
   if (status && !ALLOWED_STATUSES.includes(status)) {
     throw createHttpError(`Invalid status: ${status}`, 400)
+  }
+
+  const trimmedQ = typeof q === 'string' ? q.trim() : undefined
+
+  if (trimmedQ !== undefined && trimmedQ.length > 200) {
+    throw createHttpError('q must be 200 characters or fewer', 400)
   }
 
   return listMeetings({
@@ -203,5 +210,6 @@ export const listMeetingsForQuery = async ({
     to: to ? toDate(to) : undefined,
     status,
     department,
+    q: trimmedQ && trimmedQ.length > 0 ? trimmedQ : undefined,
   })
 }
