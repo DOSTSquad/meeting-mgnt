@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "DOST Meeting Management",
-    "description": "Auth, Meeting CRUD, and Participant management endpoints for the DOST meeting management API. Run **Login** first to populate the `token` collection variable; subsequent requests use it via Bearer auth.",
+    "description": "Auth, Meeting CRUD, Participant management, Files, Action Items, and Minutes endpoints for the DOST meeting management API. Run **Login** first to populate the `token` collection variable; subsequent requests use it via Bearer auth.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "dost-meeting-mgnt-collection"
   },
@@ -13,6 +13,7 @@
     { "key": "baseUrl", "value": "http://localhost:3001/api", "type": "string" },
     { "key": "token", "value": "", "type": "string" },
     { "key": "meetingId", "value": "", "type": "string" },
+    { "key": "minutesId", "value": "", "type": "string" },
     { "key": "participantUserId", "value": "", "type": "string" },
     { "key": "fileId", "value": "", "type": "string" },
     { "key": "actionItemId", "value": "", "type": "string" },
@@ -29,7 +30,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Smoke User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
@@ -57,7 +62,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
@@ -83,7 +92,11 @@
           "name": "Get current user",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] },
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
             "description": "Returns the user attached to the current bearer token."
           }
         }
@@ -144,10 +157,22 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings"],
               "query": [
-                { "key": "status", "value": "scheduled", "description": "scheduled | in_progress | completed | cancelled | archived" },
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "description": "scheduled | in_progress | completed | cancelled | archived"
+                },
                 { "key": "department", "value": "engineering" },
-                { "key": "from", "value": "2026-05-01T00:00:00Z", "description": "ISO 8601; starts_at >= from" },
-                { "key": "to", "value": "2026-05-31T23:59:59Z", "description": "ISO 8601; starts_at <= to" },
+                {
+                  "key": "from",
+                  "value": "2026-05-01T00:00:00Z",
+                  "description": "ISO 8601; starts_at >= from"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31T23:59:59Z",
+                  "description": "ISO 8601; starts_at <= to"
+                },
                 { "key": "page", "value": "1", "description": "default 1, min 1" },
                 { "key": "limit", "value": "10", "description": "default 20, min 1, max 100" }
               ]
@@ -163,8 +188,16 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings"],
               "query": [
-                { "key": "q", "value": "budget", "description": "plainto_tsquery over title + description (english config, stemmed); max 200 chars" },
-                { "key": "status", "value": "scheduled", "description": "optional; composes with q" }
+                {
+                  "key": "q",
+                  "value": "budget",
+                  "description": "plainto_tsquery over title + description (english config, stemmed); max 200 chars"
+                },
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "description": "optional; composes with q"
+                }
               ]
             }
           }
@@ -315,6 +348,163 @@
       ]
     },
     {
+      "name": "Minutes",
+      "description": "Read and update meeting minutes. Meeting creation automatically creates the initial minutes row. The authenticated user must be the meeting creator or a participant. Archived meetings are read-only.",
+      "item": [
+        {
+          "name": "Get meeting minutes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
+            },
+            "description": "Returns `{ minutes }` for the selected meeting and auto-saves `minutesId`. Fresh meetings return the default Markdown template."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns minutes for the meeting', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const data = pm.response.json();",
+                  "  pm.expect(data.minutes).to.be.an('object');",
+                  "  pm.expect(data.minutes.meetingId).to.eql(pm.collectionVariables.get('meetingId'));",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.minutes && data.minutes.id) pm.collectionVariables.set('minutesId', data.minutes.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update minutes",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/minutes/{{minutesId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["minutes", "{{minutesId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"# Sprint planning minutes\\n\\n## Attendees\\n\\n- Smoke User\\n\\n## Decisions\\n\\n- Approved next sprint scope\\n\\n## Action Items\\n\\n- [ ] Publish meeting notes\"\n}"
+            },
+            "description": "Updates the minutes Markdown body and creates a new minutes version. `body` is required and must be a string no larger than 256 KB."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('updates minutes', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const data = pm.response.json();",
+                  "  pm.expect(data.minutes.id).to.eql(pm.collectionVariables.get('minutesId'));",
+                  "  pm.expect(data.minutes.body).to.include('Sprint planning minutes');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update minutes - validation failure",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/minutes/{{minutesId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["minutes", "{{minutesId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Expected 400 because `body` is required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rejects missing body', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get minutes - unknown meeting",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/00000000-0000-0000-0000-000000000000/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "00000000-0000-0000-0000-000000000000", "minutes"]
+            },
+            "description": "Expected 404 for a valid UUID that does not match an existing meeting."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns not found for unknown meeting', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update minutes - unknown minutes id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/minutes/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["minutes", "00000000-0000-0000-0000-000000000000"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Missing minutes row\"\n}"
+            },
+            "description": "Expected 404 for a valid UUID that does not match an existing minutes row."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('returns not found for unknown minutes id', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Files",
       "description": "Upload, list, download, and delete files attached to a meeting. Upload/delete requires creator or organizer role; list/download requires any participant role. Max 50 MB; allowed types: PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP.",
       "item": [
@@ -330,8 +520,18 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "file", "type": "file", "src": "", "description": "Select a PDF/DOCX/XLSX/PPTX/image ≤ 50 MB" },
-                { "key": "description", "value": "Meeting agenda", "type": "text", "description": "Optional description" }
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a PDF/DOCX/XLSX/PPTX/image ≤ 50 MB"
+                },
+                {
+                  "key": "description",
+                  "value": "Meeting agenda",
+                  "type": "text",
+                  "description": "Optional description"
+                }
               ]
             },
             "description": "Multipart upload. Field name must be `file`. Returns `201 { file }`. Auto-saves `fileId` to collection variable."
@@ -433,8 +633,18 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "action-items"],
               "query": [
-                { "key": "status", "value": "todo", "description": "Optional: todo | in_progress | blocked | completed | cancelled", "disabled": true },
-                { "key": "assigneeId", "value": "", "description": "Optional: filter to items assigned to a user", "disabled": true }
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "description": "Optional: todo | in_progress | blocked | completed | cancelled",
+                  "disabled": true
+                },
+                {
+                  "key": "assigneeId",
+                  "value": "",
+                  "description": "Optional: filter to items assigned to a user",
+                  "disabled": true
+                }
               ]
             },
             "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters."
@@ -479,7 +689,11 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/../health/live", "host": ["{{baseUrl}}"], "path": ["..", "health", "live"] }
+            "url": {
+              "raw": "{{baseUrl}}/../health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "live"]
+            }
           }
         },
         {
@@ -487,7 +701,11 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/../health/ready", "host": ["{{baseUrl}}"], "path": ["..", "health", "ready"] }
+            "url": {
+              "raw": "{{baseUrl}}/../health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "ready"]
+            }
           }
         }
       ]

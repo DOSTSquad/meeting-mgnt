@@ -137,3 +137,6 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+.codex-cage.env
+.codex-cage/runs/
+.codex-cage/*.sqlite
