@@ -1,4 +1,5 @@
-import { query } from '../db/postgres.js'
+import { getPool, query } from '../db/postgres.js'
+import { createInitialMinutes } from './minutes-repository.js'
 
 const MEETING_COLUMNS = `
   id,
@@ -70,6 +71,53 @@ export const createMeeting = async ({
   )
 
   return mapMeeting(result.rows[0])
+}
+
+export const createMeetingWithMinutes = async ({ minutesBody, ...input }) => {
+  const pool = getPool()
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const result = await client.query(
+      `
+        INSERT INTO meetings (
+          title, description, starts_at, ends_at, timezone_name,
+          location, status, department, created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING ${MEETING_COLUMNS}
+      `,
+      [
+        input.title.trim(),
+        input.description,
+        input.startsAt,
+        input.endsAt,
+        input.timezoneName,
+        input.location,
+        input.status,
+        input.department,
+        input.createdBy,
+      ]
+    )
+
+    const meeting = mapMeeting(result.rows[0])
+
+    await createInitialMinutes(
+      { meetingId: meeting.id, body: minutesBody, userId: input.createdBy },
+      client
+    )
+
+    await client.query('COMMIT')
+
+    return meeting
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export const findMeetingById = async (id) => {

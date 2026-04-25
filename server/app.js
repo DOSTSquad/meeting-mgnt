@@ -18,8 +18,45 @@ import meetingRouter from './routes/meeting-routes.js'
 import participantRouter from './routes/participant-routes.js'
 import { fileRouter, meetingFileRouter } from './routes/file-routes.js'
 import { actionItemRouter, meetingActionItemRouter } from './routes/action-item-routes.js'
+import { meetingMinutesRouter, minutesRouter } from './routes/minutes-routes.js'
+import { MINUTES_BODY_TOO_LARGE_MESSAGE } from './services/minutes-service.js'
 
 const HEALTH_TIMEOUT_MS = 1500
+const MINUTES_UPDATE_PATH_PATTERN = /^\/api\/minutes\/[^/]+\/?$/
+const DATABASE_UNAVAILABLE_ERROR_CODES = new Set([
+  '28P01', // invalid_password
+  '28000', // invalid_authorization_specification
+  '3D000', // invalid_catalog_name (database does not exist)
+  '57P03', // cannot_connect_now
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+])
+
+export const getErrorResponse = (error, req) => {
+  if (
+    error.type === 'entity.too.large' &&
+    req.method === 'PUT' &&
+    MINUTES_UPDATE_PATH_PATTERN.test(req.path)
+  ) {
+    return {
+      statusCode: 413,
+      message: MINUTES_BODY_TOO_LARGE_MESSAGE,
+    }
+  }
+
+  const isDatabaseUnavailableError = DATABASE_UNAVAILABLE_ERROR_CODES.has(error.code)
+  const statusCode = error.statusCode || error.status || (isDatabaseUnavailableError ? 503 : 500)
+  const message =
+    statusCode >= 500
+      ? isDatabaseUnavailableError
+        ? 'Database unavailable'
+        : 'Internal server error'
+      : error.message || 'Request failed'
+
+  return { statusCode, message }
+}
 
 const checkTcpDependency = ({ name, host, port }) =>
   new Promise((resolve) => {
@@ -196,7 +233,7 @@ const getHealthChecks = async () => {
 export const createApp = () => {
   const app = express()
 
-  app.use(express.json())
+  app.use(express.json({ limit: '512kb' }))
   app.use(cors({ exposedHeaders: ['Link', 'X-Total-Count'] }))
 
   app.get('/health/live', (_req, res) => {
@@ -229,31 +266,15 @@ export const createApp = () => {
   app.use('/api/files', fileRouter)
   app.use('/api/meetings/:meetingId/action-items', meetingActionItemRouter)
   app.use('/api/action-items', actionItemRouter)
+  app.use('/api/meetings/:meetingId/minutes', meetingMinutesRouter)
+  app.use('/api/minutes', minutesRouter)
 
   app.use((req, res) => {
     res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` })
   })
 
-  const databaseErrorCodes = new Set([
-    '28P01', // invalid_password
-    '28000', // invalid_authorization_specification
-    '3D000', // invalid_catalog_name (database does not exist)
-    '57P03', // cannot_connect_now
-    'ECONNREFUSED',
-    'ENOTFOUND',
-    'ETIMEDOUT',
-    'EHOSTUNREACH',
-  ])
-
   app.use((error, _req, res, _next) => {
-    const isDatabaseUnavailableError = databaseErrorCodes.has(error.code)
-    const statusCode = error.statusCode || (isDatabaseUnavailableError ? 503 : 500)
-    const message =
-      statusCode >= 500
-        ? isDatabaseUnavailableError
-          ? 'Database unavailable'
-          : 'Internal server error'
-        : error.message || 'Request failed'
+    const { statusCode, message } = getErrorResponse(error, _req)
 
     console.error('Request failed', {
       method: _req.method,

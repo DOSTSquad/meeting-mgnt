@@ -1,11 +1,12 @@
 import {
-  createMeeting,
+  createMeetingWithMinutes,
   deleteMeeting,
   findMeetingById,
   listMeetings,
   updateMeeting,
 } from '../repositories/meeting-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
+import { DEFAULT_MINUTES_TEMPLATE } from './minutes-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -90,7 +91,7 @@ export const createMeetingForUser = async (input, userId) => {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
 
-  return createMeeting({
+  return createMeetingWithMinutes({
     title,
     description: description ?? null,
     startsAt: toDate(startsAt),
@@ -100,6 +101,7 @@ export const createMeetingForUser = async (input, userId) => {
     status: status ?? 'scheduled',
     department: department ?? null,
     createdBy: userId,
+    minutesBody: DEFAULT_MINUTES_TEMPLATE,
   })
 }
 

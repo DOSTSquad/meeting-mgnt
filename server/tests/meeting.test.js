@@ -143,25 +143,36 @@ const createMeetingViaController = async (overrides = {}) => {
 }
 
 dbDescribe('Meeting controller (DB-backed)', () => {
-  it(
-    'creates a meeting and normalises datetimes to UTC while preserving timezoneName',
-    async () => {
-      const meeting = await createMeetingViaController()
+  it('creates a meeting and normalises datetimes to UTC while preserving timezoneName', async () => {
+    const meeting = await createMeetingViaController()
 
-      expect(meeting.id).toEqual(expect.any(String))
-      expect(meeting.title).toBe('Sprint Planning')
-      expect(meeting.timezoneName).toBe('Australia/Brisbane')
-      expect(meeting.createdBy).toBe(testUser.id)
-      expect(meeting.status).toBe('scheduled')
+    expect(meeting.id).toEqual(expect.any(String))
+    expect(meeting.title).toBe('Sprint Planning')
+    expect(meeting.timezoneName).toBe('Australia/Brisbane')
+    expect(meeting.createdBy).toBe(testUser.id)
+    expect(meeting.status).toBe('scheduled')
 
-      expect(new Date(meeting.startsAt).toISOString()).toBe(
-        new Date('2026-05-01T09:00:00+10:00').toISOString()
-      )
-      expect(new Date(meeting.endsAt).toISOString()).toBe(
-        new Date('2026-05-01T10:00:00+10:00').toISOString()
-      )
-    }
-  )
+    expect(new Date(meeting.startsAt).toISOString()).toBe(
+      new Date('2026-05-01T09:00:00+10:00').toISOString()
+    )
+    expect(new Date(meeting.endsAt).toISOString()).toBe(
+      new Date('2026-05-01T10:00:00+10:00').toISOString()
+    )
+
+    const minutesResult = await query(
+      `
+          SELECT m.id, m.body, mv.version
+          FROM minutes m
+          JOIN minutes_versions mv ON mv.minutes_id = m.id
+          WHERE m.meeting_id = $1
+        `,
+      [meeting.id]
+    )
+
+    expect(minutesResult.rows).toHaveLength(1)
+    expect(minutesResult.rows[0].body).toContain('## Attendees')
+    expect(minutesResult.rows[0].version).toBe(1)
+  })
 
   it('rejects creation when endsAt is not after startsAt', async () => {
     const req = buildRequest({
