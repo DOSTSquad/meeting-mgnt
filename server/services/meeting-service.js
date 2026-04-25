@@ -6,6 +6,9 @@ import {
   updateMeeting,
 } from '../repositories/meeting-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
+import { insertWithFirstVersion as insertMinutesWithFirstVersion } from '../repositories/minutes-repository.js'
+import { withTransaction } from '../db/postgres.js'
+import { DEFAULT_TEMPLATE_BODY } from './minutes-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -90,16 +93,32 @@ export const createMeetingForUser = async (input, userId) => {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
 
-  return createMeeting({
-    title,
-    description: description ?? null,
-    startsAt: toDate(startsAt),
-    endsAt: toDate(endsAt),
-    timezoneName,
-    location: location ?? null,
-    status: status ?? 'scheduled',
-    department: department ?? null,
-    createdBy: userId,
+  return withTransaction(async (client) => {
+    const meeting = await createMeeting(
+      {
+        title,
+        description: description ?? null,
+        startsAt: toDate(startsAt),
+        endsAt: toDate(endsAt),
+        timezoneName,
+        location: location ?? null,
+        status: status ?? 'scheduled',
+        department: department ?? null,
+        createdBy: userId,
+      },
+      client
+    )
+
+    await insertMinutesWithFirstVersion(
+      {
+        meetingId: meeting.id,
+        body: DEFAULT_TEMPLATE_BODY,
+        createdBy: userId,
+      },
+      client
+    )
+
+    return meeting
   })
 }
 

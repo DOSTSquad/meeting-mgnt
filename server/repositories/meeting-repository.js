@@ -36,18 +36,22 @@ const mapMeeting = (row) => {
   }
 }
 
-export const createMeeting = async ({
-  title,
-  description = null,
-  startsAt,
-  endsAt,
-  timezoneName = 'UTC',
-  location = null,
-  status = 'scheduled',
-  department = null,
-  createdBy,
-}) => {
-  const result = await query(
+export const createMeeting = async (
+  {
+    title,
+    description = null,
+    startsAt,
+    endsAt,
+    timezoneName = 'UTC',
+    location = null,
+    status = 'scheduled',
+    department = null,
+    createdBy,
+  },
+  client
+) => {
+  const executor = client ?? { query }
+  const result = await executor.query(
     `
       INSERT INTO meetings (
         title, description, starts_at, ends_at, timezone_name,

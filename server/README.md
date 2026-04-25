@@ -116,4 +116,18 @@ Participants update their own attendance response. Allowed `rsvpStatus`: `accept
 - Any meeting participant (including the creator) can create, read, update, or delete action items. Non-participants receive `403`.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
 
+### Minutes (`/api/meetings/:meetingId/minutes` and `/api/minutes`)
+
+| Method | Path                                | Body / Query        | Returns           |
+| ------ | ----------------------------------- | ------------------- | ----------------- |
+| GET    | `/meetings/:meetingId/minutes`      | —                   | `200 { minutes }` |
+| PUT    | `/minutes/:id`                      | `{ body: string }`  | `200 { minutes }` |
+
+- 1:1 with meetings — every meeting gets a minutes row created automatically when the meeting is created (seeded with a default markdown template covering Attendees / Agenda / Discussion / Decisions / Action Items). There is no `POST` endpoint.
+- `body` is markdown text capped at 256 KB (UTF-8). Larger payloads return `413` — attach transcript-sized content as a file instead.
+- Every successful `PUT` writes a full snapshot to `minutes_versions` with a per-minutes monotonically incrementing `version`. Read-side endpoint for version history is tracked separately.
+- Any meeting participant (including the creator) can read or edit minutes. Non-participants receive `403`. Edits are blocked (`403`) when the parent meeting is `archived`; reads remain allowed.
+- Concurrency is last-write-wins; recovery is via the version table.
+- Embedded images use the existing files API: upload via `POST /api/meetings/:id/files`, then reference `![alt](/api/files/:fileId/download)` in the body.
+
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).

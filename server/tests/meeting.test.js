@@ -163,6 +163,26 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     }
   )
 
+  it('eagerly creates a minutes row plus a v1 version when a meeting is created', async () => {
+    const meeting = await createMeetingViaController()
+
+    const minutesRes = await query(
+      'SELECT id, body, created_by FROM minutes WHERE meeting_id = $1',
+      [meeting.id]
+    )
+
+    expect(minutesRes.rows).toHaveLength(1)
+    expect(minutesRes.rows[0].created_by).toBe(testUser.id)
+
+    const versionsRes = await query(
+      'SELECT version FROM minutes_versions WHERE minutes_id = $1',
+      [minutesRes.rows[0].id]
+    )
+
+    expect(versionsRes.rows).toHaveLength(1)
+    expect(versionsRes.rows[0].version).toBe(1)
+  })
+
   it('rejects creation when endsAt is not after startsAt', async () => {
     const req = buildRequest({
       body: baseCreateBody({
@@ -560,6 +580,35 @@ dbDescribe('Meeting controller (DB-backed)', () => {
 
     expect(fetchRes.nextError).toBeDefined()
     expect(fetchRes.nextError.statusCode).toBe(404)
+  })
+
+  it('cascade-deletes minutes (and their version history) when the meeting is deleted', async () => {
+    const created = await createMeetingViaController()
+
+    const before = await query(
+      'SELECT id FROM minutes WHERE meeting_id = $1',
+      [created.id]
+    )
+    expect(before.rows).toHaveLength(1)
+    const minutesId = before.rows[0].id
+
+    const deleteRes = await runHandler(
+      remove,
+      buildRequest({ params: { id: created.id }, user: { id: testUser.id } })
+    )
+    expect(deleteRes.nextError).toBeUndefined()
+
+    const minutesAfter = await query(
+      'SELECT id FROM minutes WHERE id = $1',
+      [minutesId]
+    )
+    expect(minutesAfter.rows).toHaveLength(0)
+
+    const versionsAfter = await query(
+      'SELECT id FROM minutes_versions WHERE minutes_id = $1',
+      [minutesId]
+    )
+    expect(versionsAfter.rows).toHaveLength(0)
   })
 })
 
