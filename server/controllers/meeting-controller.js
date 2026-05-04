@@ -24,6 +24,7 @@ export const list = async (req, res, next) => {
     const { from, to, status, department, q } = req.query
 
     const { rows, total } = await listMeetingsForQuery({
+      userId: req.user?.id,
       page,
       limit,
       from,

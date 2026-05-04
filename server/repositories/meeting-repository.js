@@ -204,6 +204,7 @@ const buildWhereClause = (filters) => {
 }
 
 export const listMeetings = async ({
+  userId,
   page = 1,
   limit = 20,
   from,
@@ -213,6 +214,13 @@ export const listMeetings = async ({
   q,
 } = {}) => {
   const filters = []
+
+  if (userId) {
+    filters.push({
+      sql: 'EXISTS (SELECT 1 FROM meeting_participants mp WHERE mp.meeting_id = m.id AND mp.user_id = $?)',
+      value: userId,
+    })
+  }
 
   if (from) {
     filters.push({ column: 'm.starts_at', op: '>=', value: from })

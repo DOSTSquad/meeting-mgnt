@@ -231,6 +231,7 @@ export const deleteMeetingById = async (id) => {
 }
 
 export const listMeetingsForQuery = async ({
+  userId,
   page = 1,
   limit = 20,
   from,
@@ -239,6 +240,10 @@ export const listMeetingsForQuery = async ({
   department,
   q,
 } = {}) => {
+  if (!userId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
   if (status && !ALLOWED_STATUSES.includes(status)) {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
@@ -250,6 +255,7 @@ export const listMeetingsForQuery = async ({
   }
 
   return listMeetings({
+    userId,
     page,
     limit,
     from: from ? toDate(from) : undefined,

@@ -119,6 +119,37 @@ export const listNotificationItemsForUser = async (userId, limit = 20) => {
     `
       WITH items AS (
         SELECT
+          'meeting_created'::text AS type,
+          m.id AS meeting_id,
+          NULL::uuid AS action_item_id,
+          m.title AS title,
+          m.created_at AS event_at,
+          'A new meeting has been created.'::text AS detail
+        FROM meetings m
+        WHERE m.created_by = $1
+           OR EXISTS (
+             SELECT 1
+             FROM meeting_participants mp
+             WHERE mp.meeting_id = m.id
+               AND mp.user_id = $1
+           )
+
+        UNION ALL
+
+        SELECT
+          'task_assigned'::text AS type,
+          ai.meeting_id,
+          ai.id AS action_item_id,
+          ai.title,
+          ai.updated_at AS event_at,
+          'A task has been assigned to you.'::text AS detail
+        FROM action_items ai
+        WHERE ai.assignee_id = $1
+          AND ai.updated_at >= ai.created_at
+
+        UNION ALL
+
+        SELECT
           'rsvp_pending'::text AS type,
           m.id AS meeting_id,
           NULL::uuid AS action_item_id,
@@ -146,7 +177,7 @@ export const listNotificationItemsForUser = async (userId, limit = 20) => {
       )
       SELECT type, meeting_id, action_item_id, title, event_at, detail
       FROM items
-      ORDER BY event_at ASC NULLS LAST
+      ORDER BY event_at DESC NULLS LAST
       LIMIT $2
     `,
     [userId, limit]

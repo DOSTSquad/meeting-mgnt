@@ -11,12 +11,6 @@ const menuItems = [
   { id: 'notifications', label: 'Notification' },
 ]
 
-const priorityClassName = {
-  low: 'bg-emerald-100 text-emerald-700',
-  medium: 'bg-amber-100 text-amber-700',
-  high: 'bg-rose-100 text-rose-700',
-}
-
 const formatDateTime = (value) => {
   if (!value) {
     return '-'
@@ -64,6 +58,19 @@ const getApiClient = (token) =>
       Authorization: `Bearer ${token}`,
     },
   })
+
+const escapeHtml = (value = '') =>
+  String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+
+const formatMultilineHtml = (value = '-') => {
+  const safe = escapeHtml(value && value.trim().length > 0 ? value : '-')
+  return safe.replaceAll('\n', '<br/>')
+}
 
 const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('')
@@ -180,8 +187,8 @@ const LoginView = ({ onLogin }) => {
               ) : null}
 
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                Demo login: <span className="font-semibold">paveen.anuntakulnatee@seed.local</span> /{' '}
-                <span className="font-semibold">Password123!</span>
+                <p>Demo login: <span className="font-semibold">paveen.anuntakulnatee@seed.local</span> / <span className="font-semibold">Password123!</span></p>
+                <p>Alt login: <span className="font-semibold">nattanan.thepsathorn@seed.local</span> / <span className="font-semibold">Password123!</span></p>
               </div>
 
               <button
@@ -199,24 +206,29 @@ const LoginView = ({ onLogin }) => {
   )
 }
 
-const Sidebar = ({ activePage, onSelect, onLogout, currentUser }) => (
+const Sidebar = ({ activePage, onSelect, onLogout, currentUser, notificationCount }) => (
   <aside className="w-full bg-slate-900 text-white lg:w-72">
     <div className="flex h-full flex-col px-5 py-6">
       <div className="mb-8 flex items-center gap-3">
         <img src="/logo.png" alt="Meeting Manager logo" className="h-8 w-auto" />
         <span className="text-2xl font-semibold">Meeting Manager</span>
       </div>
-      <nav className="space-y-2">
+      <nav className="space-y-1.5">
         {menuItems.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => onSelect(item.id)}
-            className={`block w-full rounded-lg px-3 py-2 text-left text-xl transition ${
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xl transition ${
               activePage === item.id ? 'bg-slate-800' : 'hover:bg-slate-800/70'
             }`}
           >
-            {item.label}
+            <span>{item.label}</span>
+            {item.id === 'notifications' && notificationCount > 0 ? (
+              <span className="min-w-6 rounded-full bg-rose-600 px-2 py-0.5 text-center text-xs font-semibold text-white">
+                {notificationCount}
+              </span>
+            ) : null}
           </button>
         ))}
       </nav>
@@ -234,31 +246,20 @@ const Sidebar = ({ activePage, onSelect, onLogout, currentUser }) => (
   </aside>
 )
 
-const DashboardView = ({ data, onOpenCreateModal, onResetMeetingItems, onOpenMeeting }) => (
+const DashboardView = ({ data, onOpenCreateModal, onOpenMeeting }) => (
   <section className="space-y-6">
-    <div>
-      <h1 className="text-5xl font-semibold text-slate-800">Dashboard</h1>
-      <p className="mt-2 text-lg text-slate-500">Welcome back! Here&apos;s what&apos;s happening today.</p>
-    </div>
-
-    <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Overview</p>
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-semibold text-slate-700">Quick Start</h2>
-          <p className="mt-2 text-lg text-slate-500">Create a new meeting or manage existing ones</p>
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-800 lg:text-5xl">Dashboard</h1>
+          <p className="mt-2 text-sm text-slate-500">Welcome back! Here&apos;s what&apos;s happening today.</p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={onResetMeetingItems}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Reset Meeting Items
-          </button>
-          <button
-            type="button"
             onClick={onOpenCreateModal}
-            className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700"
+            className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             + New Meeting
           </button>
@@ -266,36 +267,57 @@ const DashboardView = ({ data, onOpenCreateModal, onResetMeetingItems, onOpenMee
       </div>
     </div>
 
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-xs text-slate-500">Recent Meetings</p>
+        <p className="mt-1 text-3xl font-semibold text-slate-800">{data?.recentMeetings?.length || 0}</p>
+      </article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-xs text-slate-500">My Action Items</p>
+        <p className="mt-1 text-3xl font-semibold text-slate-800">{data?.myActionItems?.length || 0}</p>
+      </article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-xs text-slate-500">Pending RSVP</p>
+        <p className="mt-1 text-3xl font-semibold text-slate-800">{data?.pendingRsvpMeetings?.length || 0}</p>
+      </article>
+    </div>
+
     <div className="grid gap-5 xl:grid-cols-2">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-3xl font-semibold text-slate-700">Recent Meetings</h2>
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-xl font-semibold text-slate-700">Recent Meetings</h2>
         <div className="space-y-3">
           {(data?.recentMeetings ?? []).map((meeting) => (
-            <article key={meeting.id} className="rounded-xl border border-slate-200 p-4">
-              <button
-                type="button"
-                onClick={() => onOpenMeeting(meeting.id)}
-                className="text-left text-2xl font-semibold text-blue-700 hover:underline"
-              >
-                {meeting.title}
-              </button>
-              <p className="mt-2 text-slate-500">{formatDateTime(meeting.startsAt)}</p>
-            </article>
+            <button
+              key={meeting.id}
+              type="button"
+              onClick={() => onOpenMeeting(meeting.id)}
+              className="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-white"
+            >
+              <p className="truncate text-base font-semibold text-slate-800">{meeting.title}</p>
+              <p className="mt-2 text-sm text-slate-500">{formatDateTime(meeting.startsAt)}</p>
+            </button>
           ))}
+          {(data?.recentMeetings ?? []).length === 0 ? (
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+              No recent meetings.
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-3xl font-semibold text-slate-700">My Action Items</h2>
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-xl font-semibold text-slate-700">My Action Items</h2>
         <div className="space-y-3">
           {(data?.myActionItems ?? []).map((item) => (
-            <article key={item.id} className="rounded-xl border border-slate-200 p-4">
-              <p className="font-semibold text-slate-700">{item.title}</p>
+            <article key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="truncate font-semibold text-slate-700">{item.title}</p>
               <p className="mt-1 text-sm text-slate-500">Due: {formatDateOnly(item.dueDate)}</p>
             </article>
           ))}
           {(data?.myActionItems ?? []).length === 0 ? (
-            <p className="text-slate-500">No action items assigned.</p>
+            <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+              No action items assigned.
+            </p>
           ) : null}
         </div>
       </div>
@@ -303,10 +325,58 @@ const DashboardView = ({ data, onOpenCreateModal, onResetMeetingItems, onOpenMee
   </section>
 )
 
-const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) => {
-  const filteredMeetings = meetings.filter((meeting) =>
-    meeting.title.toLowerCase().includes(search.trim().toLowerCase())
+const RepositoryView = ({ meetings, meetingParticipantsByMeeting, search, onSearch, onOpenMeeting }) => {
+  const keyword = search.trim().toLowerCase()
+  const [currentTimestamp] = useState(() => Date.now())
+  const filteredMeetings = meetings.filter((meeting) => {
+    if (!keyword) {
+      return true
+    }
+
+    const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+    const searchable = [meeting.title, meeting.tag || '', ...participantNames].join(' ').toLowerCase()
+    return searchable.includes(keyword)
+  })
+  const upcomingMeetings = filteredMeetings.filter(
+    (meeting) => new Date(meeting.endsAt).getTime() >= currentTimestamp
   )
+  const endedMeetings = filteredMeetings.filter(
+    (meeting) => new Date(meeting.endsAt).getTime() < currentTimestamp
+  )
+
+  const renderMeetingRows = (items) =>
+    items.map((meeting) => {
+      const date = new Date(meeting.startsAt)
+      const time = new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date)
+
+      return (
+        <tr
+          key={meeting.id}
+          className="cursor-pointer text-sm text-slate-700 hover:bg-slate-50"
+          onClick={() => onOpenMeeting(meeting.id)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              onOpenMeeting(meeting.id)
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <td className="border-b border-slate-100 px-3 py-3 font-medium text-blue-700">{meeting.title}</td>
+          <td className="border-b border-slate-100 px-3 py-3">{formatDateOnly(meeting.startsAt)}</td>
+          <td className="border-b border-slate-100 px-3 py-3">{time}</td>
+          <td className="border-b border-slate-100 px-3 py-3">
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500">
+              {meeting.tag || '-'}
+            </span>
+          </td>
+        </tr>
+      )
+    })
 
   return (
     <section>
@@ -318,51 +388,60 @@ const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) => {
           type="search"
           value={search}
           onChange={(event) => onSearch(event.target.value)}
-          placeholder="Search documents..."
+          placeholder="Search meeting name, participant, or tag..."
           className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-400"
         />
 
-        <div className="mt-4 overflow-auto">
-          <table className="min-w-full border-separate border-spacing-0">
-            <thead>
-              <tr className="bg-slate-100 text-left text-sm text-slate-600">
-                <th className="rounded-l-lg px-3 py-2">Meeting Title</th>
-                <th className="px-3 py-2">Date</th>
-                <th className="px-3 py-2">Time</th>
-                <th className="rounded-r-lg px-3 py-2">Tag</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMeetings.map((meeting) => {
-                const date = new Date(meeting.startsAt)
-                const time = new Intl.DateTimeFormat(undefined, {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(date)
-
-                return (
-                  <tr key={meeting.id} className="text-sm text-slate-700">
-                    <td className="border-b border-slate-100 px-3 py-3">
-                      <button
-                        type="button"
-                        onClick={() => onOpenMeeting(meeting.id)}
-                        className="text-left font-medium text-blue-700 hover:underline"
-                      >
-                        {meeting.title}
-                      </button>
-                    </td>
-                    <td className="border-b border-slate-100 px-3 py-3">{formatDateOnly(meeting.startsAt)}</td>
-                    <td className="border-b border-slate-100 px-3 py-3">{time}</td>
-                    <td className="border-b border-slate-100 px-3 py-3">
-                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500">
-                        {meeting.tag || '-'}
-                      </span>
-                    </td>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-700">Upcoming Meetings</h2>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                {upcomingMeetings.length}
+              </span>
+            </div>
+            <div className="overflow-auto">
+              <table className="min-w-full border-separate border-spacing-0">
+                <thead>
+                  <tr className="bg-slate-100 text-left text-sm text-slate-600">
+                    <th className="rounded-l-lg px-3 py-2">Meeting Title</th>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2">Time</th>
+                    <th className="rounded-r-lg px-3 py-2">Tag</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>{renderMeetingRows(upcomingMeetings)}</tbody>
+              </table>
+              {upcomingMeetings.length === 0 ? (
+                <p className="p-3 text-sm text-slate-500">No upcoming meetings.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-700">Ended Meetings</h2>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                {endedMeetings.length}
+              </span>
+            </div>
+            <div className="overflow-auto">
+              <table className="min-w-full border-separate border-spacing-0">
+                <thead>
+                  <tr className="bg-slate-100 text-left text-sm text-slate-600">
+                    <th className="rounded-l-lg px-3 py-2">Meeting Title</th>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2">Time</th>
+                    <th className="rounded-r-lg px-3 py-2">Tag</th>
+                  </tr>
+                </thead>
+                <tbody>{renderMeetingRows(endedMeetings)}</tbody>
+              </table>
+              {endedMeetings.length === 0 ? (
+                <p className="p-3 text-sm text-slate-500">No ended meetings yet.</p>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -372,13 +451,15 @@ const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) => {
 const FileRepositoryView = ({
   meetings,
   filesByMeeting,
+  currentUserId,
+  meetingParticipantsByMeeting,
   search,
   onSearch,
-  selectedMeetingId,
-  onSelectMeeting,
+  selectedMeetingIds,
+  onToggleMeetingSelection,
   onUploadFile,
-  onOpenFile,
-  onLoadAllFiles,
+  onDownloadFile,
+  onOpenProjectFilesPage,
 }) => {
   const documents = meetings.flatMap((meeting) =>
     (filesByMeeting[meeting.id] || []).map((file) => ({ ...file, meetingTitle: meeting.title, tag: meeting.tag }))
@@ -387,10 +468,17 @@ const FileRepositoryView = ({
   const filteredDocuments = documents.filter((file) =>
     file.fileName.toLowerCase().includes(search.trim().toLowerCase())
   )
+  const involvedMeetings = meetings.filter((meeting) => {
+    if (meeting.createdBy === currentUserId) {
+      return true
+    }
 
+    const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+    return participantNames.length > 0
+  })
   return (
     <section>
-      <h1 className="text-5xl font-semibold text-slate-800">Meeting Repository</h1>
+      <h1 className="text-5xl font-semibold text-slate-800">File Repository</h1>
       <p className="mt-2 text-lg text-slate-500">Manage and access all your meeting documents</p>
 
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
@@ -400,72 +488,142 @@ const FileRepositoryView = ({
             value={search}
             onChange={(event) => onSearch(event.target.value)}
             placeholder="Search meeting..."
-            className="h-10 min-w-[260px] flex-1 rounded-lg border border-slate-200 px-3 text-sm"
+            className="h-9 min-w-[220px] flex-1 rounded-lg border border-slate-200 px-3 text-sm"
           />
-          <button
-            type="button"
-            onClick={onLoadAllFiles}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          >
-            All Meetings
-          </button>
-          <select
-            value={selectedMeetingId}
-            onChange={(event) => onSelectMeeting(event.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">Select Meeting For Upload</option>
+        </div>
+
+        <div className="mt-3 rounded-xl border border-slate-200 p-3">
+          <p className="text-sm font-semibold text-slate-700">Upload to meetings (select one or more)</p>
+          <div className="mt-2 grid max-h-40 gap-2 overflow-auto md:grid-cols-2">
             {meetings.map((meeting) => (
-              <option key={meeting.id} value={meeting.id}>
-                {meeting.title}
-              </option>
+              <label key={meeting.id} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={selectedMeetingIds.includes(meeting.id)}
+                  onChange={() => onToggleMeetingSelection(meeting.id)}
+                />
+                <span>{meeting.title}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
 
         <label className="mt-3 block rounded-xl border border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
           <div className="mx-auto mb-1 text-base">⇪</div>
           Drag & drop files here or browse
           <div className="text-xs text-slate-400">Upload meeting documents, agenda, or minutes</div>
-          <input type="file" className="mt-2 w-full text-xs" onChange={(e) => onUploadFile(e.target.files?.[0] || null)} />
+          <input type="file" multiple className="mt-2 w-full text-xs" onChange={(e) => onUploadFile(e.target.files)} />
         </label>
       </div>
 
       <div className="mt-5">
         <h2 className="mb-3 text-lg font-semibold text-slate-700">Projects</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {meetings.slice(0, 4).map((meeting) => (
-            <article key={meeting.id} className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="font-semibold text-slate-700">{meeting.title}</p>
-              <p className="mt-2 text-xs text-slate-500">{(filesByMeeting[meeting.id] || []).length} files</p>
-            </article>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {involvedMeetings.map((meeting) => (
+            <button
+              type="button"
+              key={meeting.id}
+              onClick={() => onOpenProjectFilesPage(meeting.id)}
+              className="rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-300 hover:shadow-sm"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <img src="/foldericon.png" alt="Folder" className="h-5 w-5 object-contain" />
+                <p className="truncate text-sm font-semibold text-slate-700">{meeting.title}</p>
+              </div>
+              <p className="text-xs text-slate-500">{(filesByMeeting[meeting.id] || []).length} files</p>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="mt-5">
-        <h2 className="mb-3 text-lg font-semibold text-slate-700">All Documents</h2>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-700">All Documents</h2>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {filteredDocuments.length} files
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
           {filteredDocuments.map((file) => (
-            <article key={file.id} className="rounded-xl border border-slate-200 bg-white p-3">
+            <article
+              key={file.id}
+              className="group flex min-h-[11rem] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="mb-2 flex h-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg">
+                📄
+              </div>
+              <div className="min-w-0 shrink rounded-lg border border-slate-200 bg-white/80 p-2">
+                <p className="truncate text-left text-sm font-semibold leading-5 text-slate-800" title={file.fileName}>
+                  {file.fileName}
+                </p>
+                <div className="mt-1.5 space-y-1">
+                  <p className="truncate text-[11px] leading-4 text-slate-500">{formatDateOnly(file.createdAt)}</p>
+                  <p className="truncate text-[11px] leading-4 text-slate-400" title={file.meetingTitle}>
+                    {file.meetingTitle}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="inline-flex max-w-full truncate rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-600 align-middle">
+                  {file.tag || '-'}
+                </span>
+              </div>
               <button
                 type="button"
-                onClick={() => onOpenFile(file.id)}
-                className="text-left font-semibold text-blue-700 hover:underline"
+                onClick={() => onDownloadFile(file.id)}
+                className="mt-auto shrink-0 w-full rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
               >
-                {file.fileName}
+                Download
               </button>
-              <p className="mt-1 text-xs text-slate-500">{formatDateOnly(file.createdAt)}</p>
-              <p className="mt-1 text-xs text-slate-400">{file.meetingTitle}</p>
-              <p className="mt-1 text-xs text-blue-500">{file.tag || '-'}</p>
             </article>
           ))}
-          {filteredDocuments.length === 0 ? <p className="text-sm text-slate-500">No files uploaded yet</p> : null}
+          {filteredDocuments.length === 0 ? (
+            <p className="text-sm text-slate-500">No files uploaded yet</p>
+          ) : null}
         </div>
       </div>
     </section>
   )
 }
+
+const ProjectFilesView = ({ meeting, files, onBack, onDownloadFile }) => (
+  <section>
+    <div className="mb-4 flex items-center justify-between">
+      <button
+        type="button"
+        onClick={onBack}
+        className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700"
+      >
+        Back
+      </button>
+    </div>
+    <h1 className="text-4xl font-semibold text-slate-800">{meeting?.title || 'Project Files'}</h1>
+    <p className="mt-2 text-lg text-slate-500">Files in this meeting</p>
+    <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      {files.map((file) => (
+        <article
+          key={file.id}
+          className="group flex h-48 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <div className="mb-2 flex h-16 items-center justify-center rounded-xl bg-slate-100 text-2xl">📄</div>
+          <p className="truncate text-left text-sm font-semibold text-slate-800" title={file.fileName}>
+            {file.fileName}
+          </p>
+          <p className="mt-1 truncate text-xs text-slate-500">{formatDateOnly(file.createdAt)}</p>
+          <p className="mt-1 truncate text-xs text-blue-500">{meeting?.tag || '-'}</p>
+          <button
+            type="button"
+            onClick={() => onDownloadFile(file.id)}
+            className="mt-auto rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+          >
+            Download
+          </button>
+        </article>
+      ))}
+      {files.length === 0 ? <p className="text-sm text-slate-500">No files uploaded yet</p> : null}
+    </div>
+  </section>
+)
 
 const MeetingDetailView = ({
   detail,
@@ -478,10 +636,21 @@ const MeetingDetailView = ({
   onActionItemAssigneeChange,
   onActionItemDueDateChange,
   onActionItemRemove,
-  onUploadMeetingFile,
-  onUploadMeetingAudio,
+  pendingMaterialFiles,
+  pendingAudioFiles,
+  onAddPendingMaterialFiles,
+  onRemovePendingMaterialFile,
+  onAddPendingAudioFiles,
+  onRemovePendingAudioFile,
+  onDownloadMeetingFile,
   onPreview,
 }) => {
+  const [isDragOverMaterialFiles, setIsDragOverMaterialFiles] = useState(false)
+  const [isDragOverAudioFiles, setIsDragOverAudioFiles] = useState(false)
+  const participantsById = Object.fromEntries(
+    (detail?.participants || []).map((participant) => [participant.userId, participant.name])
+  )
+
   if (!detail) {
     return null
   }
@@ -516,49 +685,69 @@ const MeetingDetailView = ({
       <div className="mt-6 grid gap-5 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-2xl font-semibold text-slate-700">Basic Information</h2>
+            <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
+            <p className="mt-1 text-sm text-slate-500">Core meeting metadata (title, schedule, and owner fields).</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <input
-                value={detail.meeting.title || ''}
-                onChange={(event) => onChange('title', event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 px-3"
-                placeholder="Meeting title"
-              />
-              <input
-                value={detail.meeting.location || ''}
-                onChange={(event) => onChange('location', event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 px-3"
-                placeholder="Location"
-              />
-              <input
-                type="date"
-                value={(detail.meeting.startsAt || '').slice(0, 10)}
-                onChange={(event) => onChange('date', event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 px-3"
-              />
-              <input
-                type="time"
-                value={new Date(detail.meeting.startsAt).toISOString().slice(11, 16)}
-                onChange={(event) => onChange('time', event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 px-3"
-              />
-              <input
-                value={detail.meeting.facilitator || ''}
-                onChange={(event) => onChange('facilitator', event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 px-3"
-                placeholder="Facilitator"
-              />
-              <input
-                value={detail.meeting.recorder || ''}
-                onChange={(event) => onChange('recorder', event.target.value)}
-                className="h-11 rounded-xl border border-slate-200 px-3"
-                placeholder="Recorder"
-              />
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Meeting Title</span>
+                <input
+                  value={detail.meeting.title || ''}
+                  onChange={(event) => onChange('title', event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                  placeholder="Meeting title"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Location</span>
+                <input
+                  value={detail.meeting.location || ''}
+                  onChange={(event) => onChange('location', event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                  placeholder="Location"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date</span>
+                <input
+                  type="date"
+                  value={(detail.meeting.startsAt || '').slice(0, 10)}
+                  onChange={(event) => onChange('date', event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Time</span>
+                <input
+                  type="time"
+                  value={new Date(detail.meeting.startsAt).toISOString().slice(11, 16)}
+                  onChange={(event) => onChange('time', event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Facilitator</span>
+                <input
+                  value={detail.meeting.facilitator || ''}
+                  onChange={(event) => onChange('facilitator', event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                  placeholder="Facilitator"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Recorder</span>
+                <input
+                  value={detail.meeting.recorder || ''}
+                  onChange={(event) => onChange('recorder', event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                  placeholder="Recorder"
+                />
+              </label>
             </div>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Agenda</h2>
+            <p className="mt-1 text-sm text-slate-500">Meeting objective and discussion scope.</p>
             <textarea
               rows={4}
               value={detail.meeting.description || ''}
@@ -569,6 +758,7 @@ const MeetingDetailView = ({
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Key Discussions</h2>
+            <p className="mt-1 text-sm text-slate-500">Key points discussed during the meeting.</p>
             <textarea
               rows={4}
               value={detail.meeting.keyDiscussions || ''}
@@ -579,6 +769,7 @@ const MeetingDetailView = ({
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Meeting Minutes</h2>
+            <p className="mt-1 text-sm text-slate-500">Formal meeting notes for records and follow-up.</p>
             <textarea
               rows={6}
               value={detail.meeting.meetingMinutes || ''}
@@ -598,6 +789,7 @@ const MeetingDetailView = ({
                 + Add Item
               </button>
             </div>
+            <p className="mb-2 text-sm text-slate-500">Tasks, assignees, and due dates from this meeting.</p>
             <div className="mb-2 grid grid-cols-[1.4fr_1fr_0.9fr] gap-2 text-xs font-semibold text-slate-500">
               <span>Task</span>
               <span>Responsible Person</span>
@@ -616,7 +808,6 @@ const MeetingDetailView = ({
                     <select
                       value={item.assigneeId || ''}
                       onChange={(event) => onActionItemAssigneeChange(item.id, event.target.value || null)}
-                      onBlur={() => onActionItemSave(item.id)}
                       className="h-9 w-full rounded-md border border-slate-200 px-2 text-xs"
                     >
                       <option value="">Unassigned</option>
@@ -630,10 +821,12 @@ const MeetingDetailView = ({
                       type="date"
                       value={item.dueDate ? item.dueDate.slice(0, 10) : ''}
                       onChange={(event) => onActionItemDueDateChange(item.id, event.target.value)}
-                      onBlur={() => onActionItemSave(item.id)}
                       className="h-9 w-full rounded-md border border-slate-200 px-2 text-xs"
                     />
                   </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Assigned to: {participantsById[item.assigneeId] || 'Unassigned'}
+                  </p>
                   <div className="mt-2 text-right">
                     <button
                       type="button"
@@ -650,7 +843,24 @@ const MeetingDetailView = ({
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Meeting Materials</h2>
-            <div className="mt-3 rounded-xl border-2 border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">Meeting documents and supporting files.</p>
+            <div
+              className={`mt-3 rounded-xl border-2 border-dashed p-5 text-center text-sm ${
+                isDragOverMaterialFiles
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 text-slate-500'
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setIsDragOverMaterialFiles(true)
+              }}
+              onDragLeave={() => setIsDragOverMaterialFiles(false)}
+              onDrop={(event) => {
+                event.preventDefault()
+                setIsDragOverMaterialFiles(false)
+                onAddPendingMaterialFiles(event.dataTransfer?.files)
+              }}
+            >
               <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 16V4" />
@@ -660,36 +870,92 @@ const MeetingDetailView = ({
               </div>
               Drag & drop files here or click to browse
             </div>
-            <ul className="mt-3 space-y-1 text-sm text-slate-600">
+            <ul className="mt-3 space-y-2 text-sm text-slate-600">
               {detail.files.map((file) => (
-                <li key={file.id}>{file.fileName}</li>
+                <li
+                  key={file.id}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-700" title={file.fileName}>
+                      {file.fileName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">{formatDateOnly(file.createdAt)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onDownloadMeetingFile(file.id)}
+                    className="ml-3 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Download
+                  </button>
+                </li>
               ))}
-              {detail.files.length === 0 ? <li>No files uploaded</li> : null}
+              {pendingMaterialFiles.map((file, index) => (
+                <li key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between text-blue-700">
+                  <span>{file.name} (pending)</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemovePendingMaterialFile(index)}
+                    className="text-xs font-semibold text-rose-600"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+              {detail.files.length === 0 && pendingMaterialFiles.length === 0 ? <li>No files uploaded</li> : null}
             </ul>
             <input
               type="file"
+              multiple
               className="mt-3 w-full text-sm"
-              onChange={(event) => onUploadMeetingFile(event.target.files?.[0] || null)}
+              onChange={(event) => onAddPendingMaterialFiles(event.target.files)}
             />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Upload Meeting Audio</h2>
-            <div className="mt-3 rounded-xl border-2 border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">
-              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 16V4" />
-                  <path d="m7 9 5-5 5 5" />
-                  <path d="M20 16.5v2A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-2" />
-                </svg>
-              </div>
+            <p className="mt-1 text-sm text-slate-500">Audio recordings for transcription and archive.</p>
+            <div
+              className={`mt-3 rounded-xl border-2 border-dashed p-5 text-center text-sm ${
+                isDragOverAudioFiles
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 text-slate-500'
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setIsDragOverAudioFiles(true)
+              }}
+              onDragLeave={() => setIsDragOverAudioFiles(false)}
+              onDrop={(event) => {
+                event.preventDefault()
+                setIsDragOverAudioFiles(false)
+                onAddPendingAudioFiles(event.dataTransfer?.files)
+              }}
+            >
               Supports MP3, WAV, M4A
             </div>
+            <ul className="mt-3 space-y-1 text-sm text-slate-600">
+              {pendingAudioFiles.map((file, index) => (
+                <li key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between text-blue-700">
+                  <span>{file.name} (pending audio)</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemovePendingAudioFile(index)}
+                    className="text-xs font-semibold text-rose-600"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+              {pendingAudioFiles.length === 0 ? <li>No audio queued</li> : null}
+            </ul>
             <input
               type="file"
+              multiple
               accept=".mp3,.wav,.m4a,audio/*"
               className="mt-3 w-full text-sm"
-              onChange={(event) => onUploadMeetingAudio(event.target.files?.[0] || null)}
+              onChange={(event) => onAddPendingAudioFiles(event.target.files)}
             />
           </div>
         </div>
@@ -697,6 +963,7 @@ const MeetingDetailView = ({
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Attendees</h2>
+            <p className="mt-1 text-sm text-slate-500">People involved in this meeting.</p>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               {detail.participants.map((participant) => (
                 <li key={participant.userId}>{participant.name}</li>
@@ -710,7 +977,7 @@ const MeetingDetailView = ({
   )
 }
 
-const ActionItemsView = ({ actionItems }) => {
+const ActionItemsView = ({ actionItems, onMoveActionItem }) => {
   const grouped = {
     todo: actionItems.filter((item) => item.status === 'todo'),
     in_progress: actionItems.filter((item) => item.status === 'in_progress'),
@@ -752,11 +1019,24 @@ const ActionItemsView = ({ actionItems }) => {
                   </div>
                   <p className="mt-1 text-xs text-slate-500">Due: {formatDateOnly(item.dueDate)}</p>
                   <div className="mt-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs font-semibold ${priorityClassName[item.priority] || 'bg-slate-100 text-slate-700'}`}
-                    >
-                      {item.priority}
-                    </span>
+                    {item.status === 'todo' ? (
+                      <button
+                        type="button"
+                        onClick={() => onMoveActionItem(item.id, 'in_progress')}
+                        className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        Move to In Progress
+                      </button>
+                    ) : null}
+                    {item.status === 'in_progress' ? (
+                      <button
+                        type="button"
+                        onClick={() => onMoveActionItem(item.id, 'completed')}
+                        className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        Move to Done
+                      </button>
+                    ) : null}
                   </div>
                 </article>
               ))}
@@ -771,24 +1051,55 @@ const ActionItemsView = ({ actionItems }) => {
   )
 }
 
-const NotificationsView = ({ notifications }) => (
-  <section>
-    <h1 className="text-5xl font-semibold text-slate-800">Notifications</h1>
-    <p className="mt-2 text-lg text-slate-500">Stay updated with your meetings and action items</p>
+const NotificationsView = ({ notifications }) => {
+  const meetingCreated = notifications.filter((item) => item.type === 'meeting_created')
+  const taskAssigned = notifications.filter((item) => item.type === 'task_assigned')
 
-    <div className="mt-6 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-      {notifications.map((notification) => (
-        <article key={`${notification.type}-${notification.meetingId}-${notification.actionItemId || ''}`} className="rounded-xl border border-slate-200 p-4">
-          <p className="text-sm uppercase tracking-wide text-slate-400">{notification.type}</p>
-          <p className="mt-1 text-lg font-semibold text-slate-700">{notification.title}</p>
+  const renderItems = (items) =>
+    items.length === 0 ? (
+      <p className="text-sm text-slate-500">No new notifications.</p>
+    ) : (
+      items.map((notification) => (
+        <article
+          key={`${notification.type}-${notification.meetingId}-${notification.actionItemId || ''}`}
+          className="rounded-xl border border-slate-200 p-4"
+        >
+          <p className="mt-1 text-base font-semibold text-slate-700">{notification.title}</p>
           <p className="mt-1 text-sm text-slate-500">{notification.detail}</p>
-          <p className="mt-2 text-sm text-slate-500">{formatDateTime(notification.eventAt)}</p>
+          <p className="mt-2 text-xs text-slate-500">{formatDateTime(notification.eventAt)}</p>
         </article>
-      ))}
-      {notifications.length === 0 ? <p className="text-slate-500">No notifications.</p> : null}
-    </div>
-  </section>
-)
+      ))
+    )
+
+  return (
+    <section>
+      <h1 className="text-5xl font-semibold text-slate-800">Notifications</h1>
+      <p className="mt-2 text-lg text-slate-500">Stay updated with your meetings and action items</p>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-700">Meeting Created</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              {meetingCreated.length}
+            </span>
+          </div>
+          <div className="space-y-3">{renderItems(meetingCreated)}</div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-700">Task Assigned</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              {taskAssigned.length}
+            </span>
+          </div>
+          <div className="space-y-3">{renderItems(taskAssigned)}</div>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 const CreateMeetingModal = ({ isOpen, onClose, onCreated, token, users, tags, currentUserId }) => {
   const [form, setForm] = useState({
@@ -966,32 +1277,6 @@ const CreateMeetingModal = ({ isOpen, onClose, onCreated, token, users, tags, cu
 
           <label>
             <span className="text-sm font-semibold text-slate-700">Select your tag</span>
-            <div className="mt-2 flex items-center gap-4 text-xs text-slate-600">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="tag-mode"
-                  checked={tagMode === 'existing'}
-                  onChange={() => {
-                    setTagMode('existing')
-                    setForm((prev) => ({ ...prev, tag: '' }))
-                  }}
-                />
-                Use existing tag
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="tag-mode"
-                  checked={tagMode === 'new'}
-                  onChange={() => {
-                    setTagMode('new')
-                    setForm((prev) => ({ ...prev, tag: '' }))
-                  }}
-                />
-                Create new tag
-              </label>
-            </div>
 
             {tagMode === 'existing' ? (
               <select
@@ -1024,6 +1309,33 @@ const CreateMeetingModal = ({ isOpen, onClose, onCreated, token, users, tags, cu
                 </button>
               </div>
             )}
+
+            <div className="mt-3 flex items-center gap-4 text-xs text-slate-600">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="tag-mode"
+                  checked={tagMode === 'existing'}
+                  onChange={() => {
+                    setTagMode('existing')
+                    setForm((prev) => ({ ...prev, tag: '' }))
+                  }}
+                />
+                Use existing tag
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="tag-mode"
+                  checked={tagMode === 'new'}
+                  onChange={() => {
+                    setTagMode('new')
+                    setForm((prev) => ({ ...prev, tag: '' }))
+                  }}
+                />
+                Create new tag
+              </label>
+            </div>
           </label>
 
           <label className="sm:col-span-2">
@@ -1185,13 +1497,45 @@ const AppShell = ({ token, user, onLogout }) => {
   const [tags, setTags] = useState([])
   const [filesByMeeting, setFilesByMeeting] = useState({})
   const [fileRepoSearch, setFileRepoSearch] = useState('')
-  const [fileRepoMeetingId, setFileRepoMeetingId] = useState('')
+  const [fileRepoMeetingIds, setFileRepoMeetingIds] = useState([])
+  const [activeProjectMeetingId, setActiveProjectMeetingId] = useState('')
   const [repositorySearch, setRepositorySearch] = useState('')
+  const [meetingParticipantsByMeeting, setMeetingParticipantsByMeeting] = useState({})
+  const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
+  const [pendingMeetingAudioFiles, setPendingMeetingAudioFiles] = useState([])
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [successModalMessage, setSuccessModalMessage] = useState('')
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const newNotificationCount = notifications.filter(
+    (item) => item.type === 'meeting_created' || item.type === 'task_assigned'
+  ).length
+
+  const loadParticipantsForMeetings = useCallback(
+    async (meetingList) => {
+      if (!meetingList?.length) {
+        setMeetingParticipantsByMeeting({})
+        return
+      }
+
+      const client = getApiClient(token)
+      const results = await Promise.all(
+        meetingList.map(async (meeting) => {
+          try {
+            const response = await client.get(`/api/meetings/${meeting.id}/participants`)
+            const names = (response.data?.participants || []).map((participant) => participant.name).filter(Boolean)
+            return [meeting.id, names]
+          } catch {
+            return [meeting.id, []]
+          }
+        })
+      )
+
+      setMeetingParticipantsByMeeting(Object.fromEntries(results))
+    },
+    [token]
+  )
 
   const reloadData = useCallback(async () => {
     try {
@@ -1207,7 +1551,9 @@ const AppShell = ({ token, user, onLogout }) => {
       ])
 
       setDashboardData(dashboardRes.data)
-      setMeetings(meetingsRes.data?.meetings || [])
+      const loadedMeetings = meetingsRes.data?.meetings || []
+      setMeetings(loadedMeetings)
+      await loadParticipantsForMeetings(loadedMeetings)
       setActionItems(actionItemsRes.data?.actionItems || [])
       setNotifications(notificationsRes.data?.notifications || [])
       const loadedUsers = usersRes.data?.users || []
@@ -1226,7 +1572,7 @@ const AppShell = ({ token, user, onLogout }) => {
       }
       setErrorMessage(error.response?.data?.error || 'Unable to load dashboard data')
     }
-  }, [token, user.id, onLogout])
+  }, [token, user.id, onLogout, loadParticipantsForMeetings])
 
   useEffect(() => {
     let isCancelled = false
@@ -1249,7 +1595,9 @@ const AppShell = ({ token, user, onLogout }) => {
         }
 
         setDashboardData(dashboardRes.data)
-        setMeetings(meetingsRes.data?.meetings || [])
+        const loadedMeetings = meetingsRes.data?.meetings || []
+        setMeetings(loadedMeetings)
+        await loadParticipantsForMeetings(loadedMeetings)
         setActionItems(actionItemsRes.data?.actionItems || [])
         setNotifications(notificationsRes.data?.notifications || [])
         const loadedUsers = usersRes.data?.users || []
@@ -1279,7 +1627,7 @@ const AppShell = ({ token, user, onLogout }) => {
     return () => {
       isCancelled = true
     }
-  }, [token, user.id, onLogout])
+  }, [token, user.id, onLogout, loadParticipantsForMeetings])
 
   const openMeetingDetail = async (meetingId) => {
     try {
@@ -1297,6 +1645,8 @@ const AppShell = ({ token, user, onLogout }) => {
         actionItems: actionItemsRes.data.actionItems || [],
         files: filesRes.data.files || [],
       })
+      setPendingMeetingMaterialFiles([])
+      setPendingMeetingAudioFiles([])
       setActivePage('repository-detail')
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to open meeting details')
@@ -1372,7 +1722,26 @@ const AppShell = ({ token, user, onLogout }) => {
           return client.put(`/api/action-items/${item.id}`, updatePayload)
         })
       )
+      if (pendingMeetingMaterialFiles.length > 0) {
+        for (const file of pendingMeetingMaterialFiles) {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('description', 'Meeting material upload from detail view')
+          await client.post(`/api/meetings/${selectedMeetingDetail.meeting.id}/files`, formData)
+        }
+      }
+
+      if (pendingMeetingAudioFiles.length > 0) {
+        for (const file of pendingMeetingAudioFiles) {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('description', 'Meeting audio upload from detail view')
+          await client.post(`/api/meetings/${selectedMeetingDetail.meeting.id}/files`, formData)
+        }
+      }
       await reloadData()
+      setPendingMeetingMaterialFiles([])
+      setPendingMeetingAudioFiles([])
       setActivePage('dashboard')
       setSuccessModalMessage('Saved and finalized successfully')
     } catch (error) {
@@ -1487,19 +1856,6 @@ const AppShell = ({ token, user, onLogout }) => {
     }
   }
 
-  const resetMeetingItems = async () => {
-    try {
-      const client = getApiClient(token)
-      await client.post('/api/dev/reset-meeting-items')
-      setSelectedMeetingDetail(null)
-      setActivePage('dashboard')
-      await reloadData()
-      setSuccessModalMessage('Meeting items have been reset')
-    } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'Unable to reset meeting items')
-    }
-  }
-
   const loadFilesForMeeting = useCallback(async (meetingId) => {
     try {
       const client = getApiClient(token)
@@ -1536,22 +1892,38 @@ const AppShell = ({ token, user, onLogout }) => {
   }
 
   const uploadFromRepository = async (file) => {
-    if (!fileRepoMeetingId || !file) {
-      setErrorMessage('Select a meeting first before uploading')
+    const files = Array.from(file || [])
+    if (fileRepoMeetingIds.length === 0 || files.length === 0) {
+      setErrorMessage('Select at least one meeting and file before uploading')
       return
     }
 
     try {
       const client = getApiClient(token)
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('description', 'Uploaded from file repository')
-      await client.post(`/api/meetings/${fileRepoMeetingId}/files`, formData)
-      await loadFilesForMeeting(fileRepoMeetingId)
+      for (const meetingId of fileRepoMeetingIds) {
+        for (const nextFile of files) {
+          const formData = new FormData()
+          formData.append('file', nextFile)
+          formData.append('description', 'Uploaded from file repository')
+          await client.post(`/api/meetings/${meetingId}/files`, formData)
+        }
+        await loadFilesForMeeting(meetingId)
+      }
       await reloadData()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to upload file')
     }
+  }
+
+  const toggleFileRepoMeetingSelection = (meetingId) => {
+    setFileRepoMeetingIds((prev) =>
+      prev.includes(meetingId) ? prev.filter((id) => id !== meetingId) : [...prev, meetingId]
+    )
+  }
+
+  const openProjectFilesPage = (meetingId) => {
+    setActiveProjectMeetingId(meetingId)
+    setActivePage('project-files')
   }
 
   useEffect(() => {
@@ -1560,39 +1932,165 @@ const AppShell = ({ token, user, onLogout }) => {
     }
   }, [activePage, meetings.length, loadAllFilesForMeetings])
 
-  const uploadFileToMeeting = async (file, type = 'material') => {
-    if (!file || !selectedMeetingDetail?.meeting?.id) {
+  const addPendingMeetingMaterialFiles = (incomingFiles) => {
+    const nextFiles = Array.from(incomingFiles || [])
+    if (nextFiles.length === 0) {
       return
     }
 
+    setPendingMeetingMaterialFiles((prev) => [...prev, ...nextFiles])
+  }
+
+  const removePendingMeetingMaterialFile = (indexToRemove) => {
+    setPendingMeetingMaterialFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
+  }
+
+  const addPendingMeetingAudioFiles = (incomingFiles) => {
+    const nextFiles = Array.from(incomingFiles || [])
+    if (nextFiles.length === 0) {
+      return
+    }
+
+    setPendingMeetingAudioFiles((prev) => [...prev, ...nextFiles])
+  }
+
+  const removePendingMeetingAudioFile = (indexToRemove) => {
+    setPendingMeetingAudioFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
+  }
+
+  const moveActionItemStatus = async (actionItemId, nextStatus) => {
     try {
       const client = getApiClient(token)
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append(
-        'description',
-        type === 'audio' ? 'Meeting audio upload from detail view' : 'Meeting material upload'
-      )
-
-      const response = await client.post(
-        `/api/meetings/${selectedMeetingDetail.meeting.id}/files`,
-        formData
-      )
-
-      setSelectedMeetingDetail((prev) =>
-        prev
-          ? {
-              ...prev,
-              files: [response.data?.file, ...(prev.files || [])].filter(Boolean),
-            }
-          : prev
-      )
-      setSuccessModalMessage('File uploaded successfully')
-      await loadFilesForMeeting(selectedMeetingDetail.meeting.id)
+      await client.put(`/api/action-items/${actionItemId}`, { status: nextStatus })
       await reloadData()
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'Unable to upload file')
+      setErrorMessage(error.response?.data?.error || 'Unable to update action item status')
     }
+  }
+
+  const exportMeetingPreviewPdf = () => {
+    if (!selectedMeetingDetail) {
+      return
+    }
+
+    const meeting = selectedMeetingDetail.meeting
+    const participants = selectedMeetingDetail.participants || []
+    const actionItems = selectedMeetingDetail.actionItems || []
+    const participantNameById = Object.fromEntries(participants.map((p) => [p.userId, p.name]))
+    const logoUrl = `${window.location.origin}/logo.png`
+
+    const actionItemsRows =
+      actionItems.length === 0
+        ? '<tr><td colspan="3" style="padding:12px;border:1px solid #E2E8F0;color:#64748B">No action items</td></tr>'
+        : actionItems
+            .map(
+              (item) => `
+                <tr>
+                  <td style="padding:10px;border:1px solid #E2E8F0;vertical-align:top;">${escapeHtml(item.title || '-')}</td>
+                  <td style="padding:10px;border:1px solid #E2E8F0;vertical-align:top;">${escapeHtml(participantNameById[item.assigneeId] || 'Unassigned')}</td>
+                  <td style="padding:10px;border:1px solid #E2E8F0;vertical-align:top;">${escapeHtml(
+                    item.dueDate ? formatDateOnly(item.dueDate) : 'No due date'
+                  )}</td>
+                </tr>
+              `
+            )
+            .join('')
+
+    const participantsHtml =
+      participants.length === 0
+        ? '<p style="margin:8px 0 0;color:#64748B;">No attendees</p>'
+        : `<ul style="margin:8px 0 0 18px;padding:0;">${participants
+            .map((p) => `<li style="margin:0 0 6px;">${escapeHtml(p.name)}</li>`)
+            .join('')}</ul>`
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=900')
+    if (!printWindow) {
+      setErrorMessage('Unable to open print window. Please allow pop-ups and try again.')
+      return
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(meeting.title)} - Meeting Report</title>
+          <style>
+            @page { size: A4; margin: 20mm; }
+            body { font-family: Arial, sans-serif; color: #0F172A; }
+            .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 20px; }
+            .logo { height: 52px; width: auto; }
+            .title { font-size: 26px; font-weight: 700; margin: 0; }
+            .subtitle { margin-top: 4px; color: #475569; font-size: 13px; }
+            .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+            .meta-card { border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 12px; }
+            .meta-label { font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 0.04em; }
+            .meta-value { font-size: 13px; margin-top: 4px; }
+            .section { margin-top: 18px; }
+            .section h2 { margin: 0; font-size: 17px; }
+            .section p { margin-top: 8px; font-size: 13px; line-height: 1.55; color: #1E293B; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+            th { text-align: left; padding: 10px; border: 1px solid #E2E8F0; background: #F8FAFC; }
+            .footer { margin-top: 26px; font-size: 11px; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <header class="header">
+            <div>
+              <h1 class="title">${escapeHtml(meeting.title)}</h1>
+              <div class="subtitle">Meeting Report</div>
+            </div>
+            <img class="logo" src="${logoUrl}" alt="Logo" />
+          </header>
+
+          <section class="meta">
+            <div class="meta-card"><div class="meta-label">Date & Time</div><div class="meta-value">${escapeHtml(
+              formatDateTime(meeting.startsAt)
+            )}</div></div>
+            <div class="meta-card"><div class="meta-label">Location</div><div class="meta-value">${escapeHtml(
+              meeting.location || '-'
+            )}</div></div>
+            <div class="meta-card"><div class="meta-label">Facilitator</div><div class="meta-value">${escapeHtml(
+              meeting.facilitator || '-'
+            )}</div></div>
+            <div class="meta-card"><div class="meta-label">Recorder</div><div class="meta-value">${escapeHtml(
+              meeting.recorder || '-'
+            )}</div></div>
+          </section>
+
+          <section class="section">
+            <h2>Agenda</h2>
+            <p>${formatMultilineHtml(meeting.description)}</p>
+          </section>
+          <section class="section">
+            <h2>Key Discussions</h2>
+            <p>${formatMultilineHtml(meeting.keyDiscussions)}</p>
+          </section>
+          <section class="section">
+            <h2>Meeting Minutes</h2>
+            <p>${formatMultilineHtml(meeting.meetingMinutes)}</p>
+          </section>
+          <section class="section">
+            <h2>Attendees</h2>
+            ${participantsHtml}
+          </section>
+          <section class="section">
+            <h2>Action Items</h2>
+            <table>
+              <thead>
+                <tr><th>Task</th><th>Assigned To</th><th>Due Date</th></tr>
+              </thead>
+              <tbody>${actionItemsRows}</tbody>
+            </table>
+          </section>
+          <footer class="footer">Generated from Meeting Manager on ${escapeHtml(formatDateTime(new Date().toISOString()))}</footer>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
   }
 
   return (
@@ -1602,6 +2100,7 @@ const AppShell = ({ token, user, onLogout }) => {
         onSelect={setActivePage}
         onLogout={onLogout}
         currentUser={user}
+        notificationCount={newNotificationCount}
       />
 
       <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
@@ -1615,13 +2114,13 @@ const AppShell = ({ token, user, onLogout }) => {
           <DashboardView
             data={dashboardData}
             onOpenCreateModal={() => setIsCreateModalOpen(true)}
-            onResetMeetingItems={resetMeetingItems}
             onOpenMeeting={openMeetingDetail}
           />
         ) : null}
         {activePage === 'repository' ? (
           <RepositoryView
             meetings={meetings}
+            meetingParticipantsByMeeting={meetingParticipantsByMeeting}
             search={repositorySearch}
             onSearch={setRepositorySearch}
             onOpenMeeting={openMeetingDetail}
@@ -1631,13 +2130,23 @@ const AppShell = ({ token, user, onLogout }) => {
           <FileRepositoryView
             meetings={meetings}
             filesByMeeting={filesByMeeting}
+            currentUserId={user.id}
+            meetingParticipantsByMeeting={meetingParticipantsByMeeting}
             search={fileRepoSearch}
             onSearch={setFileRepoSearch}
-            selectedMeetingId={fileRepoMeetingId}
-            onSelectMeeting={setFileRepoMeetingId}
+            selectedMeetingIds={fileRepoMeetingIds}
+            onToggleMeetingSelection={toggleFileRepoMeetingSelection}
             onUploadFile={uploadFromRepository}
-            onOpenFile={openUploadedFile}
-            onLoadAllFiles={loadAllFilesForMeetings}
+            onDownloadFile={openUploadedFile}
+            onOpenProjectFilesPage={openProjectFilesPage}
+          />
+        ) : null}
+        {activePage === 'project-files' ? (
+          <ProjectFilesView
+            meeting={meetings.find((meeting) => meeting.id === activeProjectMeetingId) || null}
+            files={filesByMeeting[activeProjectMeetingId] || []}
+            onBack={() => setActivePage('file-repository')}
+            onDownloadFile={openUploadedFile}
           />
         ) : null}
         {activePage === 'repository-detail' ? (
@@ -1652,12 +2161,19 @@ const AppShell = ({ token, user, onLogout }) => {
             onActionItemAssigneeChange={editActionItemAssignee}
             onActionItemDueDateChange={editActionItemDueDate}
             onActionItemRemove={removeActionItem}
-            onUploadMeetingFile={(file) => uploadFileToMeeting(file, 'material')}
-            onUploadMeetingAudio={(file) => uploadFileToMeeting(file, 'audio')}
+            pendingMaterialFiles={pendingMeetingMaterialFiles}
+            pendingAudioFiles={pendingMeetingAudioFiles}
+            onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
+            onRemovePendingMaterialFile={removePendingMeetingMaterialFile}
+            onAddPendingAudioFiles={addPendingMeetingAudioFiles}
+            onRemovePendingAudioFile={removePendingMeetingAudioFile}
+            onDownloadMeetingFile={openUploadedFile}
             onPreview={() => setIsPreviewOpen(true)}
           />
         ) : null}
-        {activePage === 'action-items' ? <ActionItemsView actionItems={actionItems} /> : null}
+        {activePage === 'action-items' ? (
+          <ActionItemsView actionItems={actionItems} onMoveActionItem={moveActionItemStatus} />
+        ) : null}
         {activePage === 'notifications' ? (
           <NotificationsView notifications={notifications} />
         ) : null}
@@ -1696,13 +2212,22 @@ const AppShell = ({ token, user, onLogout }) => {
           <div className="w-full max-w-4xl rounded-2xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-800">Meeting Preview (PDF Style)</h3>
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(false)}
-                className="rounded-lg border border-slate-200 px-3 py-1 text-sm"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exportMeetingPreviewPdf}
+                  className="rounded-lg bg-blue-600 px-3 py-1 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Export PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="rounded-lg border border-slate-200 px-3 py-1 text-sm"
+                >
+                  Close
+                </button>
+              </div>
             </div>
             <div className="max-h-[75vh] overflow-auto rounded-xl bg-slate-100 p-5">
               <article className="mx-auto w-full max-w-[794px] rounded bg-white p-8 shadow">
@@ -1718,7 +2243,12 @@ const AppShell = ({ token, user, onLogout }) => {
                 <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
                   {selectedMeetingDetail.actionItems.map((item) => (
                     <li key={item.id}>
-                      {item.title} - {item.dueDate ? formatDateOnly(item.dueDate) : 'No due date'}
+                      {item.title}
+                      {' - '}
+                      {selectedMeetingDetail.participants.find((participant) => participant.userId === item.assigneeId)
+                        ?.name || 'Unassigned'}
+                      {' - '}
+                      {item.dueDate ? formatDateOnly(item.dueDate) : 'No due date'}
                     </li>
                   ))}
                 </ul>

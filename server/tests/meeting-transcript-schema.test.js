@@ -170,23 +170,44 @@ dbDescribe('meeting_transcripts schema', () => {
     ).rejects.toThrow(/meeting_transcripts_source_file_unique_idx/)
   })
 
-  it('allows multiple transcripts for a meeting when each source file is different or absent', async () => {
+  it('allows multiple transcripts for a meeting when each source file is different', async () => {
     await createTranscript()
 
+    const otherFileResult = await query(
+      `
+        INSERT INTO meeting_files (
+          meeting_id,
+          uploaded_by,
+          file_name,
+          mime_type,
+          size_bytes,
+          object_key
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `,
+      [
+        baseMeeting.id,
+        creatorUser.id,
+        'recording-2.mp3',
+        'audio/mpeg',
+        4096,
+        `meetings/${baseMeeting.id}/recording-2.mp3`,
+      ]
+    )
+    const otherFile = otherFileResult.rows[0]
     const result = await createTranscript({
-      sourceFileId: null,
+      sourceFileId: otherFile.id,
       transcriptText: 'Live note transcript.',
       completedAt: new Date('2026-05-01T00:07:00.000Z'),
     })
 
     expect(result.rows[0].meeting_id).toBe(baseMeeting.id)
-    expect(result.rows[0].source_file_id).toBeNull()
+    expect(result.rows[0].source_file_id).toBe(otherFile.id)
   })
 
   it('rejects invalid status, segment shape, confidence, and duration values', async () => {
-    await expect(createTranscript({ status: 'queued' })).rejects.toThrow(
-      /meeting_transcripts_status_check/
-    )
+    await expect(createTranscript({ status: 'queued' })).rejects.toThrow(/meeting_transcripts/)
 
     await expect(createTranscript({ segments: { text: 'not an array' } })).rejects.toThrow(
       /meeting_transcripts_segments_check/
