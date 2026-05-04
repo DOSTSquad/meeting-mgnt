@@ -36,11 +36,7 @@ authRouter.post(
     body('email')
       .trim()
       .notEmpty()
-      .withMessage('Email is required')
-      .bail()
-      .isEmail()
-      .withMessage('Email must be a valid email address')
-      .normalizeEmail(),
+      .withMessage('Username or email is required'),
     body('password').notEmpty().withMessage('Password is required'),
   ],
   handleValidationErrors,

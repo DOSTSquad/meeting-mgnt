@@ -57,6 +57,39 @@ meetingRouter.post(
       .trim()
       .isLength({ max: 100 })
       .withMessage('Department must be at most 100 characters'),
+    body('facilitator')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Facilitator must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Facilitator must be at most 100 characters'),
+    body('recorder')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Recorder must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Recorder must be at most 100 characters'),
+    body('keyDiscussions')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('keyDiscussions must be a string'),
+    body('meetingMinutes')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('meetingMinutes must be a string'),
+    body('decisions').optional({ nullable: true }).isString().withMessage('decisions must be a string'),
+    body('tag')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('tag must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('tag must be at most 100 characters'),
   ],
   handleValidationErrors,
   create
@@ -152,6 +185,39 @@ meetingRouter.put(
       .trim()
       .isLength({ max: 100 })
       .withMessage('Department must be at most 100 characters'),
+    body('facilitator')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Facilitator must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Facilitator must be at most 100 characters'),
+    body('recorder')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Recorder must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Recorder must be at most 100 characters'),
+    body('keyDiscussions')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('keyDiscussions must be a string'),
+    body('meetingMinutes')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('meetingMinutes must be a string'),
+    body('decisions').optional({ nullable: true }).isString().withMessage('decisions must be a string'),
+    body('tag')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('tag must be a string')
+      .bail()
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('tag must be at most 100 characters'),
   ],
   handleValidationErrors,
   update

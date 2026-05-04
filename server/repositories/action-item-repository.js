@@ -70,6 +70,36 @@ export const listByMeeting = async (meetingId, { status, assigneeId } = {}) => {
   return result.rows.map(mapActionItem)
 }
 
+export const listByAssignee = async (assigneeId, { status, priority } = {}) => {
+  const filters = ['assignee_id = $1']
+  const params = [assigneeId]
+  let paramIndex = 2
+
+  if (status) {
+    filters.push(`status = $${paramIndex}`)
+    params.push(status)
+    paramIndex += 1
+  }
+
+  if (priority) {
+    filters.push(`priority = $${paramIndex}`)
+    params.push(priority)
+    paramIndex += 1
+  }
+
+  const result = await query(
+    `
+      SELECT ${ACTION_ITEM_COLUMNS}
+      FROM action_items
+      WHERE ${filters.join(' AND ')}
+      ORDER BY due_date ASC NULLS LAST, created_at DESC
+    `,
+    params
+  )
+
+  return result.rows.map(mapActionItem)
+}
+
 export const findById = async (id) => {
   const result = await query(
     `

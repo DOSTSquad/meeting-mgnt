@@ -1,18 +1,25 @@
 import { query } from '../db/postgres.js'
 
 const MEETING_COLUMNS = `
-  id,
-  title,
-  description,
-  starts_at,
-  ends_at,
-  timezone_name,
-  location,
-  status,
-  department,
-  created_by,
-  created_at,
-  updated_at
+  m.id,
+  m.title,
+  m.description,
+  m.starts_at,
+  m.ends_at,
+  m.timezone_name,
+  m.location,
+  m.status,
+  m.department,
+  m.facilitator,
+  m.recorder,
+  m.key_discussions,
+  m.meeting_minutes,
+  m.decisions,
+  m.tag_id,
+  t.name AS tag_name,
+  m.created_by,
+  m.created_at,
+  m.updated_at
 `
 
 const mapMeeting = (row) => {
@@ -30,6 +37,13 @@ const mapMeeting = (row) => {
     location: row.location,
     status: row.status,
     department: row.department,
+    facilitator: row.facilitator,
+    recorder: row.recorder,
+    keyDiscussions: row.key_discussions,
+    meetingMinutes: row.meeting_minutes,
+    decisions: row.decisions,
+    tagId: row.tag_id ?? null,
+    tag: row.tag_name ?? null,
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -45,16 +59,22 @@ export const createMeeting = async ({
   location = null,
   status = 'scheduled',
   department = null,
+  facilitator = null,
+  recorder = null,
+  keyDiscussions = null,
+  meetingMinutes = null,
+  decisions = null,
+  tagId = null,
   createdBy,
 }) => {
   const result = await query(
     `
       INSERT INTO meetings (
         title, description, starts_at, ends_at, timezone_name,
-        location, status, department, created_by
+        location, status, department, facilitator, recorder, key_discussions, meeting_minutes, decisions, tag_id, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING ${MEETING_COLUMNS}
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      RETURNING id
     `,
     [
       title.trim(),
@@ -65,19 +85,26 @@ export const createMeeting = async ({
       location,
       status,
       department,
+      facilitator,
+      recorder,
+      keyDiscussions,
+      meetingMinutes,
+      decisions,
+      tagId,
       createdBy,
     ]
   )
 
-  return mapMeeting(result.rows[0])
+  return findMeetingById(result.rows[0].id)
 }
 
 export const findMeetingById = async (id) => {
   const result = await query(
     `
       SELECT ${MEETING_COLUMNS}
-      FROM meetings
-      WHERE id = $1
+      FROM meetings m
+      LEFT JOIN tags t ON t.id = m.tag_id
+      WHERE m.id = $1
       LIMIT 1
     `,
     [id]
@@ -95,6 +122,12 @@ const FIELD_TO_COLUMN = {
   location: 'location',
   status: 'status',
   department: 'department',
+  facilitator: 'facilitator',
+  recorder: 'recorder',
+  keyDiscussions: 'key_discussions',
+  meetingMinutes: 'meeting_minutes',
+  decisions: 'decisions',
+  tagId: 'tag_id',
 }
 
 export const updateMeeting = async (id, updates) => {
@@ -126,12 +159,12 @@ export const updateMeeting = async (id, updates) => {
       UPDATE meetings
       SET ${setClauses.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING ${MEETING_COLUMNS}
+      RETURNING id
     `,
     params
   )
 
-  return mapMeeting(result.rows[0])
+  return findMeetingById(result.rows[0]?.id)
 }
 
 export const deleteMeeting = async (id) => {
@@ -182,24 +215,24 @@ export const listMeetings = async ({
   const filters = []
 
   if (from) {
-    filters.push({ column: 'starts_at', op: '>=', value: from })
+    filters.push({ column: 'm.starts_at', op: '>=', value: from })
   }
 
   if (to) {
-    filters.push({ column: 'starts_at', op: '<=', value: to })
+    filters.push({ column: 'm.starts_at', op: '<=', value: to })
   }
 
   if (status) {
-    filters.push({ column: 'status', op: '=', value: status })
+    filters.push({ column: 'm.status', op: '=', value: status })
   }
 
   if (department) {
-    filters.push({ column: 'department', op: '=', value: department })
+    filters.push({ column: 'm.department', op: '=', value: department })
   }
 
   if (q) {
     filters.push({
-      sql: `to_tsvector('english', title || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', $?)`,
+      sql: `to_tsvector('english', m.title || ' ' || COALESCE(m.description, '')) @@ plainto_tsquery('english', $?)`,
       value: q,
     })
   }
@@ -209,7 +242,7 @@ export const listMeetings = async ({
   const countResult = await query(
     `
       SELECT COUNT(*)::int AS total
-      FROM meetings
+      FROM meetings m
       ${whereSql}
     `,
     params
@@ -223,9 +256,10 @@ export const listMeetings = async ({
   const rowsResult = await query(
     `
       SELECT ${MEETING_COLUMNS}
-      FROM meetings
+      FROM meetings m
+      LEFT JOIN tags t ON t.id = m.tag_id
       ${whereSql}
-      ORDER BY starts_at ASC, id ASC
+      ORDER BY m.starts_at ASC, m.id ASC
       LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
     `,
     [...params, limit, offset]

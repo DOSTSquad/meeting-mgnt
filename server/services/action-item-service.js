@@ -4,6 +4,7 @@ import { findUsersByIds } from '../repositories/user-repository.js'
 import {
   findById,
   insert,
+  listByAssignee,
   listByMeeting,
   remove as removeActionItemRow,
   updateOne,
@@ -57,6 +58,17 @@ const assertAssigneeExists = async (assigneeId) => {
   }
 }
 
+const assertAssigneeIsParticipant = (assigneeId, participants) => {
+  if (!assigneeId) {
+    return
+  }
+
+  const isParticipant = participants.some((participant) => participant.userId === assigneeId)
+  if (!isParticipant) {
+    throw createHttpError('assigneeId must belong to a meeting participant', 400)
+  }
+}
+
 export const listActionItems = async (meetingId, { status, assigneeId } = {}, callerId) => {
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listParticipantsByMeeting(meetingId)
@@ -67,6 +79,24 @@ export const listActionItems = async (meetingId, { status, assigneeId } = {}, ca
   }
 
   const actionItems = await listByMeeting(meetingId, { status, assigneeId })
+
+  return { actionItems }
+}
+
+export const listMyActionItems = async (callerId, { status, priority } = {}) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
+    throw createHttpError(`Invalid status: ${status}`, 400)
+  }
+
+  if (priority !== undefined && !ALLOWED_PRIORITIES.includes(priority)) {
+    throw createHttpError(`Invalid priority: ${priority}`, 400)
+  }
+
+  const actionItems = await listByAssignee(callerId, { status, priority })
 
   return { actionItems }
 }
@@ -102,6 +132,7 @@ export const createActionItem = async (meetingId, input, callerId) => {
 
   if (assigneeId !== undefined && assigneeId !== null) {
     await assertAssigneeExists(assigneeId)
+    assertAssigneeIsParticipant(assigneeId, participants)
   }
 
   const actionItem = await insert({
@@ -170,6 +201,7 @@ export const updateActionItem = async (itemId, input, callerId) => {
   if (assigneeId !== undefined) {
     if (assigneeId !== null) {
       await assertAssigneeExists(assigneeId)
+      assertAssigneeIsParticipant(assigneeId, participants)
     }
 
     updates.assigneeId = assigneeId

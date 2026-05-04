@@ -61,6 +61,28 @@ export const findUserByEmail = async (email) => {
   return mapUser(result.rows[0])
 }
 
+export const findUserByLoginIdentifier = async (identifier) => {
+  const trimmed = identifier.trim()
+  const isEmail = trimmed.includes('@')
+
+  const result = await query(
+    `
+      SELECT ${USER_COLUMNS}
+      FROM users
+      WHERE ${
+        isEmail
+          ? 'email = $1'
+          : "LOWER(split_part(email, '@', 1)) = LOWER($1)"
+      }
+      ORDER BY created_at ASC
+      LIMIT 1
+    `,
+    [isEmail ? normalizeEmail(trimmed) : trimmed]
+  )
+
+  return mapUser(result.rows[0])
+}
+
 export const findUserById = async (id) => {
   const result = await query(
     `
@@ -90,4 +112,23 @@ export const findUsersByIds = async (ids) => {
   )
 
   return result.rows.map(mapUser)
+}
+
+export const listUsers = async () => {
+  const result = await query(
+    `
+      SELECT id, name, email, role, department, created_at
+      FROM users
+      ORDER BY name ASC, email ASC
+    `
+  )
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    department: row.department,
+    createdAt: row.created_at.toISOString(),
+  }))
 }

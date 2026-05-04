@@ -1,7 +1,12 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-import { createUser, findUserByEmail, findUserById } from '../repositories/user-repository.js'
+import {
+  createUser,
+  findUserByEmail,
+  findUserById,
+  findUserByLoginIdentifier,
+} from '../repositories/user-repository.js'
 
 const SALT_ROUNDS = 10
 
@@ -74,14 +79,14 @@ export const registerUser = async ({ name, email, password }) => {
 
 export const loginUser = async ({ email, password }) => {
   if (!email || !email.trim()) {
-    throw createHttpError('Email is required', 400)
+    throw createHttpError('Username or email is required', 400)
   }
 
   if (!password) {
     throw createHttpError('Password is required', 400)
   }
 
-  const user = await findUserByEmail(email)
+  const user = await findUserByLoginIdentifier(email)
 
   if (!user) {
     throw createHttpError('Invalid email or password', 401)

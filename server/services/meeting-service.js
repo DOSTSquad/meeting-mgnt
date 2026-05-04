@@ -5,7 +5,9 @@ import {
   listMeetings,
   updateMeeting,
 } from '../repositories/meeting-repository.js'
+import { bulkUpsert } from '../repositories/participant-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
+import { createTag, findTagByName } from '../repositories/tag-repository.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -73,6 +75,12 @@ export const createMeetingForUser = async (input, userId) => {
     location,
     status,
     department,
+    facilitator,
+    recorder,
+    keyDiscussions,
+    meetingMinutes,
+    decisions,
+    tag,
   } = input
 
   if (!title || !title.trim()) {
@@ -90,7 +98,13 @@ export const createMeetingForUser = async (input, userId) => {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
 
-  return createMeeting({
+  let tagId = null
+  if (tag !== undefined && tag !== null && String(tag).trim()) {
+    const existingTag = await findTagByName(String(tag))
+    tagId = existingTag ? existingTag.id : (await createTag(String(tag))).id
+  }
+
+  const meeting = await createMeeting({
     title,
     description: description ?? null,
     startsAt: toDate(startsAt),
@@ -99,8 +113,23 @@ export const createMeetingForUser = async (input, userId) => {
     location: location ?? null,
     status: status ?? 'scheduled',
     department: department ?? null,
+    facilitator: facilitator ?? null,
+    recorder: recorder ?? null,
+    keyDiscussions: keyDiscussions ?? null,
+    meetingMinutes: meetingMinutes ?? null,
+    decisions: decisions ?? null,
+    tagId,
     createdBy: userId,
   })
+
+  await bulkUpsert({
+    meetingId: meeting.id,
+    userIds: [userId],
+    role: 'organizer',
+    addedBy: userId,
+  })
+
+  return meeting
 }
 
 export const getMeetingById = async (id) => {
@@ -140,6 +169,12 @@ export const updateMeetingById = async (id, input) => {
     'location',
     'status',
     'department',
+    'facilitator',
+    'recorder',
+    'keyDiscussions',
+    'meetingMinutes',
+    'decisions',
+    'tag',
   ]) {
     if (input[field] !== undefined) {
       updates[field] = input[field]
@@ -148,6 +183,17 @@ export const updateMeetingById = async (id, input) => {
 
   if (updates.timezoneName !== undefined) {
     validateTimezone(updates.timezoneName)
+  }
+
+  if (updates.tag !== undefined) {
+    const tagValue = updates.tag
+    if (tagValue === null || String(tagValue).trim() === '') {
+      updates.tagId = null
+    } else {
+      const existingTag = await findTagByName(String(tagValue))
+      updates.tagId = existingTag ? existingTag.id : (await createTag(String(tagValue))).id
+    }
+    delete updates.tag
   }
 
   if (updates.status !== undefined) {

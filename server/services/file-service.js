@@ -10,6 +10,7 @@ import {
 } from '../repositories/file-repository.js'
 import {
   BUCKET_FILES,
+  getObject,
   presignedGetObject,
   putObject,
   removeObject,
@@ -149,4 +150,20 @@ export const deleteFileById = async (fileId, callerId) => {
 
   await deleteFile(fileId)
   await removeObject(BUCKET_FILES, fileRow.objectKey)
+}
+
+export const getDownloadStream = async (fileId, callerId) => {
+  const fileRow = await findFileById(fileId)
+
+  if (!fileRow) {
+    throw createHttpError('File not found', 404)
+  }
+
+  const meeting = await loadMeetingOrThrow(fileRow.meetingId)
+  const participants = await listByMeeting(fileRow.meetingId)
+  assertIsParticipant(meeting, callerId, participants)
+
+  const stream = await getObject(BUCKET_FILES, fileRow.objectKey)
+
+  return { stream, file: fileRow }
 }
