@@ -16,6 +16,8 @@ const MEETING_COLUMNS = `
   m.updated_at
 `
 
+const MEETING_FILE_COUNT_COLUMN = 'COUNT(mf.id)::int AS file_count'
+
 const mapMeeting = (row) => {
   if (!row) {
     return null
@@ -32,6 +34,7 @@ const mapMeeting = (row) => {
     status: row.status,
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
+    fileCount: Number(row.file_count ?? 0),
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -58,17 +61,7 @@ export const createMeeting = async ({
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `,
-    [
-      title.trim(),
-      description,
-      startsAt,
-      endsAt,
-      timezoneName,
-      location,
-      status,
-      tagId,
-      createdBy,
-    ]
+    [title.trim(), description, startsAt, endsAt, timezoneName, location, status, tagId, createdBy]
   )
 
   return findMeetingById(result.rows[0].id)
@@ -77,10 +70,12 @@ export const createMeeting = async ({
 export const findMeetingById = async (id) => {
   const result = await query(
     `
-      SELECT ${MEETING_COLUMNS}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
+      LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
       WHERE m.id = $1
+      GROUP BY m.id, t.id
       LIMIT 1
     `,
     [id]
@@ -173,15 +168,7 @@ const buildWhereClause = (filters) => {
   }
 }
 
-export const listMeetings = async ({
-  userId,
-  page = 1,
-  limit = 20,
-  from,
-  to,
-  status,
-  q,
-} = {}) => {
+export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, status, q } = {}) => {
   const filters = []
 
   if (userId) {
@@ -228,10 +215,12 @@ export const listMeetings = async ({
 
   const rowsResult = await query(
     `
-      SELECT ${MEETING_COLUMNS}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
+      LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
       ${whereSql}
+      GROUP BY m.id, t.id
       ORDER BY m.starts_at ASC, m.id ASC
       LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
     `,

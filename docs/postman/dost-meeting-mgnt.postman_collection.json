@@ -145,7 +145,7 @@
                 { "key": "limit", "value": "20" }
               ]
             },
-            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params."
+            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, and `fileCount`; repository clients should group by meeting tag while keeping files attached to their meeting."
           }
         },
         {
@@ -209,7 +209,8 @@
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
-            }
+            },
+            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, and `fileCount`."
           }
         },
         {

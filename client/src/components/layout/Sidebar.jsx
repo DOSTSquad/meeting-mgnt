@@ -3,7 +3,6 @@ import { menuItems } from '../../constants/navigation.js'
 const navMarks = {
   dashboard: 'D',
   repository: 'R',
-  'file-repository': 'F',
   'action-items': 'A',
 }
 
@@ -20,7 +19,7 @@ export const Sidebar = ({ activePage, onSelect }) => (
           <button
             key={item.id}
             type="button"
-            onClick={() => onSelect(item.id)}
+            onClick={() => onSelect(item)}
             className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition ${
               activePage === item.id
                 ? 'bg-slate-800 text-white'

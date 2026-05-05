@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import { SuccessModal } from './components/feedback/SuccessModal.jsx'
 import { Sidebar } from './components/layout/Sidebar.jsx'
@@ -7,27 +8,33 @@ import { getApiClient } from './lib/apiClient.js'
 import { ActionItemsView } from './features/action-items/ActionItemsView.jsx'
 import { LoginView } from './features/auth/LoginView.jsx'
 import { DashboardView } from './features/dashboard/DashboardView.jsx'
-import { FileRepositoryView } from './features/files/FileRepositoryView.jsx'
-import { ProjectFilesView } from './features/files/ProjectFilesView.jsx'
 import { CreateMeetingModal } from './features/meetings/CreateMeetingModal.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { MeetingPreviewModal } from './features/meetings/MeetingPreviewModal.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
 
+const getActivePage = (pathname) => {
+  if (pathname.startsWith('/meetings')) {
+    return 'repository'
+  }
+
+  if (pathname.startsWith('/action-items')) {
+    return 'action-items'
+  }
+
+  return 'dashboard'
+}
+
 const AppShell = ({ token, user, onLogout }) => {
-  const [activePage, setActivePage] = useState('dashboard')
+  const location = useLocation()
+  const navigate = useNavigate()
   const [dashboardData, setDashboardData] = useState(null)
   const [meetings, setMeetings] = useState([])
   const [actionItems, setActionItems] = useState([])
   const [notifications, setNotifications] = useState([])
   const [users, setUsers] = useState([])
   const [tags, setTags] = useState([])
-  const [filesByMeeting, setFilesByMeeting] = useState({})
-  const [fileRepoSearch, setFileRepoSearch] = useState('')
-  const [fileRepoMeetingIds, setFileRepoMeetingIds] = useState([])
-  const [activeProjectMeetingId, setActiveProjectMeetingId] = useState('')
   const [repositorySearch, setRepositorySearch] = useState('')
-  const [meetingParticipantsByMeeting, setMeetingParticipantsByMeeting] = useState({})
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
   const [pendingMeetingAudioFiles, setPendingMeetingAudioFiles] = useState([])
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -38,52 +45,23 @@ const AppShell = ({ token, user, onLogout }) => {
   const newNotificationCount = notifications.filter(
     (item) => item.type === 'meeting_created' || item.type === 'task_assigned'
   ).length
-
-  const loadParticipantsForMeetings = useCallback(
-    async (meetingList) => {
-      if (!meetingList?.length) {
-        setMeetingParticipantsByMeeting({})
-        return
-      }
-
-      const client = getApiClient(token)
-      const results = await Promise.all(
-        meetingList.map(async (meeting) => {
-          try {
-            const response = await client.get(`/api/meetings/${meeting.id}/participants`)
-            const names = (response.data?.participants || [])
-              .map((participant) => participant.name)
-              .filter(Boolean)
-            return [meeting.id, names]
-          } catch {
-            return [meeting.id, []]
-          }
-        })
-      )
-
-      setMeetingParticipantsByMeeting(Object.fromEntries(results))
-    },
-    [token]
-  )
+  const activePage = getActivePage(location.pathname)
+  const activeMeetingId = location.pathname.match(/^\/meetings\/([^/]+)$/)?.[1] ?? null
 
   const reloadData = useCallback(async () => {
     try {
       const client = getApiClient(token)
 
-      const [dashboardRes, meetingsRes, actionItemsRes, notificationsRes, usersRes, tagsRes] =
-        await Promise.all([
-          client.get('/api/dashboard'),
-          client.get('/api/meetings', { params: { limit: 100 } }),
-          client.get('/api/action-items'),
-          client.get('/api/notifications'),
-          client.get('/api/users'),
-          client.get('/api/tags'),
-        ])
+      const dashboardRes = await client.get('/api/dashboard')
+      const meetingsRes = await client.get('/api/meetings', { params: { limit: 100 } })
+      const actionItemsRes = await client.get('/api/action-items')
+      const notificationsRes = await client.get('/api/notifications')
+      const usersRes = await client.get('/api/users')
+      const tagsRes = await client.get('/api/tags')
 
       setDashboardData(dashboardRes.data)
       const loadedMeetings = meetingsRes.data?.meetings || []
       setMeetings(loadedMeetings)
-      await loadParticipantsForMeetings(loadedMeetings)
       setActionItems(actionItemsRes.data?.actionItems || [])
       setNotifications(notificationsRes.data?.notifications || [])
       const loadedUsers = usersRes.data?.users || []
@@ -101,7 +79,7 @@ const AppShell = ({ token, user, onLogout }) => {
       }
       setErrorMessage(error.response?.data?.error || 'Unable to load dashboard data')
     }
-  }, [token, user.id, onLogout, loadParticipantsForMeetings])
+  }, [token, user.id, onLogout])
 
   useEffect(() => {
     let isCancelled = false
@@ -110,15 +88,12 @@ const AppShell = ({ token, user, onLogout }) => {
       try {
         const client = getApiClient(token)
 
-        const [dashboardRes, meetingsRes, actionItemsRes, notificationsRes, usersRes, tagsRes] =
-          await Promise.all([
-            client.get('/api/dashboard'),
-            client.get('/api/meetings', { params: { limit: 100 } }),
-            client.get('/api/action-items'),
-            client.get('/api/notifications'),
-            client.get('/api/users'),
-            client.get('/api/tags'),
-          ])
+        const dashboardRes = await client.get('/api/dashboard')
+        const meetingsRes = await client.get('/api/meetings', { params: { limit: 100 } })
+        const actionItemsRes = await client.get('/api/action-items')
+        const notificationsRes = await client.get('/api/notifications')
+        const usersRes = await client.get('/api/users')
+        const tagsRes = await client.get('/api/tags')
 
         if (isCancelled) {
           return
@@ -127,7 +102,6 @@ const AppShell = ({ token, user, onLogout }) => {
         setDashboardData(dashboardRes.data)
         const loadedMeetings = meetingsRes.data?.meetings || []
         setMeetings(loadedMeetings)
-        await loadParticipantsForMeetings(loadedMeetings)
         setActionItems(actionItemsRes.data?.actionItems || [])
         setNotifications(notificationsRes.data?.notifications || [])
         const loadedUsers = usersRes.data?.users || []
@@ -156,30 +130,70 @@ const AppShell = ({ token, user, onLogout }) => {
     return () => {
       isCancelled = true
     }
-  }, [token, user.id, onLogout, loadParticipantsForMeetings])
+  }, [token, user.id, onLogout])
 
-  const openMeetingDetail = async (meetingId) => {
-    try {
+  const fetchMeetingDetail = useCallback(
+    async (meetingId) => {
       const client = getApiClient(token)
-      const [meetingRes, participantsRes, actionItemsRes, filesRes] = await Promise.all([
-        client.get(`/api/meetings/${meetingId}`),
-        client.get(`/api/meetings/${meetingId}/participants`),
-        client.get(`/api/meetings/${meetingId}/action-items`),
-        client.get(`/api/meetings/${meetingId}/files`),
-      ])
+      const meetingRes = await client.get(`/api/meetings/${meetingId}`)
+      const participantsRes = await client.get(`/api/meetings/${meetingId}/participants`)
+      const actionItemsRes = await client.get(`/api/meetings/${meetingId}/action-items`)
+      const filesRes = await client.get(`/api/meetings/${meetingId}/files`)
 
-      setSelectedMeetingDetail({
+      return {
         meeting: meetingRes.data.meeting,
         participants: participantsRes.data.participants || [],
         actionItems: actionItemsRes.data.actionItems || [],
         files: filesRes.data.files || [],
-      })
-      setPendingMeetingMaterialFiles([])
-      setPendingMeetingAudioFiles([])
-      setActivePage('repository-detail')
-    } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'Unable to open meeting details')
+      }
+    },
+    [token]
+  )
+
+  useEffect(() => {
+    if (!activeMeetingId) {
+      return
     }
+
+    let isCancelled = false
+
+    const load = async () => {
+      try {
+        const detail = await fetchMeetingDetail(activeMeetingId)
+        if (isCancelled) {
+          return
+        }
+
+        setSelectedMeetingDetail(detail)
+        setPendingMeetingMaterialFiles([])
+        setPendingMeetingAudioFiles([])
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+
+        setErrorMessage(error.response?.data?.error || 'Unable to open meeting details')
+      }
+    }
+
+    load()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activeMeetingId, fetchMeetingDetail])
+
+  const openMeetingDetail = (meetingId) => {
+    navigate(`/meetings/${meetingId}`)
+  }
+
+  const reloadSelectedMeetingDetail = async () => {
+    if (!selectedMeetingDetail?.meeting?.id) {
+      return
+    }
+
+    const detail = await fetchMeetingDetail(selectedMeetingDetail.meeting.id)
+    setSelectedMeetingDetail(detail)
   }
 
   const updateMeetingDetailField = (field, value) => {
@@ -265,7 +279,7 @@ const AppShell = ({ token, user, onLogout }) => {
       await reloadData()
       setPendingMeetingMaterialFiles([])
       setPendingMeetingAudioFiles([])
-      setActivePage('dashboard')
+      navigate('/dashboard')
       setSuccessModalMessage('Saved and finalized successfully')
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to save meeting details')
@@ -292,6 +306,7 @@ const AppShell = ({ token, user, onLogout }) => {
           : prev
       )
       await reloadData()
+      await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to add action item')
     }
@@ -361,6 +376,7 @@ const AppShell = ({ token, user, onLogout }) => {
         dueDate: target.dueDate || null,
       })
       await reloadData()
+      await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to save action item')
     }
@@ -379,28 +395,11 @@ const AppShell = ({ token, user, onLogout }) => {
           : prev
       )
       await reloadData()
+      await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to remove action item')
     }
   }
-
-  const loadFilesForMeeting = useCallback(
-    async (meetingId) => {
-      try {
-        const client = getApiClient(token)
-        const response = await client.get(`/api/meetings/${meetingId}/files`)
-        setFilesByMeeting((prev) => ({ ...prev, [meetingId]: response.data?.files || [] }))
-      } catch (error) {
-        setErrorMessage(error.response?.data?.error || 'Unable to load files')
-      }
-    },
-    [token]
-  )
-
-  const loadAllFilesForMeetings = useCallback(async () => {
-    const ids = meetings.map((meeting) => meeting.id)
-    await Promise.all(ids.map((meetingId) => loadFilesForMeeting(meetingId)))
-  }, [meetings, loadFilesForMeeting])
 
   const openUploadedFile = async (fileId) => {
     try {
@@ -421,47 +420,6 @@ const AppShell = ({ token, user, onLogout }) => {
       setErrorMessage(error.response?.data?.error || 'Unable to download file')
     }
   }
-
-  const uploadFromRepository = async (file) => {
-    const files = Array.from(file || [])
-    if (fileRepoMeetingIds.length === 0 || files.length === 0) {
-      setErrorMessage('Select at least one meeting and file before uploading')
-      return
-    }
-
-    try {
-      const client = getApiClient(token)
-      for (const meetingId of fileRepoMeetingIds) {
-        for (const nextFile of files) {
-          const formData = new FormData()
-          formData.append('file', nextFile)
-          formData.append('description', 'Uploaded from file repository')
-          await client.post(`/api/meetings/${meetingId}/files`, formData)
-        }
-        await loadFilesForMeeting(meetingId)
-      }
-      await reloadData()
-    } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'Unable to upload file')
-    }
-  }
-
-  const toggleFileRepoMeetingSelection = (meetingId) => {
-    setFileRepoMeetingIds((prev) =>
-      prev.includes(meetingId) ? prev.filter((id) => id !== meetingId) : [...prev, meetingId]
-    )
-  }
-
-  const openProjectFilesPage = (meetingId) => {
-    setActiveProjectMeetingId(meetingId)
-    setActivePage('project-files')
-  }
-
-  useEffect(() => {
-    if (activePage === 'file-repository' && meetings.length > 0) {
-      loadAllFilesForMeetings()
-    }
-  }, [activePage, meetings.length, loadAllFilesForMeetings])
 
   const addPendingMeetingMaterialFiles = (incomingFiles) => {
     const nextFiles = Array.from(incomingFiles || [])
@@ -501,7 +459,7 @@ const AppShell = ({ token, user, onLogout }) => {
 
   return (
     <main className="min-h-screen bg-slate-100 lg:flex">
-      <Sidebar activePage={activePage} onSelect={setActivePage} />
+      <Sidebar activePage={activePage} onSelect={(item) => navigate(item.path)} />
 
       <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
         <Topbar
@@ -517,75 +475,74 @@ const AppShell = ({ token, user, onLogout }) => {
           </p>
         ) : null}
 
-        {activePage === 'dashboard' ? (
-          <DashboardView
-            data={dashboardData}
-            onOpenCreateModal={() => setIsCreateModalOpen(true)}
-            onOpenMeeting={openMeetingDetail}
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="/dashboard"
+            element={
+              <DashboardView
+                data={dashboardData}
+                onOpenCreateModal={() => setIsCreateModalOpen(true)}
+                onOpenMeeting={openMeetingDetail}
+              />
+            }
           />
-        ) : null}
-        {activePage === 'repository' ? (
-          <RepositoryView
-            meetings={meetings}
-            meetingParticipantsByMeeting={meetingParticipantsByMeeting}
-            search={repositorySearch}
-            onSearch={setRepositorySearch}
-            onOpenMeeting={openMeetingDetail}
+          <Route
+            path="/meetings"
+            element={
+              <RepositoryView
+                meetings={meetings}
+                meetingParticipantsByMeeting={{}}
+                search={repositorySearch}
+                onSearch={setRepositorySearch}
+                onOpenMeeting={openMeetingDetail}
+              />
+            }
           />
-        ) : null}
-        {activePage === 'file-repository' ? (
-          <FileRepositoryView
-            meetings={meetings}
-            filesByMeeting={filesByMeeting}
-            currentUserId={user.id}
-            meetingParticipantsByMeeting={meetingParticipantsByMeeting}
-            search={fileRepoSearch}
-            onSearch={setFileRepoSearch}
-            selectedMeetingIds={fileRepoMeetingIds}
-            onToggleMeetingSelection={toggleFileRepoMeetingSelection}
-            onUploadFile={uploadFromRepository}
-            onDownloadFile={openUploadedFile}
-            onOpenProjectFilesPage={openProjectFilesPage}
+          <Route
+            path="/meetings/:meetingId"
+            element={
+              selectedMeetingDetail?.meeting?.id === activeMeetingId ? (
+                <MeetingDetailView
+                  detail={selectedMeetingDetail}
+                  onBack={() => navigate('/meetings')}
+                  onChange={updateMeetingDetailField}
+                  onSave={saveMeetingDetail}
+                  onAddActionItem={addActionItemInDetail}
+                  onActionItemChange={editActionItemTitle}
+                  onActionItemSave={saveActionItemTitle}
+                  onActionItemAssigneeChange={editActionItemAssignee}
+                  onActionItemDueDateChange={editActionItemDueDate}
+                  onActionItemRemove={removeActionItem}
+                  pendingMaterialFiles={pendingMeetingMaterialFiles}
+                  pendingAudioFiles={pendingMeetingAudioFiles}
+                  onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
+                  onRemovePendingMaterialFile={removePendingMeetingMaterialFile}
+                  onAddPendingAudioFiles={addPendingMeetingAudioFiles}
+                  onRemovePendingAudioFile={removePendingMeetingAudioFile}
+                  onDownloadMeetingFile={openUploadedFile}
+                  onPreview={() => setIsPreviewOpen(true)}
+                />
+              ) : (
+                <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
+                  Loading meeting details...
+                </p>
+              )
+            }
           />
-        ) : null}
-        {activePage === 'project-files' ? (
-          <ProjectFilesView
-            meeting={meetings.find((meeting) => meeting.id === activeProjectMeetingId) || null}
-            files={filesByMeeting[activeProjectMeetingId] || []}
-            onBack={() => setActivePage('file-repository')}
-            onDownloadFile={openUploadedFile}
+          <Route
+            path="/action-items"
+            element={
+              <ActionItemsView
+                actionItems={actionItems}
+                meetings={meetings}
+                users={users}
+                onMoveActionItem={moveActionItemStatus}
+              />
+            }
           />
-        ) : null}
-        {activePage === 'repository-detail' ? (
-          <MeetingDetailView
-            detail={selectedMeetingDetail}
-            onBack={() => setActivePage('repository')}
-            onChange={updateMeetingDetailField}
-            onSave={saveMeetingDetail}
-            onAddActionItem={addActionItemInDetail}
-            onActionItemChange={editActionItemTitle}
-            onActionItemSave={saveActionItemTitle}
-            onActionItemAssigneeChange={editActionItemAssignee}
-            onActionItemDueDateChange={editActionItemDueDate}
-            onActionItemRemove={removeActionItem}
-            pendingMaterialFiles={pendingMeetingMaterialFiles}
-            pendingAudioFiles={pendingMeetingAudioFiles}
-            onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
-            onRemovePendingMaterialFile={removePendingMeetingMaterialFile}
-            onAddPendingAudioFiles={addPendingMeetingAudioFiles}
-            onRemovePendingAudioFile={removePendingMeetingAudioFile}
-            onDownloadMeetingFile={openUploadedFile}
-            onPreview={() => setIsPreviewOpen(true)}
-          />
-        ) : null}
-        {activePage === 'action-items' ? (
-          <ActionItemsView
-            actionItems={actionItems}
-            meetings={meetings}
-            users={users}
-            onMoveActionItem={moveActionItemStatus}
-          />
-        ) : null}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
       </div>
 
       <CreateMeetingModal
