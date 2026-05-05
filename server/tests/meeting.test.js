@@ -151,6 +151,7 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(meeting.timezoneName).toBe('Australia/Brisbane')
     expect(meeting.createdBy).toBe(testUser.id)
     expect(meeting.status).toBe('scheduled')
+    expect(meeting.fileCount).toBe(0)
 
     expect(new Date(meeting.startsAt).toISOString()).toBe(
       new Date('2026-05-01T09:00:00+10:00').toISOString()
@@ -208,6 +209,37 @@ dbDescribe('Meeting controller (DB-backed)', () => {
 
     expect(missing.nextError).toBeDefined()
     expect(missing.nextError.statusCode).toBe(404)
+  })
+
+  it('includes meeting file counts in list and detail responses', async () => {
+    const created = await createMeetingViaController()
+    await query(
+      `
+        INSERT INTO meeting_files
+          (meeting_id, uploaded_by, file_name, mime_type, size_bytes, object_key)
+        VALUES
+          ($1, $2, 'agenda.pdf', 'application/pdf', 1024, $3),
+          ($1, $2, 'minutes.md', 'text/markdown', 2048, $4)
+      `,
+      [
+        created.id,
+        testUser.id,
+        `meetings/${created.id}/agenda.pdf`,
+        `meetings/${created.id}/minutes.md`,
+      ]
+    )
+
+    const found = await runHandler(
+      getOne,
+      buildRequest({ params: { id: created.id }, user: { id: testUser.id } })
+    )
+    expect(found.nextError).toBeUndefined()
+    expect(found.res.body.meeting.fileCount).toBe(2)
+
+    const listed = await runHandler(list, buildRequest({ user: { id: testUser.id } }))
+    expect(listed.nextError).toBeUndefined()
+    expect(listed.res.body.meetings).toHaveLength(1)
+    expect(listed.res.body.meetings[0].fileCount).toBe(2)
   })
 
   it('lists meetings filtered by status, from, and to', async () => {

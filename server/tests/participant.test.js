@@ -7,7 +7,10 @@ import { parse } from 'dotenv'
 
 import { runMigrations } from '../db/migrate.js'
 import { closePool, query } from '../db/postgres.js'
-import { create as createMeetingHandler, getOne as getMeetingHandler } from '../controllers/meeting-controller.js'
+import {
+  create as createMeetingHandler,
+  getOne as getMeetingHandler,
+} from '../controllers/meeting-controller.js'
 import {
   add as addParticipantsHandler,
   list as listParticipantsHandler,
@@ -184,7 +187,7 @@ dbDescribe('Participant controller (DB-backed)', () => {
     expect(res.body.participants[0].role).toBe('organizer')
   })
 
-  it('adds participants with default role attendee and rsvp_status pending', async () => {
+  it('adds participants with default role attendee', async () => {
     const { res, nextError } = await runHandler(
       addParticipantsHandler,
       buildRequest({
@@ -199,7 +202,6 @@ dbDescribe('Participant controller (DB-backed)', () => {
     expect(res.body.participants).toHaveLength(2)
     for (const participant of res.body.participants) {
       expect(participant.role).toBe('attendee')
-      expect(participant.rsvpStatus).toBe('pending')
       expect(participant.addedBy).toBe(organizerUser.id)
     }
   })
@@ -321,29 +323,6 @@ dbDescribe('Participant controller (DB-backed)', () => {
 
     expect(nextError).toBeUndefined()
     expect(res.body.participant.role).toBe('optional')
-  })
-
-  it('updates a participant rsvpStatus via PATCH', async () => {
-    await runHandler(
-      addParticipantsHandler,
-      buildRequest({
-        params: { meetingId: baseMeeting.id },
-        body: { userIds: [aliceUser.id] },
-        user: { id: organizerUser.id },
-      })
-    )
-
-    const { res, nextError } = await runHandler(
-      updateParticipantHandler,
-      buildRequest({
-        params: { meetingId: baseMeeting.id, userId: aliceUser.id },
-        body: { rsvpStatus: 'accepted' },
-        user: { id: organizerUser.id },
-      })
-    )
-
-    expect(nextError).toBeUndefined()
-    expect(res.body.participant.rsvpStatus).toBe('accepted')
   })
 
   it('returns 400 when PATCH has no updates supplied', async () => {

@@ -1,14 +1,7 @@
 import { Router } from 'express'
 import { body, param, query } from 'express-validator'
 
-import {
-  create,
-  getOne,
-  list,
-  remove,
-  update,
-} from '../controllers/meeting-controller.js'
-import { updateOwnRsvp } from '../controllers/participant-controller.js'
+import { create, getOne, list, remove, update } from '../controllers/meeting-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 import { ALLOWED_STATUSES } from '../services/meeting-service.js'
 
@@ -42,11 +35,7 @@ meetingRouter.post(
       .isISO8601({ strict: true })
       .withMessage('endsAt must be a valid ISO 8601 datetime')
       .toDate(),
-    body('timezoneName')
-      .optional()
-      .trim()
-      .notEmpty()
-      .withMessage('timezoneName must not be empty'),
+    body('timezoneName').optional().trim().notEmpty().withMessage('timezoneName must not be empty'),
     body('location')
       .optional({ nullable: true })
       .isString()
@@ -135,11 +124,7 @@ meetingRouter.put(
       .isISO8601({ strict: true })
       .withMessage('endsAt must be a valid ISO 8601 datetime')
       .toDate(),
-    body('timezoneName')
-      .optional()
-      .trim()
-      .notEmpty()
-      .withMessage('timezoneName must not be empty'),
+    body('timezoneName').optional().trim().notEmpty().withMessage('timezoneName must not be empty'),
     body('location')
       .optional({ nullable: true })
       .isString()
@@ -163,18 +148,6 @@ meetingRouter.delete(
   [param('id').isUUID().withMessage('id must be a UUID')],
   handleValidationErrors,
   remove
-)
-
-meetingRouter.put(
-  '/:id/rsvp',
-  [
-    param('id').isUUID().withMessage('id must be a UUID'),
-    body('rsvpStatus')
-      .notEmpty().withMessage('rsvpStatus is required').bail()
-      .isIn(['accepted', 'declined']).withMessage('rsvpStatus must be accepted or declined'),
-  ],
-  handleValidationErrors,
-  updateOwnRsvp
 )
 
 export default meetingRouter

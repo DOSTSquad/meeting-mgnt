@@ -70,7 +70,6 @@ const meetingTags = [...defaultTags]
 const locations = ['Room A / Teams', 'Room B', 'Room C', 'Zoom', 'Board Room']
 const statuses = ['scheduled', 'in_progress', 'completed']
 const participantRoles = ['attendee', 'attendee', 'attendee', 'optional', 'organizer']
-const rsvpStatuses = ['pending', 'accepted', 'declined']
 const actionStatuses = ['todo', 'in_progress', 'blocked', 'completed']
 const actionPriorities = ['low', 'medium', 'high']
 
@@ -127,7 +126,10 @@ const meetingNamePool = [
 const randomPick = (items) => items[Math.floor(Math.random() * items.length)]
 
 const randomPickMany = (items, minCount, maxCount) => {
-  const count = Math.min(items.length, minCount + Math.floor(Math.random() * (maxCount - minCount + 1)))
+  const count = Math.min(
+    items.length,
+    minCount + Math.floor(Math.random() * (maxCount - minCount + 1))
+  )
   const copy = [...items]
   const picked = []
   for (let i = 0; i < count; i += 1) {
@@ -223,7 +225,13 @@ const getTableColumns = async (tableName) => {
   return new Set(result.rows.map((row) => row.column_name))
 }
 
-const insertMinutes = async (minutesColumns, meeting, meetingId, defaultCreatorId, usersByEmail) => {
+const insertMinutes = async (
+  minutesColumns,
+  meeting,
+  meetingId,
+  defaultCreatorId,
+  usersByEmail
+) => {
   const minutesRecord = {
     meeting_id: meetingId,
     prepared_by: defaultCreatorId,
@@ -324,21 +332,23 @@ const seedParticipants = async (meetingId, usersByEmail) => {
   const paveenId = usersByEmail.get('paveen.anuntakulnatee@seed.local')
   const allEmails = usersSeed.map((user) => user.email.toLowerCase())
   const otherEmails = allEmails.filter((email) => email !== 'paveen.anuntakulnatee@seed.local')
-  const participantEmails = ['paveen.anuntakulnatee@seed.local', ...randomPickMany(otherEmails, 2, 4)]
+  const participantEmails = [
+    'paveen.anuntakulnatee@seed.local',
+    ...randomPickMany(otherEmails, 2, 4),
+  ]
 
   for (const email of participantEmails) {
     await query(
       `
-        INSERT INTO meeting_participants (meeting_id, user_id, role, rsvp_status, added_by)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO meeting_participants (meeting_id, user_id, role, added_by)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (meeting_id, user_id) DO UPDATE
-        SET role = EXCLUDED.role, rsvp_status = EXCLUDED.rsvp_status
+        SET role = EXCLUDED.role
       `,
       [
         meetingId,
         usersByEmail.get(email),
         email === 'paveen.anuntakulnatee@seed.local' ? 'organizer' : randomPick(participantRoles),
-        email === 'paveen.anuntakulnatee@seed.local' ? 'accepted' : randomPick(rsvpStatuses),
         paveenId,
       ]
     )
