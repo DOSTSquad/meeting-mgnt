@@ -400,6 +400,61 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(res.body.actionItem.completedAt).toBeNull()
   })
 
+  it('allows the assignee to update status even when not a meeting participant', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Assigned outside participant list' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    await query('UPDATE action_items SET assignee_id = $1 WHERE id = $2', [
+      bobUser.id,
+      created.res.body.actionItem.id,
+    ])
+
+    const { res, nextError } = await runHandler(
+      updateActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        body: { status: 'in_progress' },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(nextError).toBeUndefined()
+    expect(res.body.actionItem.status).toBe('in_progress')
+  })
+
+  it('prevents a non-participant assignee from editing fields other than status', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Status only for assignee' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    await query('UPDATE action_items SET assignee_id = $1 WHERE id = $2', [
+      bobUser.id,
+      created.res.body.actionItem.id,
+    ])
+
+    const { nextError } = await runHandler(
+      updateActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        body: { title: 'Should not update' },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(nextError?.statusCode).toBe(403)
+  })
+
   it('returns 400 when update supplies no fields', async () => {
     const created = await runHandler(
       createActionItemHandler,

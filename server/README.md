@@ -146,7 +146,7 @@ Any meeting participant (creator or any role) can upload, list, and request down
 
 - `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
 - `priority` — one of `low`, `medium` (default), `high`.
-- Any meeting participant (including the creator) can create, read, update, or delete action items. Non-participants receive `403`.
+- Any meeting participant (including the creator) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
 
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).

@@ -36,6 +36,26 @@ const assertIsParticipant = (meeting, callerId, participants) => {
   }
 }
 
+const assertCanUpdateActionItem = (actionItem, meeting, callerId, participants, updates) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  if (callerId === meeting.createdBy || participants.some((p) => p.userId === callerId)) {
+    return
+  }
+
+  const isAssignee = actionItem.assigneeId === callerId
+  const updateKeys = Object.keys(updates ?? {}).filter((key) => updates[key] !== undefined)
+  const onlyUpdatesStatus = updateKeys.length === 1 && updateKeys[0] === 'status'
+
+  if (isAssignee && onlyUpdatesStatus) {
+    return
+  }
+
+  throw createHttpError('Only meeting participants can manage action items', 403)
+}
+
 const loadMeetingOrThrow = async (meetingId) => {
   const meeting = await findMeetingById(meetingId)
 
@@ -164,7 +184,6 @@ export const updateActionItem = async (itemId, input, callerId) => {
   const existing = await loadActionItemOrThrow(itemId)
   const meeting = await loadMeetingOrThrow(existing.meetingId)
   const participants = await listParticipantsByMeeting(existing.meetingId)
-  assertIsParticipant(meeting, callerId, participants)
 
   const { title, description, assigneeId, dueDate, status, priority } = input ?? {}
 
@@ -179,6 +198,15 @@ export const updateActionItem = async (itemId, input, callerId) => {
   if (!hasUpdate) {
     throw createHttpError('No updates supplied', 400)
   }
+
+  assertCanUpdateActionItem(existing, meeting, callerId, participants, {
+    title,
+    description,
+    assigneeId,
+    dueDate,
+    status,
+    priority,
+  })
 
   const updates = {}
 

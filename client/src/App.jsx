@@ -483,11 +483,17 @@ const AppShell = ({ token, user, onLogout }) => {
   }
 
   const moveActionItemStatus = async (actionItemId, nextStatus) => {
+    const previousActionItems = actionItems
+    setActionItems((prev) =>
+      prev.map((item) => (item.id === actionItemId ? { ...item, status: nextStatus } : item))
+    )
+
     try {
       const client = getApiClient(token)
       await updateActionItem(client, actionItemId, { status: nextStatus })
       await reloadData()
     } catch (error) {
+      setActionItems(previousActionItems)
       setErrorMessage(error.response?.data?.error || 'Unable to update action item status')
     }
   }
@@ -577,6 +583,7 @@ const AppShell = ({ token, user, onLogout }) => {
                 meetings={meetings}
                 users={users}
                 onMoveActionItem={moveActionItemStatus}
+                onOpenMeeting={openMeetingDetail}
               />
             }
           />
