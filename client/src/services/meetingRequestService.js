@@ -23,6 +23,11 @@ export const createMeetingRequestService = (client) => ({
     return response.data
   },
 
+  getInviteeRequest: async (requestId, inviteeId) => {
+    const response = await client.get(`/api/meeting-requests/${requestId}/invitees/${inviteeId}`)
+    return response.data
+  },
+
   submitAvailability: async (requestId, inviteeId, responses) => {
     const response = await client.put(
       `/api/meeting-requests/${requestId}/invitees/${inviteeId}/availability`,

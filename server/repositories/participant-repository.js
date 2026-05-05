@@ -6,7 +6,6 @@ const PARTICIPANT_COLUMNS = `
   u.name,
   u.email,
   mp.role,
-  mp.rsvp_status,
   mp.added_by,
   mp.added_at
 `
@@ -22,7 +21,6 @@ const mapParticipant = (row) => {
     name: row.name,
     email: row.email,
     role: row.role,
-    rsvpStatus: row.rsvp_status,
     addedBy: row.added_by,
     addedAt: row.added_at.toISOString(),
   }
@@ -98,7 +96,6 @@ export const bulkUpsert = async ({ meetingId, userIds, role = 'attendee', addedB
 
 const UPDATE_FIELD_TO_COLUMN = {
   role: 'role',
-  rsvpStatus: 'rsvp_status',
 }
 
 export const updateOne = async (meetingId, userId, updates) => {

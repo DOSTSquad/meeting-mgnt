@@ -93,13 +93,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
             },
             "body": {
               "mode": "raw",
@@ -137,13 +132,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
             },
             "body": {
               "mode": "raw",
@@ -172,13 +162,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
             },
             "description": "Returns the user attached to the current bearer token."
           }
@@ -200,12 +185,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"]
             },
             "body": {
               "mode": "raw",
@@ -234,12 +215,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings?page=1&limit=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
               "query": [
                 {
                   "key": "page",
@@ -260,12 +237,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings?status=scheduled&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&page=1&limit=10",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
               "query": [
                 {
                   "key": "status",
@@ -302,12 +275,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings?q=budget&status=scheduled",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
               "query": [
                 {
                   "key": "q",
@@ -329,13 +298,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
             },
             "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, and `fileCount`."
           }
@@ -352,13 +316,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
             },
             "body": {
               "mode": "raw",
@@ -373,13 +332,8 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
             },
             "description": "Hard delete. Returns 204 on success, 404 if not found."
           }
@@ -401,12 +355,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meeting-requests",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meeting-requests"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests"]
             },
             "body": {
               "mode": "raw",
@@ -440,14 +390,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/time-options",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meeting-requests",
-                "{{meetingRequestId}}",
-                "time-options"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "time-options"]
             },
             "body": {
               "mode": "raw",
@@ -482,14 +426,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meeting-requests",
-                "{{meetingRequestId}}",
-                "invitees"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "invitees"]
             },
             "body": {
               "mode": "raw",
@@ -523,14 +461,27 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meeting-requests",
-                "{{meetingRequestId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
             }
+          }
+        },
+        {
+          "name": "Get invitee meeting request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees/{{inviteeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "invitees", "{{inviteeId}}"]
+            },
+            "description": "Invitee-safe request detail for the dashboard voting modal. Returns `{ meetingRequest, invitee, timeOptions, responses }` for the matching invitee or request creator."
           }
         },
         {
@@ -545,9 +496,7 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees/{{inviteeId}}/availability",
-              "host": [
-                "{{baseUrl}}"
-              ],
+              "host": ["{{baseUrl}}"],
               "path": [
                 "meeting-requests",
                 "{{meetingRequestId}}",
@@ -574,14 +523,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/confirm",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meeting-requests",
-                "{{meetingRequestId}}",
-                "confirm"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "confirm"]
             },
             "body": {
               "mode": "raw",
@@ -607,7 +550,7 @@
     },
     {
       "name": "Dashboard",
-      "description": "Dashboard aggregate data for the signed-in user, including pending meeting requests before they become confirmed meetings.",
+      "description": "Dashboard aggregate data for the signed-in user, including host-created pending meeting requests and invitee availability requests before they become confirmed meetings.",
       "item": [
         {
           "name": "Get dashboard",
@@ -615,14 +558,10 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/dashboard",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "dashboard"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard"]
             },
-            "description": "Returns `{ recentMeetings, pendingRsvpMeetings, pendingMeetingRequests, myActionItems }`. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user."
+            "description": "Returns `{ recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }`. `recentMeetings` includes the next six accessible active meetings ordered by earliest start time. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user. `pendingAvailabilityRequests` includes requests where the current user is an invitee and still needs to submit availability."
           }
         }
       ]
@@ -637,14 +576,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "minutes"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
             },
             "description": "Returns `{ minutes }`. If the meeting has no minutes yet, the API creates an empty draft minutes row."
           },
@@ -675,15 +608,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "minutes",
-                "{{minutesId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
             },
             "body": {
               "mode": "raw",
@@ -718,14 +644,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "minutes"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
             },
             "body": {
               "mode": "raw",
@@ -746,15 +666,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "minutes",
-                "{{minutesId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
             },
             "body": {
               "mode": "raw",
@@ -769,14 +682,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/00000000-0000-0000-0000-000000000000/minutes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "00000000-0000-0000-0000-000000000000",
-                "minutes"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "00000000-0000-0000-0000-000000000000", "minutes"]
             },
             "description": "Expected 404."
           }
@@ -793,9 +700,7 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/00000000-0000-0000-0000-000000000000",
-              "host": [
-                "{{baseUrl}}"
-              ],
+              "host": ["{{baseUrl}}"],
               "path": [
                 "meetings",
                 "{{meetingId}}",
@@ -822,16 +727,10 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "participants"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants"]
             },
-            "description": "Returns `{ participants: [...] }`. Each row includes `userId`, `name`, `email`, `role`, `rsvpStatus`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
+            "description": "Returns `{ participants: [...] }`. Each row includes `userId`, `name`, `email`, `role`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
           }
         },
         {
@@ -846,14 +745,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "participants"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants"]
             },
             "body": {
               "mode": "raw",
@@ -879,7 +772,7 @@
           ]
         },
         {
-          "name": "Update participant (role / RSVP)",
+          "name": "Update participant role",
           "request": {
             "method": "PATCH",
             "header": [
@@ -890,21 +783,14 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "participants",
-                "{{participantUserId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"role\": \"organizer\",\n  \"rsvpStatus\": \"accepted\"\n}"
+              "raw": "{\n  \"role\": \"organizer\"\n}"
             },
-            "description": "Update a participant's `role` and/or `rsvpStatus`. At least one field is required (empty body returns 400).\n\nAllowed `role`: `organizer`, `attendee`, `optional`.\nAllowed `rsvpStatus`: `pending`, `accepted`, `declined`.\n\nDemoting the last organizer returns 400."
+            "description": "Update a participant's `role`. Empty body returns 400.\n\nAllowed `role`: `organizer`, `attendee`, `optional`.\n\nDemoting the last organizer returns 400."
           }
         },
         {
@@ -913,51 +799,10 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "participants",
-                "{{participantUserId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
             },
             "description": "Removes the participant from the meeting. Returns 204 on success, 404 if not a participant, 400 if they are the last organizer."
-          }
-        }
-      ]
-    },
-    {
-      "name": "RSVP",
-      "description": "Self-service RSVP. The authenticated user must be a participant on the target meeting.",
-      "item": [
-        {
-          "name": "Update my RSVP",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/meetings/{{meetingId}}/rsvp",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "rsvp"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rsvpStatus\": \"accepted\"\n}"
-            },
-            "description": "Set the authenticated user's RSVP on the meeting to `accepted` or `declined`. Self-reset to `pending` is rejected (400). Non-participants get 403."
           }
         }
       ]
@@ -972,14 +817,8 @@
             "method": "POST",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "files"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "files"]
             },
             "body": {
               "mode": "formdata",
@@ -1021,14 +860,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "files"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "files"]
             },
             "description": "Returns `{ files: [...] }` for the meeting. Any participant can list."
           }
@@ -1039,14 +872,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/files/{{fileId}}/download",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "files",
-                "{{fileId}}",
-                "download"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "download"]
             },
             "description": "Returns `{ url, expiresAt }`. The presigned URL is valid for 60 seconds — paste it into a browser or use it in a fetch to retrieve the file bytes directly from MinIO."
           }
@@ -1057,13 +884,8 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/files/{{fileId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "files",
-                "{{fileId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}"]
             },
             "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only creator or organizer can delete."
           }
@@ -1086,14 +908,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "action-items"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "action-items"]
             },
             "body": {
               "mode": "raw",
@@ -1122,14 +938,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items?status=todo",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "meetings",
-                "{{meetingId}}",
-                "action-items"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "action-items"],
               "query": [
                 {
                   "key": "status",
@@ -1160,13 +970,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "action-items",
-                "{{actionItemId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
             },
             "body": {
               "mode": "raw",
@@ -1181,13 +986,8 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "action-items",
-                "{{actionItemId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
             },
             "description": "Hard delete. Returns 204 on success, 404 if not found. Any meeting participant can delete."
           }
@@ -1206,14 +1006,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/../health/live",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "..",
-                "health",
-                "live"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "live"]
             }
           }
         },
@@ -1226,14 +1020,8 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/../health/ready",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "..",
-                "health",
-                "ready"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "ready"]
             }
           }
         }

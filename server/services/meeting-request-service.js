@@ -5,6 +5,7 @@ import {
   findMeetingRequestById,
   findUserMeetingConflict,
   listInvitees,
+  listInviteeResponses,
   listTimeOptions,
   optionBelongsToRequest,
   replaceInviteeResponses,
@@ -126,6 +127,28 @@ export const getRequestForUser = async (requestId, callerId) => {
   return detail
 }
 
+export const getInviteeRequestForUser = async (requestId, inviteeId, callerId) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const meetingRequest = await loadRequestOrThrow(requestId)
+  const invitee = await findInvitee(requestId, inviteeId)
+
+  if (!invitee) {
+    throw createHttpError('Invitee not found', 404)
+  }
+
+  if (meetingRequest.createdBy !== callerId && invitee.userId !== callerId) {
+    throw createHttpError('Only the invitee or request creator can view this request', 403)
+  }
+
+  const timeOptions = await listTimeOptions(requestId)
+  const responses = await listInviteeResponses(inviteeId)
+
+  return { meetingRequest, invitee, timeOptions, responses }
+}
+
 export const replaceTimeOptionsForRequest = async (requestId, input, callerId) => {
   const meetingRequest = await loadRequestOrThrow(requestId)
   assertCreator(meetingRequest, callerId)
@@ -213,6 +236,10 @@ export const replaceInviteesForRequest = async (requestId, input, callerId) => {
 }
 
 export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, callerId) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
   const meetingRequest = await loadRequestOrThrow(requestId)
   const invitee = await findInvitee(requestId, inviteeId)
 
@@ -220,7 +247,11 @@ export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, 
     throw createHttpError('Invitee not found', 404)
   }
 
-  if (callerId && invitee.userId && invitee.userId !== callerId && meetingRequest.createdBy !== callerId) {
+  if (['confirmed', 'cancelled'].includes(meetingRequest.status)) {
+    throw createHttpError('Closed meeting requests cannot accept availability', 409)
+  }
+
+  if (meetingRequest.createdBy !== callerId && invitee.userId !== callerId) {
     throw createHttpError('Only the invitee or request creator can submit this availability', 403)
   }
 

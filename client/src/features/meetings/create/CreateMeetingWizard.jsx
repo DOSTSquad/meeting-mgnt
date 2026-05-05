@@ -126,7 +126,9 @@ export const CreateMeetingWizard = ({
         }
 
         const nextSelectedTimeOptionId =
-          detail.timeOptions.find((option) => option.isSelected)?.id || detail.timeOptions[0]?.id || ''
+          detail.timeOptions.find((option) => option.isSelected)?.id ||
+          detail.timeOptions[0]?.id ||
+          ''
 
         setMeetingRequest(detail.meetingRequest)
         setRequestForm(getRequestFormFromMeetingRequest(detail.meetingRequest))
@@ -232,7 +234,7 @@ export const CreateMeetingWizard = ({
           location: confirmForm.location || null,
           tag: confirmForm.tag || null,
         })
-        await onCreated()
+        await onCreated(result)
         reset()
         onClose()
         return result
@@ -321,9 +323,7 @@ export const CreateMeetingWizard = ({
         : 'Continue'
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <section
-        className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white px-4 py-5 shadow-2xl sm:px-5"
-      >
+      <section className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white px-4 py-5 shadow-2xl sm:px-5">
         <div>
           <div className="relative">
             <h3 className="text-center text-lg font-bold text-slate-900">Create Meeting</h3>

@@ -4,6 +4,7 @@ import { body, param } from 'express-validator'
 import {
   confirm,
   create,
+  getInviteeDetail,
   getOne,
   replaceInvitees,
   replaceTimeOptions,
@@ -32,11 +33,7 @@ meetingRequestRouter.post(
       .isInt({ min: 1, max: 1440 })
       .withMessage('durationMinutes must be between 1 and 1440')
       .toInt(),
-    body('timezoneName')
-      .optional()
-      .trim()
-      .notEmpty()
-      .withMessage('timezoneName must not be empty'),
+    body('timezoneName').optional().trim().notEmpty().withMessage('timezoneName must not be empty'),
     body('responseDeadline')
       .optional({ nullable: true })
       .isISO8601({ strict: true })
@@ -52,6 +49,16 @@ meetingRequestRouter.get(
   [param('requestId').isUUID().withMessage('requestId must be a UUID')],
   handleValidationErrors,
   getOne
+)
+
+meetingRequestRouter.get(
+  '/:requestId/invitees/:inviteeId',
+  [
+    param('requestId').isUUID().withMessage('requestId must be a UUID'),
+    param('inviteeId').isUUID().withMessage('inviteeId must be a UUID'),
+  ],
+  handleValidationErrors,
+  getInviteeDetail
 )
 
 meetingRequestRouter.put(

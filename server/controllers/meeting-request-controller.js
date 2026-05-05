@@ -1,6 +1,7 @@
 import {
   confirmRequestForUser,
   createRequestForUser,
+  getInviteeRequestForUser,
   getRequestForUser,
   replaceInviteesForRequest,
   replaceTimeOptionsForRequest,
@@ -20,6 +21,20 @@ export const create = async (req, res, next) => {
 export const getOne = async (req, res, next) => {
   try {
     const detail = await getRequestForUser(req.params.requestId, req.user?.id)
+
+    res.json(detail)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getInviteeDetail = async (req, res, next) => {
+  try {
+    const detail = await getInviteeRequestForUser(
+      req.params.requestId,
+      req.params.inviteeId,
+      req.user?.id
+    )
 
     res.json(detail)
   } catch (error) {

@@ -72,6 +72,15 @@ const getTimeOptions = (window = { start: 0, end: 24 * 60 }) => {
 
 const timeOptions = getTimeOptions()
 
+const RequiredLabel = ({ children }) => (
+  <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-800">
+    {children}
+    <span className="text-red-500" aria-hidden="true">
+      *
+    </span>
+  </span>
+)
+
 export const CreateRequestStep = ({ form, onChange }) => {
   const [isDeadlineCalendarOpen, setIsDeadlineCalendarOpen] = useState(false)
   const [activeTimeWindowId, setActiveTimeWindowId] = useState(TIME_WINDOWS[1].id)
@@ -84,7 +93,7 @@ export const CreateRequestStep = ({ form, onChange }) => {
   return (
     <div className="mx-auto w-full max-w-xl space-y-2">
       <label className="block">
-        <span className="text-sm font-bold text-slate-800">Meeting Title</span>
+        <RequiredLabel>Meeting Title</RequiredLabel>
         <input
           value={form.title}
           onChange={(event) => onChange({ title: event.target.value })}
@@ -105,7 +114,7 @@ export const CreateRequestStep = ({ form, onChange }) => {
       </label>
 
       <label className="block max-w-40">
-        <span className="text-sm font-bold text-slate-800">Duration</span>
+        <RequiredLabel>Duration</RequiredLabel>
         <div className="relative mt-2">
           <select
             value={form.durationMinutes}
@@ -126,7 +135,7 @@ export const CreateRequestStep = ({ form, onChange }) => {
       </label>
 
       <label className="block">
-        <span className="text-sm font-bold text-slate-800">Time Zone</span>
+        <RequiredLabel>Time Zone</RequiredLabel>
         <input
           value={form.timezoneName}
           onChange={(event) => onChange({ timezoneName: event.target.value })}
@@ -143,7 +152,9 @@ export const CreateRequestStep = ({ form, onChange }) => {
             className="flex h-12 w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           >
             <span
-              className={deadline.date || deadline.time ? 'font-medium text-slate-900' : 'text-slate-400'}
+              className={
+                deadline.date || deadline.time ? 'font-medium text-slate-900' : 'text-slate-400'
+              }
             >
               {formatDeadlineLabel(deadline)}
             </span>
@@ -152,104 +163,112 @@ export const CreateRequestStep = ({ form, onChange }) => {
               <Clock3 className="h-4 w-4" aria-hidden="true" />
             </div>
           </button>
-          {isDeadlineCalendarOpen ? (
-            <div className="absolute left-0 top-14 z-30 w-full rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:w-[30rem]">
-              <div className="space-y-4">
-                <DayPicker
-                  mode="single"
-                  selected={deadlineDate}
-                  onSelect={(date) => {
-                    if (!date) {
-                      return
-                    }
-
-                    onChange({
-                      responseDeadline: getDeadlineValue({
-                        date: toDateValue(date),
-                        time: deadline.time,
-                      }),
-                    })
-                  }}
-                  classNames={{
-                    root: 'w-full',
-                    months: 'w-full',
-                    month: 'w-full',
-                    month_caption: 'mb-3 flex items-center justify-center',
-                    caption_label: 'text-sm font-bold text-slate-800',
-                    nav: 'absolute right-3 top-3 flex gap-1',
-                    button_previous:
-                      'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
-                    button_next:
-                      'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
-                    chevron: 'h-4 w-4 fill-current',
-                    month_grid: 'w-full table-fixed border-collapse',
-                    weekdays: 'text-xs text-slate-500',
-                    weekday: 'pb-2 text-center font-semibold',
-                    day: 'p-0 text-center align-middle',
-                    day_button:
-                      'mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200',
-                    selected:
-                      '[&>button]:bg-blue-600 [&>button]:text-white [&>button:hover]:bg-blue-600 [&>button:hover]:text-white',
-                    today: 'font-extrabold text-blue-700',
-                    outside: 'text-slate-300',
-                  }}
-                />
-                {deadline.date ? (
-                  <div className="border-t border-slate-100 pt-4">
-                    <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Time
-                    </p>
-                    <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
-                      {TIME_WINDOWS.map((window) => (
-                        <button
-                          key={window.id}
-                          type="button"
-                          onClick={() => setActiveTimeWindowId(window.id)}
-                          className={`rounded-md px-2 py-1.5 text-xs font-bold ${
-                            window.id === activeTimeWindowId
-                              ? 'bg-white text-blue-700 shadow-sm'
-                              : 'text-slate-500 hover:text-slate-800'
-                          }`}
-                        >
-                          {window.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid max-h-44 gap-2 overflow-auto pr-1 sm:grid-cols-2">
-                      {visibleTimeOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => {
-                            onChange({
-                              responseDeadline: getDeadlineValue({
-                                date: deadline.date,
-                                time: option.value,
-                              }),
-                            })
-                            setIsDeadlineCalendarOpen(false)
-                          }}
-                          className={`h-9 rounded-lg border text-sm font-bold ${
-                            deadline.time === option.value
-                              ? 'border-blue-600 bg-blue-600 text-white'
-                              : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                    Select a date to choose a response deadline time.
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
+      {isDeadlineCalendarOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/30 px-4 py-6">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Close deadline picker"
+            onClick={() => setIsDeadlineCalendarOpen(false)}
+          />
+          <div className="relative max-h-[86vh] w-full max-w-[30rem] overflow-auto rounded-xl border border-slate-200 bg-white p-4 shadow-2xl">
+            <div className="space-y-4">
+              <DayPicker
+                mode="single"
+                selected={deadlineDate}
+                onSelect={(date) => {
+                  if (!date) {
+                    return
+                  }
+
+                  onChange({
+                    responseDeadline: getDeadlineValue({
+                      date: toDateValue(date),
+                      time: deadline.time,
+                    }),
+                  })
+                }}
+                classNames={{
+                  root: 'w-full',
+                  months: 'w-full',
+                  month: 'w-full',
+                  month_caption: 'mb-3 flex items-center justify-center',
+                  caption_label: 'text-sm font-bold text-slate-800',
+                  nav: 'absolute right-3 top-3 flex gap-1',
+                  button_previous:
+                    'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
+                  button_next:
+                    'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
+                  chevron: 'h-4 w-4 fill-current',
+                  month_grid: 'w-full table-fixed border-collapse',
+                  weekdays: 'text-xs text-slate-500',
+                  weekday: 'pb-2 text-center font-semibold',
+                  day: 'p-0 text-center align-middle',
+                  day_button:
+                    'mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200',
+                  selected:
+                    '[&>button]:bg-blue-600 [&>button]:text-white [&>button:hover]:bg-blue-600 [&>button:hover]:text-white',
+                  today: 'font-extrabold text-blue-700',
+                  outside: 'text-slate-300',
+                }}
+              />
+              {deadline.date ? (
+                <div className="border-t border-slate-100 pt-4">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Time
+                  </p>
+                  <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
+                    {TIME_WINDOWS.map((window) => (
+                      <button
+                        key={window.id}
+                        type="button"
+                        onClick={() => setActiveTimeWindowId(window.id)}
+                        className={`rounded-md px-2 py-1.5 text-xs font-bold ${
+                          window.id === activeTimeWindowId
+                            ? 'bg-white text-blue-700 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        {window.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid max-h-44 gap-2 overflow-auto pr-1 sm:grid-cols-2">
+                    {visibleTimeOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onChange({
+                            responseDeadline: getDeadlineValue({
+                              date: deadline.date,
+                              time: option.value,
+                            }),
+                          })
+                          setIsDeadlineCalendarOpen(false)
+                        }}
+                        className={`h-9 rounded-lg border text-sm font-bold ${
+                          deadline.time === option.value
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500">
+                  Select a date to choose a response deadline time.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

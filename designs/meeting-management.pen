@@ -11877,6 +11877,1667 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "vF7SM",
+      "name": "Meeting Detail - Minutes Flow",
+      "x": 4374,
+      "y": 0,
+      "width": 1024,
+      "height": 720,
+      "fill": "#f7f9fc",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "min002",
+          "name": "detailSide",
+          "x": 0,
+          "y": 0,
+          "width": 205,
+          "height": 720,
+          "fill": "#17293a",
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            24,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "min003",
+              "name": "brand",
+              "x": 0,
+              "y": 0,
+              "content": "Meeting Manager",
+              "fill": "#ffffff",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "min004",
+              "name": "divider",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 1,
+              "fill": "#405163",
+              "children": []
+            },
+            {
+              "type": "frame",
+              "id": "min005",
+              "name": "Dashboard",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 22,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min006",
+                  "name": "Dashboard icon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "house",
+                  "fill": "#dbe4ef"
+                },
+                {
+                  "type": "text",
+                  "id": "min007",
+                  "name": "Dashboard text",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Dashboard",
+                  "fill": "#dbe4ef",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min008",
+              "name": "Meeting Repository",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 22,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min009",
+                  "name": "Meeting Repository icon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "folder",
+                  "fill": "#ffffff"
+                },
+                {
+                  "type": "text",
+                  "id": "min010",
+                  "name": "Meeting Repository text",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Repository",
+                  "fill": "#ffffff",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min011",
+              "name": "Action Items",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 22,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min012",
+                  "name": "Action Items icon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "square-check",
+                  "fill": "#dbe4ef"
+                },
+                {
+                  "type": "text",
+                  "id": "min013",
+                  "name": "Action Items text",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Action Items",
+                  "fill": "#dbe4ef",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min014",
+          "name": "backButton",
+          "x": 230,
+          "y": 30,
+          "width": 142,
+          "height": 34,
+          "fill": "#ffffff",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 6,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#d9e0e8"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "min015",
+              "name": "backIcon",
+              "x": 0,
+              "y": 0,
+              "width": 14,
+              "height": 14,
+              "iconFontFamily": "lucide",
+              "iconFontName": "arrow-left",
+              "fill": "#64748b"
+            },
+            {
+              "type": "text",
+              "id": "min016",
+              "name": "backText",
+              "x": 0,
+              "y": 0,
+              "content": "Back to repository",
+              "fill": "#64748b",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "min017",
+          "name": "detailTitle",
+          "x": 230,
+          "y": 78,
+          "content": "Quarterly Operations Review",
+          "fill": "#243447",
+          "fontFamily": "Inter",
+          "fontSize": 24,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "min018",
+          "name": "detailSub",
+          "x": 230,
+          "y": 111,
+          "content": "Thu, 7 May 2026 at 10:00 AM · Room 4.1 · Operations",
+          "fill": "#64748b",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "min019",
+          "name": "notificationBell",
+          "x": 842,
+          "y": 31,
+          "width": 40,
+          "height": 40,
+          "fill": "#ffffff",
+          "layout": "none",
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "min020",
+              "name": "bellIcon",
+              "x": 11,
+              "y": 10,
+              "width": 18,
+              "height": 18,
+              "iconFontFamily": "lucide",
+              "iconFontName": "bell",
+              "fill": "#64748b"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min021",
+          "name": "userProfileMenu",
+          "x": 890,
+          "y": 31,
+          "width": 110,
+          "height": 40,
+          "fill": "#ffffff",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "gap": 8,
+          "padding": [
+            0,
+            8
+          ],
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "min022",
+              "name": "avatar",
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 24,
+              "fill": "#dbeafe",
+              "layout": "horizontal",
+              "alignItems": "center",
+              "justifyContent": "center",
+              "cornerRadius": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "min023",
+                  "name": "avatarText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "JL",
+                  "fill": "#2563eb",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "min024",
+              "name": "profileName",
+              "x": 0,
+              "y": 0,
+              "content": "Jordan",
+              "fill": "#334155",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min025",
+          "name": "previewButton",
+          "x": 662,
+          "y": 82,
+          "width": 88,
+          "height": 34,
+          "fill": "#ffffff",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 6,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#d9e0e8"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "min026",
+              "name": "previewIcon",
+              "x": 0,
+              "y": 0,
+              "width": 14,
+              "height": 14,
+              "iconFontFamily": "lucide",
+              "iconFontName": "eye",
+              "fill": "#64748b"
+            },
+            {
+              "type": "text",
+              "id": "min027",
+              "name": "previewText",
+              "x": 0,
+              "y": 0,
+              "content": "Preview",
+              "fill": "#334155",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min028",
+          "name": "saveButton",
+          "x": 762,
+          "y": 82,
+          "width": 126,
+          "height": 34,
+          "fill": "#2563eb",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 7,
+          "cornerRadius": 8,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "offset": {
+              "x": 0,
+              "y": 5
+            },
+            "blur": 12,
+            "color": "#2563eb33"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "min029",
+              "name": "saveIcon",
+              "x": 0,
+              "y": 0,
+              "width": 14,
+              "height": 14,
+              "iconFontFamily": "lucide",
+              "iconFontName": "check",
+              "fill": "#ffffff"
+            },
+            {
+              "type": "text",
+              "id": "min030",
+              "name": "saveText",
+              "x": 0,
+              "y": 0,
+              "content": "Save & Finalize",
+              "fill": "#ffffff",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "700"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min031",
+          "name": "Meeting Information Card",
+          "x": 230,
+          "y": 148,
+          "width": 500,
+          "height": 250,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "min032",
+              "name": "infoHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min033",
+                  "name": "infoIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "calendar-clock",
+                  "fill": "#2563eb"
+                },
+                {
+                  "type": "text",
+                  "id": "min034",
+                  "name": "infoTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Information",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min035",
+              "name": "infoGrid",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 9,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "min036",
+                  "name": "infoRow1",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 54,
+                  "layout": "horizontal",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "min037",
+                      "name": "Meeting title",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min038",
+                          "name": "Meeting title label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "MEETING TITLE",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "min039",
+                          "name": "Meeting title value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Quarterly Operations Review",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "min040",
+                      "name": "Location",
+                      "x": 0,
+                      "y": 0,
+                      "width": 170,
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min041",
+                          "name": "Location label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "LOCATION",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "min042",
+                          "name": "Location value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Room 4.1",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "min043",
+                  "name": "infoRow2",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 54,
+                  "layout": "horizontal",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "min044",
+                      "name": "Date",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min045",
+                          "name": "Date label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "DATE",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "min046",
+                          "name": "Date value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "7 May 2026",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "min047",
+                      "name": "Time",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min048",
+                          "name": "Time label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "TIME",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "min049",
+                          "name": "Time value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "10:00 AM - 11:00 AM",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "min050",
+                  "name": "infoRow3",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 54,
+                  "layout": "horizontal",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "min051",
+                      "name": "Tag",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#eff6ff",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#bfdbfe"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min052",
+                          "name": "Tag label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "TAG",
+                          "fill": "#2563eb",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "min053",
+                          "name": "Tag value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Operations",
+                          "fill": "#1d4ed8",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min054",
+          "name": "Agenda Card",
+          "x": 230,
+          "y": 414,
+          "width": 500,
+          "height": 112,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "min055",
+              "name": "agendaHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min056",
+                  "name": "agendaIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "notebook-tabs",
+                  "fill": "#7c3aed"
+                },
+                {
+                  "type": "text",
+                  "id": "min057",
+                  "name": "agendaTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Agenda",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "min058",
+              "name": "agendaText",
+              "x": 0,
+              "y": 0,
+              "content": "Review quarterly delivery health, risks, upcoming milestones, and confirm owners for follow-up actions before the next steering committee.",
+              "fill": "#475569",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "lineHeight": 1.35
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min059",
+          "name": "Meeting Minutes Card",
+          "x": 230,
+          "y": 530,
+          "width": 500,
+          "height": 170,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "placeholder": true,
+              "id": "min125",
+              "name": "minutesHeader",
+              "height": 26,
+              "width": "fill_container",
+              "alignItems": "center",
+              "justifyContent": "space_between",
+              "children": [
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min126",
+                  "name": "minutesHeaderLeft",
+                  "height": 24,
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "iconFontFamily": "lucide",
+                      "id": "min127",
+                      "name": "minutesIcon",
+                      "iconFontName": "file-text",
+                      "fill": "#7c3aed",
+                      "width": 16,
+                      "height": 16
+                    },
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min128",
+                      "name": "minutesTitle",
+                      "content": "Meeting Minutes",
+                      "fontSize": 13,
+                      "fontWeight": "700",
+                      "fill": "#243447"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min129",
+                  "name": "minutesStatusBadge",
+                  "height": 24,
+                  "width": 76,
+                  "cornerRadius": 12,
+                  "fill": "#fef3c7",
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min130",
+                      "name": "minutesStatusText",
+                      "content": "Draft",
+                      "fontSize": 10,
+                      "fontWeight": "700",
+                      "fill": "#b45309"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "fontFamily": "Inter",
+              "id": "min131",
+              "name": "minutesIntro",
+              "content": "Generate minutes from meeting audio, or start a structured draft manually.",
+              "fontSize": 11,
+              "fontWeight": "normal",
+              "fill": "#64748b",
+              "textGrowth": "fixed-width",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "placeholder": true,
+              "id": "min132",
+              "name": "minutesActions",
+              "height": 34,
+              "width": "fill_container",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min133",
+                  "name": "generateMinutesButton",
+                  "height": 32,
+                  "width": 142,
+                  "cornerRadius": 7,
+                  "fill": "#2563eb",
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "iconFontFamily": "lucide",
+                      "id": "min134",
+                      "name": "generateIcon",
+                      "iconFontName": "sparkles",
+                      "fill": "#ffffff",
+                      "width": 13,
+                      "height": 13
+                    },
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min135",
+                      "name": "generateText",
+                      "content": "Generate from audio",
+                      "fontSize": 10,
+                      "fontWeight": "700",
+                      "fill": "#ffffff"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min136",
+                  "name": "createManualMinutesButton",
+                  "height": 32,
+                  "width": 112,
+                  "cornerRadius": 7,
+                  "fill": "#ffffff",
+                  "stroke": {
+                    "fill": "#d9e0e8",
+                    "thickness": 1
+                  },
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min137",
+                      "name": "manualText",
+                      "content": "Create manually",
+                      "fontSize": 10,
+                      "fontWeight": "700",
+                      "fill": "#334155"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min138",
+                  "name": "minutesSourcePill",
+                  "height": 28,
+                  "width": 156,
+                  "cornerRadius": 7,
+                  "fill": "#faf5ff",
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "iconFontFamily": "lucide",
+                      "id": "min139",
+                      "name": "sourceIcon",
+                      "iconFontName": "music",
+                      "fill": "#7c3aed",
+                      "width": 12,
+                      "height": 12
+                    },
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min140",
+                      "name": "sourceText",
+                      "content": "Q2-review-audio.m4a",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "fill": "#6d28d9"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "placeholder": true,
+              "id": "min141",
+              "name": "minutesDraftSections",
+              "height": 36,
+              "width": "fill_container",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min142",
+                  "name": "summarySectionChip",
+                  "height": "fill_container",
+                  "width": "fill_container",
+                  "cornerRadius": 7,
+                  "fill": "#f8fafc",
+                  "stroke": {
+                    "fill": "#e2e8f0",
+                    "thickness": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    6,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min143",
+                      "name": "summaryLabel",
+                      "content": "Summary",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "fill": "#334155"
+                    },
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min144",
+                      "name": "summaryText",
+                      "content": "3 bullets ready",
+                      "fontSize": 8,
+                      "fontWeight": "normal",
+                      "fill": "#64748b"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min145",
+                  "name": "decisionsSectionChip",
+                  "height": "fill_container",
+                  "width": "fill_container",
+                  "cornerRadius": 7,
+                  "fill": "#f8fafc",
+                  "stroke": {
+                    "fill": "#e2e8f0",
+                    "thickness": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    6,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min146",
+                      "name": "decisionsLabel",
+                      "content": "Decisions",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "fill": "#334155"
+                    },
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min147",
+                      "name": "decisionsText",
+                      "content": "2 captured",
+                      "fontSize": 8,
+                      "fontWeight": "normal",
+                      "fill": "#64748b"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "placeholder": true,
+                  "id": "min148",
+                  "name": "actionsExtractedSectionChip",
+                  "height": "fill_container",
+                  "width": "fill_container",
+                  "cornerRadius": 7,
+                  "fill": "#eff6ff",
+                  "stroke": {
+                    "fill": "#bfdbfe",
+                    "thickness": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    6,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min149",
+                      "name": "actionsLabel",
+                      "content": "Action items",
+                      "fontSize": 9,
+                      "fontWeight": "700",
+                      "fill": "#1d4ed8"
+                    },
+                    {
+                      "type": "text",
+                      "fontFamily": "Inter",
+                      "id": "min150",
+                      "name": "actionsText",
+                      "content": "Review 4",
+                      "fontSize": 8,
+                      "fontWeight": "normal",
+                      "fill": "#2563eb"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "placeholder": true
+        },
+        {
+          "type": "frame",
+          "id": "min092",
+          "name": "Attendees Card",
+          "x": 748,
+          "y": 148,
+          "width": 252,
+          "height": 168,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "min093",
+              "name": "attendeesHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min094",
+                  "name": "attendeesIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "users",
+                  "fill": "#16a34a"
+                },
+                {
+                  "type": "text",
+                  "id": "min095",
+                  "name": "attendeesTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Attendees",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min096",
+              "name": "attendeesList",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "min097",
+                  "name": "Mina Chen · Organizer",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 28,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "min098",
+                      "name": "attendeeAvatar",
+                      "x": 0,
+                      "y": 0,
+                      "width": 24,
+                      "height": 24,
+                      "fill": "#dbeafe",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min099",
+                          "name": "attendeeInitial",
+                          "x": 0,
+                          "y": 0,
+                          "content": "MC",
+                          "fill": "#2563eb",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "min100",
+                      "name": "attendeeName",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Mina Chen · Organizer",
+                      "fill": "#334155",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "min101",
+                  "name": "Alex Kim · Accepted",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 28,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "min102",
+                      "name": "attendeeAvatar",
+                      "x": 0,
+                      "y": 0,
+                      "width": 24,
+                      "height": 24,
+                      "fill": "#dcfce7",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "min103",
+                          "name": "attendeeInitial",
+                          "x": 0,
+                          "y": 0,
+                          "content": "AK",
+                          "fill": "#16a34a",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "min104",
+                      "name": "attendeeName",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Alex Kim · Accepted",
+                      "fill": "#334155",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "min105",
+                  "name": "attendeeMore",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 24,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "min106",
+                      "name": "attendeeMoreIcon",
+                      "x": 0,
+                      "y": 0,
+                      "width": 16,
+                      "height": 16,
+                      "iconFontFamily": "lucide",
+                      "iconFontName": "ellipsis",
+                      "fill": "#64748b"
+                    },
+                    {
+                      "type": "text",
+                      "id": "min107",
+                      "name": "attendeeMoreText",
+                      "x": 0,
+                      "y": 0,
+                      "content": "6 more participants",
+                      "fill": "#64748b",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min108",
+          "name": "Meeting Materials Card",
+          "x": 748,
+          "y": 344,
+          "width": 252,
+          "height": 142,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "min109",
+              "name": "materialsHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min110",
+                  "name": "materialsIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "paperclip",
+                  "fill": "#f97316"
+                },
+                {
+                  "type": "text",
+                  "id": "min111",
+                  "name": "materialsTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Materials",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min112",
+              "name": "materialsDropzone",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 52,
+              "fill": "#f8fafc",
+              "layout": "vertical",
+              "alignItems": "center",
+              "justifyContent": "center",
+              "gap": 6,
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#cbd5e1",
+                "dashPattern": [
+                  4,
+                  3
+                ]
+              },
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min113",
+                  "name": "uploadIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "upload",
+                  "fill": "#64748b"
+                },
+                {
+                  "type": "text",
+                  "id": "min114",
+                  "name": "dropText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Drop files or browse",
+                  "fill": "#64748b",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min115",
+              "name": "materialFileList",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 26,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min116",
+                  "name": "fileIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 14,
+                  "height": 14,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "file-text",
+                  "fill": "#64748b"
+                },
+                {
+                  "type": "text",
+                  "id": "min117",
+                  "name": "fileText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "agenda.pdf · 2 more",
+                  "fill": "#334155",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "min118",
+          "name": "Meeting Audio Card",
+          "x": 748,
+          "y": 502,
+          "width": 252,
+          "height": 102,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "min119",
+              "name": "audioHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min120",
+                  "name": "audioIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "audio-lines",
+                  "fill": "#7c3aed"
+                },
+                {
+                  "type": "text",
+                  "id": "min121",
+                  "name": "audioTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Audio",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "min122",
+              "name": "audioDropzone",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 38,
+              "fill": "#faf5ff",
+              "layout": "horizontal",
+              "alignItems": "center",
+              "justifyContent": "center",
+              "gap": 8,
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#e9d5ff",
+                "dashPattern": [
+                  4,
+                  3
+                ]
+              },
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "min123",
+                  "name": "audioUploadIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "mic",
+                  "fill": "#7c3aed"
+                },
+                {
+                  "type": "text",
+                  "id": "min124",
+                  "name": "audioDropText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Upload MP3, WAV, M4A",
+                  "fill": "#7c3aed",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

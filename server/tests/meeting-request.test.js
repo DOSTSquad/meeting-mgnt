@@ -10,6 +10,7 @@ import { runMigrations } from '../db/migrate.js'
 import {
   confirm,
   create,
+  getInviteeDetail,
   getOne,
   replaceInvitees,
   replaceTimeOptions,
@@ -67,6 +68,7 @@ const createTestUser = async (suffix) =>
 describe('meeting request flow', () => {
   let creator
   let invitee
+  let outsider
 
   beforeAll(async () => {
     process.env.DATABASE_URL = projectEnv.DATABASE_URL
@@ -85,6 +87,7 @@ describe('meeting request flow', () => {
 
     creator = await createTestUser('creator')
     invitee = await createTestUser('invitee')
+    outsider = await createTestUser('outsider')
   })
 
   afterAll(async () => {
@@ -156,6 +159,40 @@ describe('meeting request flow', () => {
       timeOptionCount: 1,
     })
 
+    const inviteeDashboard = await getDashboardData(invitee.id)
+    expect(inviteeDashboard.pendingAvailabilityRequests).toHaveLength(1)
+    expect(inviteeDashboard.pendingAvailabilityRequests[0]).toMatchObject({
+      id: requestId,
+      inviteeId,
+      title: 'Quarterly review',
+      responseStatus: 'pending',
+      timeOptionCount: 1,
+      inviteeCounts: {
+        submitted: 0,
+        pending: 1,
+        total: 1,
+      },
+    })
+
+    const inviteeDetailResult = await runHandler(
+      getInviteeDetail,
+      buildRequest({ user: { id: invitee.id }, params: { requestId, inviteeId } })
+    )
+    expect(inviteeDetailResult.nextError).toBeUndefined()
+    expect(inviteeDetailResult.res.body.invitee.id).toBe(inviteeId)
+    expect(inviteeDetailResult.res.body.timeOptions[0]).toMatchObject({
+      id: timeOptionId,
+      availableCount: 0,
+      notRespondedCount: 1,
+    })
+    expect(inviteeDetailResult.res.body.responses).toEqual([])
+
+    const outsiderDetailResult = await runHandler(
+      getInviteeDetail,
+      buildRequest({ user: { id: outsider.id }, params: { requestId, inviteeId } })
+    )
+    expect(outsiderDetailResult.nextError.statusCode).toBe(403)
+
     const availabilityResult = await runHandler(
       submitAvailability,
       buildRequest({
@@ -166,6 +203,9 @@ describe('meeting request flow', () => {
     )
     expect(availabilityResult.nextError).toBeUndefined()
     expect(availabilityResult.res.body.responses[0].isAvailable).toBe(true)
+
+    const completedInviteeDashboard = await getDashboardData(invitee.id)
+    expect(completedInviteeDashboard.pendingAvailabilityRequests).toHaveLength(0)
 
     const detailResult = await runHandler(
       getOne,
@@ -252,6 +292,50 @@ describe('meeting request flow', () => {
 
     expect(availabilityResult.nextError.statusCode).toBe(400)
     expect(availabilityResult.nextError.message).toMatch(/isAvailable must be boolean/)
+  })
+
+  it('returns upcoming dashboard meetings by earliest start time', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const dateFromNow = (days, hours = 0) =>
+      new Date(Date.now() + days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString()
+
+    await createMeetingForUser(
+      {
+        title: 'Past dashboard meeting',
+        startsAt: dateFromNow(-2),
+        endsAt: dateFromNow(-2, 1),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+    await createMeetingForUser(
+      {
+        title: 'Later dashboard meeting',
+        startsAt: dateFromNow(5),
+        endsAt: dateFromNow(5, 1),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+    await createMeetingForUser(
+      {
+        title: 'Earlier dashboard meeting',
+        startsAt: dateFromNow(2),
+        endsAt: dateFromNow(2, 1),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+
+    const dashboard = await getDashboardData(creator.id)
+
+    expect(dashboard.recentMeetings.map((meeting) => meeting.title)).toEqual([
+      'Earlier dashboard meeting',
+      'Later dashboard meeting',
+    ])
   })
 
   it('rejects time options that overlap with the creator existing meetings', async () => {

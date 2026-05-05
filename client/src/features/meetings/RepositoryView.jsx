@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CalendarDays, ChevronRight, FileText, Users } from 'lucide-react'
 
 import { formatDateOnly } from '../../utils/date.js'
 
@@ -7,12 +8,6 @@ const tagPalette = [
   { bg: 'bg-purple-500', text: 'text-purple-600', border: 'border-purple-100' },
   { bg: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-100' },
   { bg: 'bg-orange-500', text: 'text-orange-600', border: 'border-orange-100' },
-]
-
-const documentPalette = [
-  { bg: 'bg-red-50', text: 'text-red-600' },
-  { bg: 'bg-orange-50', text: 'text-orange-600' },
-  { bg: 'bg-emerald-50', text: 'text-emerald-600' },
 ]
 
 const getMeetingTime = (value) =>
@@ -33,6 +28,16 @@ const formatLatestMeeting = (timestamp) => {
   }
 
   return `Latest ${formatDateOnly(timestamp)}`
+}
+
+const formatStatus = (status) => status.replaceAll('_', ' ')
+
+const statusStyles = {
+  scheduled: 'bg-blue-50 text-blue-700',
+  in_progress: 'bg-amber-50 text-amber-700',
+  completed: 'bg-emerald-50 text-emerald-700',
+  cancelled: 'bg-rose-50 text-rose-700',
+  archived: 'bg-slate-100 text-slate-600',
 }
 
 export const RepositoryView = ({
@@ -109,7 +114,7 @@ export const RepositoryView = ({
       .toLowerCase()
     return searchable.includes(keyword)
   })
-  const recentDocuments = filteredMeetings
+  const shownMeetings = filteredMeetings
     .slice()
     .sort(
       (first, second) => new Date(second.startsAt).getTime() - new Date(first.startsAt).getTime()
@@ -236,55 +241,83 @@ export const RepositoryView = ({
                 : `Showing meetings tagged ${selectedTagLabel}.`}
             </p>
           </div>
-          <span className="text-xs font-semibold text-slate-400">
-            {recentDocuments.length} shown
-          </span>
+          <span className="text-xs font-semibold text-slate-400">{shownMeetings.length} shown</span>
         </div>
-        <div className="mt-3 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {recentDocuments.map((meeting, index) => {
-            const palette = documentPalette[index % documentPalette.length]
-            const participantNames = meetingParticipantsByMeeting[meeting.id] || []
-            const fileCount = getFileCount(meeting)
+        <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="hidden grid-cols-[minmax(0,1.7fr)_10rem_8rem_6rem_7rem_2rem] items-center gap-4 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-400 lg:grid">
+            <span>Meeting</span>
+            <span>Date</span>
+            <span>Tag</span>
+            <span>Files</span>
+            <span>Status</span>
+            <span />
+          </div>
+          <div className="divide-y divide-slate-100">
+            {shownMeetings.map((meeting) => {
+              const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+              const fileCount = getFileCount(meeting)
+              const statusClass = statusStyles[meeting.status] || statusStyles.archived
 
-            return (
-              <button
-                key={meeting.id}
-                type="button"
-                onClick={() => onOpenMeeting(meeting.id)}
-                className="flex min-h-24 gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-blue-200 hover:shadow-sm"
-              >
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${palette.bg} ${palette.text} text-xs font-bold`}
+              return (
+                <button
+                  key={meeting.id}
+                  type="button"
+                  onClick={() => onOpenMeeting(meeting.id)}
+                  className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-blue-50/40 lg:grid-cols-[minmax(0,1.7fr)_10rem_8rem_6rem_7rem_2rem] lg:items-center lg:gap-4"
                 >
-                  M
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-bold text-slate-800">
-                    {meeting.title}
-                  </span>
-                  <span className="mt-1 block text-xs text-slate-500">
-                    {formatDateOnly(meeting.startsAt)} at {getMeetingTime(meeting.startsAt)}
-                  </span>
-                  <span className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
-                    <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-600">
-                      {meeting.tag || 'Untagged'}
+                  <span className="flex min-w-0 gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-xs font-bold text-blue-600">
+                      M
                     </span>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
-                      {fileCount} files
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-slate-800">
+                        {meeting.title}
+                      </span>
+                      <span className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+                        <Users className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        <span className="truncate">
+                          {participantNames.slice(0, 3).join(', ') || 'No participants listed'}
+                        </span>
+                      </span>
                     </span>
                   </span>
-                  <span className="mt-2 block truncate text-xs text-slate-500">
-                    {participantNames.slice(0, 2).join(', ') || meeting.status}
+
+                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                    <span>
+                      {formatDateOnly(meeting.startsAt)}
+                      <span className="text-slate-400"> at </span>
+                      {getMeetingTime(meeting.startsAt)}
+                    </span>
                   </span>
-                </span>
-              </button>
-            )
-          })}
-          {recentDocuments.length === 0 ? (
-            <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
-              No meetings match the current filters.
-            </p>
-          ) : null}
+
+                  <span>
+                    <span className="inline-flex max-w-full items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                      <span className="truncate">{meeting.tag || 'Untagged'}</span>
+                    </span>
+                  </span>
+
+                  <span className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                    <FileText className="h-4 w-4 text-slate-400" />
+                    {fileCount}
+                  </span>
+
+                  <span>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${statusClass}`}
+                    >
+                      {formatStatus(meeting.status)}
+                    </span>
+                  </span>
+
+                  <ChevronRight className="hidden h-4 w-4 justify-self-end text-slate-300 lg:block" />
+                </button>
+              )
+            })}
+            {shownMeetings.length === 0 ? (
+              <p className="p-4 text-sm text-slate-500">No meetings match the current filters.</p>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

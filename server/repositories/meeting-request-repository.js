@@ -145,7 +145,9 @@ export const updateMeetingRequest = async (requestId, updates) => {
 
 export const replaceTimeOptions = async (requestId, timeOptions) =>
   transaction(async (client) => {
-    await client.query('DELETE FROM meeting_time_options WHERE meeting_request_id = $1', [requestId])
+    await client.query('DELETE FROM meeting_time_options WHERE meeting_request_id = $1', [
+      requestId,
+    ])
 
     if (timeOptions.length === 0) {
       return []
@@ -319,6 +321,20 @@ export const findInvitee = async (requestId, inviteeId) => {
   )
 
   return result.rows[0] ? mapInvitee(result.rows[0]) : null
+}
+
+export const listInviteeResponses = async (inviteeId) => {
+  const result = await query(
+    `
+      SELECT id, time_option_id, invitee_id, is_available, created_at, updated_at
+      FROM meeting_time_option_responses
+      WHERE invitee_id = $1
+      ORDER BY created_at ASC, id ASC
+    `,
+    [inviteeId]
+  )
+
+  return result.rows.map(mapResponse)
 }
 
 export const replaceInviteeResponses = async (requestId, inviteeId, responses) =>

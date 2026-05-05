@@ -28,6 +28,31 @@ const mapMeetingRequestRow = (row) => ({
   timeOptionCount: row.time_option_count,
 })
 
+const mapPendingAvailabilityRequestRow = (row) => ({
+  id: row.id,
+  inviteeId: row.invitee_id,
+  title: row.title,
+  description: row.description,
+  durationMinutes: row.duration_minutes,
+  timezoneName: row.timezone_name,
+  responseDeadline: row.response_deadline ? row.response_deadline.toISOString() : null,
+  status: row.status,
+  responseStatus: row.response_status,
+  createdAt: row.created_at.toISOString(),
+  updatedAt: row.updated_at.toISOString(),
+  creator: {
+    id: row.created_by,
+    name: row.creator_name,
+    email: row.creator_email,
+  },
+  inviteeCounts: {
+    submitted: row.submitted_count,
+    pending: row.pending_count,
+    total: row.invitee_count,
+  },
+  timeOptionCount: row.time_option_count,
+})
+
 const baseMeetingAccessCte = `
   WITH accessible_meetings AS (
     SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status
@@ -49,51 +74,15 @@ export const listRecentMeetingsForUser = async (userId, limit = 5) => {
       ${baseMeetingAccessCte}
       SELECT id, title, starts_at, ends_at, timezone_name, location, status
       FROM accessible_meetings
-      ORDER BY starts_at DESC
+      WHERE starts_at >= NOW()
+        AND status NOT IN ('cancelled', 'archived')
+      ORDER BY starts_at ASC
       LIMIT $2
     `,
     [userId, limit]
   )
 
   return result.rows.map(mapMeetingRow)
-}
-
-export const listPendingRsvpMeetingsForUser = async (userId, limit = 5) => {
-  const result = await query(
-    `
-      SELECT
-        m.id,
-        m.title,
-        m.starts_at,
-        m.ends_at,
-        m.timezone_name,
-        m.location,
-        m.status,
-        COUNT(*) FILTER (WHERE all_mp.rsvp_status = 'accepted')::int AS accepted_count,
-        COUNT(*) FILTER (WHERE all_mp.rsvp_status = 'declined')::int AS declined_count,
-        COUNT(*) FILTER (WHERE all_mp.rsvp_status = 'pending')::int AS pending_count,
-        COUNT(*)::int AS total_count
-      FROM meeting_participants my_mp
-      JOIN meetings m ON m.id = my_mp.meeting_id
-      JOIN meeting_participants all_mp ON all_mp.meeting_id = m.id
-      WHERE my_mp.user_id = $1
-        AND my_mp.rsvp_status = 'pending'
-      GROUP BY m.id
-      ORDER BY m.starts_at ASC
-      LIMIT $2
-    `,
-    [userId, limit]
-  )
-
-  return result.rows.map((row) => ({
-    ...mapMeetingRow(row),
-    rsvpCounts: {
-      accepted: row.accepted_count,
-      declined: row.declined_count,
-      pending: row.pending_count,
-      total: row.total_count,
-    },
-  }))
 }
 
 export const listMyActionItems = async (userId, limit = 10) => {
@@ -162,6 +151,46 @@ export const listPendingMeetingRequestsForUser = async (userId, limit = 5) => {
   return result.rows.map(mapMeetingRequestRow)
 }
 
+export const listPendingAvailabilityRequestsForUser = async (userId, limit = 5) => {
+  const result = await query(
+    `
+      SELECT
+        mr.id,
+        mri.id AS invitee_id,
+        mr.title,
+        mr.description,
+        mr.duration_minutes,
+        mr.timezone_name,
+        mr.response_deadline,
+        mr.status,
+        mr.created_by,
+        mr.created_at,
+        mr.updated_at,
+        mri.response_status,
+        u.name AS creator_name,
+        u.email AS creator_email,
+        COUNT(DISTINCT mto.id)::int AS time_option_count,
+        COUNT(DISTINCT all_invitees.id)::int AS invitee_count,
+        COUNT(DISTINCT all_invitees.id) FILTER (WHERE all_invitees.response_status = 'submitted')::int AS submitted_count,
+        COUNT(DISTINCT all_invitees.id) FILTER (WHERE all_invitees.response_status = 'pending')::int AS pending_count
+      FROM meeting_request_invitees mri
+      JOIN meeting_requests mr ON mr.id = mri.meeting_request_id
+      JOIN users u ON u.id = mr.created_by
+      LEFT JOIN meeting_time_options mto ON mto.meeting_request_id = mr.id
+      LEFT JOIN meeting_request_invitees all_invitees ON all_invitees.meeting_request_id = mr.id
+      WHERE mri.user_id = $1
+        AND mri.response_status = 'pending'
+        AND mr.status NOT IN ('confirmed', 'cancelled')
+      GROUP BY mr.id, mri.id, u.id
+      ORDER BY mr.response_deadline ASC NULLS LAST, mr.updated_at DESC
+      LIMIT $2
+    `,
+    [userId, limit]
+  )
+
+  return result.rows.map(mapPendingAvailabilityRequestRow)
+}
+
 export const listNotificationItemsForUser = async (userId, limit = 20) => {
   const result = await query(
     `
@@ -194,20 +223,6 @@ export const listNotificationItemsForUser = async (userId, limit = 20) => {
         FROM action_items ai
         WHERE ai.assignee_id = $1
           AND ai.updated_at >= ai.created_at
-
-        UNION ALL
-
-        SELECT
-          'rsvp_pending'::text AS type,
-          m.id AS meeting_id,
-          NULL::uuid AS action_item_id,
-          m.title AS title,
-          m.starts_at AS event_at,
-          'Please vote on your meeting availability.'::text AS detail
-        FROM meeting_participants mp
-        JOIN meetings m ON m.id = mp.meeting_id
-        WHERE mp.user_id = $1
-          AND mp.rsvp_status = 'pending'
 
         UNION ALL
 

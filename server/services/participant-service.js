@@ -16,8 +16,6 @@ const createHttpError = (message, statusCode) => {
 }
 
 export const ALLOWED_ROLES = ['organizer', 'attendee', 'optional']
-export const ALLOWED_RSVP = ['pending', 'accepted', 'declined']
-const SELF_RSVP_VALUES = ['accepted', 'declined']
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -111,18 +109,14 @@ export const updateParticipant = async (meetingId, userId, input, callerId) => {
     throw createHttpError('Participant not found', 404)
   }
 
-  const { role, rsvpStatus } = input ?? {}
+  const { role } = input ?? {}
 
-  if (role === undefined && rsvpStatus === undefined) {
+  if (role === undefined) {
     throw createHttpError('No updates supplied', 400)
   }
 
   if (role !== undefined && !ALLOWED_ROLES.includes(role)) {
     throw createHttpError(`Invalid role: ${role}`, 400)
-  }
-
-  if (rsvpStatus !== undefined && !ALLOWED_RSVP.includes(rsvpStatus)) {
-    throw createHttpError(`Invalid rsvpStatus: ${rsvpStatus}`, 400)
   }
 
   if (role !== undefined && target.role === 'organizer' && role !== 'organizer') {
@@ -133,39 +127,7 @@ export const updateParticipant = async (meetingId, userId, input, callerId) => {
     }
   }
 
-  const participant = await updateOne(meetingId, userId, { role, rsvpStatus })
-
-  return { participant }
-}
-
-export const updateOwnRsvp = async (meetingId, callerId, input) => {
-  await loadMeetingOrThrow(meetingId)
-
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  const participants = await listByMeeting(meetingId)
-  const caller = participants.find((p) => p.userId === callerId)
-
-  if (!caller) {
-    throw createHttpError('You are not a participant of this meeting', 403)
-  }
-
-  const { rsvpStatus } = input ?? {}
-
-  if (rsvpStatus === undefined) {
-    throw createHttpError('rsvpStatus is required', 400)
-  }
-
-  if (!SELF_RSVP_VALUES.includes(rsvpStatus)) {
-    throw createHttpError(
-      `Invalid rsvpStatus: ${rsvpStatus}. Allowed values: accepted, declined`,
-      400
-    )
-  }
-
-  const participant = await updateOne(meetingId, callerId, { rsvpStatus })
+  const participant = await updateOne(meetingId, userId, { role })
 
   return { participant }
 }

@@ -1,7 +1,7 @@
 import {
   listMyActionItems,
   listNotificationItemsForUser,
-  listPendingRsvpMeetingsForUser,
+  listPendingAvailabilityRequestsForUser,
   listPendingMeetingRequestsForUser,
   listRecentMeetingsForUser,
 } from '../repositories/dashboard-repository.js'
@@ -22,18 +22,15 @@ const assertUser = (userId) => {
 export const getDashboardData = async (userId) => {
   assertUser(userId)
 
-  const [recentMeetings, pendingRsvpMeetings, pendingMeetingRequests, myActionItems] =
-    await Promise.all([
-      listRecentMeetingsForUser(userId, 6),
-      listPendingRsvpMeetingsForUser(userId, 3),
-      listPendingMeetingRequestsForUser(userId, 5),
-      listMyActionItems(userId, 6),
-    ])
+  const recentMeetings = await listRecentMeetingsForUser(userId, 6)
+  const pendingMeetingRequests = await listPendingMeetingRequestsForUser(userId, 5)
+  const pendingAvailabilityRequests = await listPendingAvailabilityRequestsForUser(userId, 5)
+  const myActionItems = await listMyActionItems(userId, 6)
 
   return {
     recentMeetings,
-    pendingRsvpMeetings,
     pendingMeetingRequests,
+    pendingAvailabilityRequests,
     myActionItems,
   }
 }

@@ -8,6 +8,7 @@ import { getApiClient } from './lib/apiClient.js'
 import { ActionItemsView } from './features/action-items/ActionItemsView.jsx'
 import { LoginView } from './features/auth/LoginView.jsx'
 import { DashboardView } from './features/dashboard/DashboardView.jsx'
+import { VoteAvailabilityModal } from './features/dashboard/VoteAvailabilityModal.jsx'
 import { CreateMeetingModal } from './features/meetings/CreateMeetingModal.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { MeetingPreviewModal } from './features/meetings/MeetingPreviewModal.jsx'
@@ -47,6 +48,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const [pendingMeetingAudioFiles, setPendingMeetingAudioFiles] = useState([])
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [activeMeetingRequestId, setActiveMeetingRequestId] = useState(null)
+  const [activeAvailabilityRequest, setActiveAvailabilityRequest] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [successModalMessage, setSuccessModalMessage] = useState('')
@@ -185,6 +187,10 @@ const AppShell = ({ token, user, onLogout }) => {
     setIsCreateModalOpen(true)
   }
 
+  const openAvailabilityRequestModal = (request) => {
+    setActiveAvailabilityRequest(request)
+  }
+
   const reloadSelectedMeetingDetail = async () => {
     if (!selectedMeetingDetail?.meeting?.id) {
       return
@@ -202,6 +208,12 @@ const AppShell = ({ token, user, onLogout }) => {
 
       if (field === 'date' || field === 'time') {
         const start = new Date(prev.meeting.startsAt)
+        const end = new Date(prev.meeting.endsAt)
+        const durationMs =
+          !Number.isNaN(end.getTime()) && end > start
+            ? end.getTime() - start.getTime()
+            : 60 * 60 * 1000
+
         if (field === 'date') {
           const [year, month, day] = value.split('-').map(Number)
           start.setFullYear(year, month - 1, day)
@@ -215,7 +227,7 @@ const AppShell = ({ token, user, onLogout }) => {
           meeting: {
             ...prev.meeting,
             startsAt: start.toISOString(),
-            endsAt: new Date(start.getTime() + 60 * 60 * 1000).toISOString(),
+            endsAt: new Date(start.getTime() + durationMs).toISOString(),
           },
         }
       }
@@ -508,6 +520,8 @@ const AppShell = ({ token, user, onLogout }) => {
                 onOpenCreateModal={openNewMeetingModal}
                 onOpenMeeting={openMeetingDetail}
                 onOpenMeetingRequest={openMeetingRequestModal}
+                onOpenAvailabilityRequest={openAvailabilityRequestModal}
+                onViewAllMeetings={() => navigate('/meetings')}
               />
             }
           />
@@ -576,9 +590,12 @@ const AppShell = ({ token, user, onLogout }) => {
           setIsCreateModalOpen(false)
           setActiveMeetingRequestId(null)
         }}
-        onCreated={async () => {
+        onCreated={async (result) => {
           await reloadData()
           setActiveMeetingRequestId(null)
+          if (result?.meeting?.id) {
+            navigate(`/meetings/${result.meeting.id}`)
+          }
         }}
         token={token}
         users={users}
@@ -589,6 +606,13 @@ const AppShell = ({ token, user, onLogout }) => {
       />
 
       <SuccessModal message={successModalMessage} onClose={() => setSuccessModalMessage('')} />
+      <VoteAvailabilityModal
+        request={activeAvailabilityRequest}
+        token={token}
+        isOpen={Boolean(activeAvailabilityRequest)}
+        onClose={() => setActiveAvailabilityRequest(null)}
+        onSubmitted={reloadData}
+      />
       <MeetingPreviewModal
         detail={selectedMeetingDetail}
         isOpen={isPreviewOpen}

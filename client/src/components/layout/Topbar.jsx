@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Bell, CheckCheck } from 'lucide-react'
 
 const getInitials = (name = '') =>
   name
@@ -9,16 +10,71 @@ const getInitials = (name = '') =>
     .join('') || 'U'
 
 const notificationCopy = {
-  meeting_created: 'New meeting created',
-  task_assigned: 'Task assigned',
-  rsvp_pending: 'RSVP pending',
-  action_due: 'Action item due',
+  meeting_created: {
+    title: 'Meeting created',
+    tone: 'blue',
+  },
+  task_assigned: {
+    title: 'Action item assigned',
+    tone: 'amber',
+  },
+  action_due: {
+    title: 'Action item is due today',
+    tone: 'amber',
+  },
+}
+
+const toneStyles = {
+  blue: {
+    card: 'border-blue-200 bg-blue-50',
+    time: 'text-blue-600',
+  },
+  amber: {
+    card: 'border-orange-200 bg-orange-50',
+    time: 'text-orange-600',
+  },
+  neutral: {
+    card: 'border-slate-200 bg-white',
+    time: 'text-slate-500',
+  },
+}
+
+const formatRelativeTime = (value) => {
+  if (!value) {
+    return 'Now'
+  }
+
+  const timestamp = new Date(value).getTime()
+  if (Number.isNaN(timestamp)) {
+    return 'Now'
+  }
+
+  const elapsedMs = Date.now() - timestamp
+  const elapsedMinutes = Math.max(0, Math.round(elapsedMs / 60000))
+
+  if (elapsedMinutes < 1) {
+    return 'Now'
+  }
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes} min ago`
+  }
+
+  const elapsedHours = Math.round(elapsedMinutes / 60)
+  if (elapsedHours < 24) {
+    return `${elapsedHours} hr ago`
+  }
+
+  const elapsedDays = Math.round(elapsedHours / 24)
+  return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`
 }
 
 export const Topbar = ({ currentUser, notifications, notificationCount, onLogout }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [readNotificationCount, setReadNotificationCount] = useState(0)
   const recentNotifications = notifications.slice(0, 3)
+  const unreadCount = Math.max(0, notificationCount - readNotificationCount)
 
   return (
     <header className="flex min-h-14 items-center justify-end gap-2">
@@ -32,56 +88,76 @@ export const Topbar = ({ currentUser, notifications, notificationCount, onLogout
           className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
           aria-label="Open notifications"
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-          </svg>
-          {notificationCount > 0 ? (
+          <Bell className="h-5 w-5" aria-hidden="true" />
+          {unreadCount > 0 ? (
             <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border border-white bg-rose-500" />
           ) : null}
         </button>
 
         {isNotificationsOpen ? (
-          <div className="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
+          <div className="absolute right-0 z-20 mt-3 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:w-[30rem]">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-bold text-slate-900">Notifications</h2>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
-                {notificationCount} unread
-              </span>
+              <h2 className="text-lg font-bold text-slate-900">Notifications</h2>
+              <button
+                type="button"
+                onClick={() => setReadNotificationCount(notificationCount)}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+              >
+                <CheckCheck className="h-4 w-4" />
+                Mark read
+              </button>
             </div>
-            <div className="mt-3 space-y-2">
-              {recentNotifications.map((item, index) => (
-                <article
-                  key={`${item.type}-${item.meetingId || item.actionItemId || index}`}
-                  className={`rounded-lg border p-3 ${
-                    index === 0
-                      ? 'border-blue-200 bg-blue-50'
-                      : index === 1
-                        ? 'border-orange-200 bg-orange-50'
-                        : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <p className="text-sm font-bold text-slate-900">
-                    {item.title || notificationCopy[item.type] || 'Notification'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {item.detail || notificationCopy[item.type]}
-                  </p>
-                </article>
-              ))}
+
+            <div className="mt-7 flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-500">
+                {unreadCount} unread update{unreadCount === 1 ? '' : 's'}
+              </p>
+              {unreadCount > 0 ? (
+                <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-red-500 px-2 text-sm font-bold text-white">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-4">
+              <div className="space-y-3">
+                {recentNotifications.map((item, index) => {
+                  const config = notificationCopy[item.type] || {
+                    title: 'Notification',
+                    tone: 'neutral',
+                  }
+                  const styles =
+                    toneStyles[index === 2 ? 'neutral' : config.tone] || toneStyles.neutral
+
+                  return (
+                    <article
+                      key={`${item.type}-${item.meetingId || item.actionItemId || index}`}
+                      className={`rounded-lg border p-4 ${styles.card}`}
+                    >
+                      <p className="text-sm font-bold text-slate-900">
+                        {item.title || config.title}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">{item.detail || config.title}</p>
+                      <p className={`mt-1 text-xs font-bold ${styles.time}`}>
+                        {formatRelativeTime(item.eventAt)}
+                      </p>
+                    </article>
+                  )
+                })}
+              </div>
               {recentNotifications.length === 0 ? (
                 <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
                   No notifications.
                 </p>
               ) : null}
             </div>
+
+            <button
+              type="button"
+              className="mt-4 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 text-sm font-bold text-blue-600 transition hover:border-blue-200 hover:bg-blue-50"
+            >
+              View all notifications
+            </button>
           </div>
         ) : null}
       </div>

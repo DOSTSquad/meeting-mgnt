@@ -129,14 +129,7 @@ export const getMeetingById = async (id) => {
 
   const participants = await listByMeeting(id)
 
-  const rsvpCounts = { accepted: 0, declined: 0, pending: 0 }
-  for (const participant of participants) {
-    if (rsvpCounts[participant.rsvpStatus] !== undefined) {
-      rsvpCounts[participant.rsvpStatus] += 1
-    }
-  }
-
-  return { ...meeting, participants, rsvpCounts }
+  return { ...meeting, participants }
 }
 
 export const updateMeetingById = async (id, input) => {

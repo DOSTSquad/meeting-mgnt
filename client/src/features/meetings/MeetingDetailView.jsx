@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FileAudio, UploadCloud } from 'lucide-react'
 
 import { isOverdueActionItem } from '../../utils/actionItems.js'
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
@@ -45,6 +46,34 @@ const getDueText = (item) => {
   }
 
   return item.dueDate ? `Due ${formatDateOnly(item.dueDate)}` : 'No due date'
+}
+
+const padDatePart = (value) => String(value).padStart(2, '0')
+
+const getDateInputValue = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`
+}
+
+const getTimeInputValue = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`
 }
 
 export const MeetingDetailView = ({
@@ -102,7 +131,11 @@ export const MeetingDetailView = ({
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
-        <button type="button" onClick={onBack} className="text-sm text-slate-500 hover:text-slate-700">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-slate-500 hover:text-slate-700"
+        >
           ← Back to repository
         </button>
         <div className="flex gap-2">
@@ -130,10 +163,14 @@ export const MeetingDetailView = ({
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
-            <p className="mt-1 text-sm text-slate-500">Core meeting metadata (title, schedule, and owner fields).</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Core meeting metadata (title, schedule, and owner fields).
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Meeting Title</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Meeting Title
+                </span>
                 <input
                   value={detail.meeting.title || ''}
                   onChange={(event) => onChange('title', event.target.value)}
@@ -142,7 +179,9 @@ export const MeetingDetailView = ({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Location</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Location
+                </span>
                 <input
                   value={detail.meeting.location || ''}
                   onChange={(event) => onChange('location', event.target.value)}
@@ -151,19 +190,23 @@ export const MeetingDetailView = ({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Date
+                </span>
                 <input
                   type="date"
-                  value={(detail.meeting.startsAt || '').slice(0, 10)}
+                  value={getDateInputValue(detail.meeting.startsAt)}
                   onChange={(event) => onChange('date', event.target.value)}
                   className="h-11 w-full rounded-xl border border-slate-200 px-3"
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Time</span>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Time
+                </span>
                 <input
                   type="time"
-                  value={new Date(detail.meeting.startsAt).toISOString().slice(11, 16)}
+                  value={getTimeInputValue(detail.meeting.startsAt)}
                   onChange={(event) => onChange('time', event.target.value)}
                   className="h-11 w-full rounded-xl border border-slate-200 px-3"
                 />
@@ -254,7 +297,9 @@ export const MeetingDetailView = ({
                   <article
                     key={item.id}
                     className={`rounded-xl border p-3 ${
-                      isCompleted ? 'border-emerald-100 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/80'
+                      isCompleted
+                        ? 'border-emerald-100 bg-emerald-50/50'
+                        : 'border-slate-200 bg-slate-50/80'
                     }`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -262,12 +307,11 @@ export const MeetingDetailView = ({
                         <button
                           type="button"
                           onClick={() =>
-                            onActionItemStatusChange(
-                              item.id,
-                              isCompleted ? 'todo' : 'completed'
-                            )
+                            onActionItemStatusChange(item.id, isCompleted ? 'todo' : 'completed')
                           }
-                          aria-label={isCompleted ? 'Mark action item open' : 'Mark action item done'}
+                          aria-label={
+                            isCompleted ? 'Mark action item open' : 'Mark action item done'
+                          }
                           className={`mt-6 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition ${
                             isCompleted
                               ? 'border-emerald-500 bg-emerald-500 text-white'
@@ -296,7 +340,9 @@ export const MeetingDetailView = ({
                         >
                           {status.label}
                         </span>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${priorityClass}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${priorityClass}`}
+                        >
                           {item.priority || 'medium'}
                         </span>
                       </div>
@@ -309,7 +355,9 @@ export const MeetingDetailView = ({
                         </span>
                         <select
                           value={item.assigneeId || ''}
-                          onChange={(event) => onActionItemAssigneeChange(item.id, event.target.value || null)}
+                          onChange={(event) =>
+                            onActionItemAssigneeChange(item.id, event.target.value || null)
+                          }
                           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
                         >
                           <option value="">Unassigned</option>
@@ -327,7 +375,9 @@ export const MeetingDetailView = ({
                         <input
                           type="date"
                           value={item.dueDate ? item.dueDate.slice(0, 10) : ''}
-                          onChange={(event) => onActionItemDueDateChange(item.id, event.target.value)}
+                          onChange={(event) =>
+                            onActionItemDueDateChange(item.id, event.target.value)
+                          }
                           className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
                         />
                       </label>
@@ -359,11 +409,11 @@ export const MeetingDetailView = ({
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Meeting Materials</h2>
             <p className="mt-1 text-sm text-slate-500">Meeting documents and supporting files.</p>
-            <div
-              className={`mt-3 rounded-xl border-2 border-dashed p-5 text-center text-sm ${
+            <label
+              className={`mt-3 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
                 isDragOverMaterialFiles
                   ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-slate-200 text-slate-500'
+                  : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
               }`}
               onDragOver={(event) => {
                 event.preventDefault()
@@ -377,14 +427,19 @@ export const MeetingDetailView = ({
               }}
             >
               <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 16V4" />
-                  <path d="m7 9 5-5 5 5" />
-                  <path d="M20 16.5v2A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-2" />
-                </svg>
+                <UploadCloud className="h-5 w-5" />
               </div>
-              Drag & drop files here or click to browse
-            </div>
+              <span className="font-semibold">Drag & drop files here or click to browse</span>
+              <input
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={(event) => {
+                  onAddPendingMaterialFiles(event.target.files)
+                  event.target.value = ''
+                }}
+              />
+            </label>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               {detail.files.map((file) => (
                 <li
@@ -395,7 +450,9 @@ export const MeetingDetailView = ({
                     <p className="truncate font-medium text-slate-700" title={file.fileName}>
                       {file.fileName}
                     </p>
-                    <p className="mt-0.5 text-xs text-slate-500">{formatDateOnly(file.createdAt)}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {formatDateOnly(file.createdAt)}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -407,7 +464,10 @@ export const MeetingDetailView = ({
                 </li>
               ))}
               {pendingMaterialFiles.map((file, index) => (
-                <li key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between text-blue-700">
+                <li
+                  key={`${file.name}-${file.size}-${index}`}
+                  className="flex items-center justify-between text-blue-700"
+                >
                   <span>{file.name} (pending)</span>
                   <button
                     type="button"
@@ -418,24 +478,24 @@ export const MeetingDetailView = ({
                   </button>
                 </li>
               ))}
-              {detail.files.length === 0 && pendingMaterialFiles.length === 0 ? <li>No files uploaded</li> : null}
+              {detail.files.length === 0 && pendingMaterialFiles.length === 0 ? (
+                <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">
+                  No files uploaded
+                </li>
+              ) : null}
             </ul>
-            <input
-              type="file"
-              multiple
-              className="mt-3 w-full text-sm"
-              onChange={(event) => onAddPendingMaterialFiles(event.target.files)}
-            />
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Upload Meeting Audio</h2>
-            <p className="mt-1 text-sm text-slate-500">Audio recordings for transcription and archive.</p>
-            <div
-              className={`mt-3 rounded-xl border-2 border-dashed p-5 text-center text-sm ${
+            <p className="mt-1 text-sm text-slate-500">
+              Audio recordings for transcription and archive.
+            </p>
+            <label
+              className={`mt-3 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
                 isDragOverAudioFiles
                   ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-slate-200 text-slate-500'
+                  : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
               }`}
               onDragOver={(event) => {
                 event.preventDefault()
@@ -448,11 +508,28 @@ export const MeetingDetailView = ({
                 onAddPendingAudioFiles(event.dataTransfer?.files)
               }}
             >
-              Supports MP3, WAV, M4A
-            </div>
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
+                <FileAudio className="h-5 w-5" />
+              </div>
+              <span className="font-semibold">Drop audio here or click to browse</span>
+              <span className="mt-1 text-xs text-slate-400">Supports MP3, WAV, M4A</span>
+              <input
+                type="file"
+                multiple
+                accept=".mp3,.wav,.m4a,audio/*"
+                className="sr-only"
+                onChange={(event) => {
+                  onAddPendingAudioFiles(event.target.files)
+                  event.target.value = ''
+                }}
+              />
+            </label>
             <ul className="mt-3 space-y-1 text-sm text-slate-600">
               {pendingAudioFiles.map((file, index) => (
-                <li key={`${file.name}-${file.size}-${index}`} className="flex items-center justify-between text-blue-700">
+                <li
+                  key={`${file.name}-${file.size}-${index}`}
+                  className="flex items-center justify-between text-blue-700"
+                >
                   <span>{file.name} (pending audio)</span>
                   <button
                     type="button"
@@ -463,15 +540,10 @@ export const MeetingDetailView = ({
                   </button>
                 </li>
               ))}
-              {pendingAudioFiles.length === 0 ? <li>No audio queued</li> : null}
+              {pendingAudioFiles.length === 0 ? (
+                <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">No audio queued</li>
+              ) : null}
             </ul>
-            <input
-              type="file"
-              multiple
-              accept=".mp3,.wav,.m4a,audio/*"
-              className="mt-3 w-full text-sm"
-              onChange={(event) => onAddPendingAudioFiles(event.target.files)}
-            />
           </div>
         </div>
 
