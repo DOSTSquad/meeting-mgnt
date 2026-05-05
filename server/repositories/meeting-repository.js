@@ -9,12 +9,6 @@ const MEETING_COLUMNS = `
   m.timezone_name,
   m.location,
   m.status,
-  m.department,
-  m.facilitator,
-  m.recorder,
-  m.key_discussions,
-  m.meeting_minutes,
-  m.decisions,
   m.tag_id,
   t.name AS tag_name,
   m.created_by,
@@ -36,12 +30,6 @@ const mapMeeting = (row) => {
     timezoneName: row.timezone_name,
     location: row.location,
     status: row.status,
-    department: row.department,
-    facilitator: row.facilitator,
-    recorder: row.recorder,
-    keyDiscussions: row.key_discussions,
-    meetingMinutes: row.meeting_minutes,
-    decisions: row.decisions,
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
     createdBy: row.created_by,
@@ -58,12 +46,6 @@ export const createMeeting = async ({
   timezoneName = 'UTC',
   location = null,
   status = 'scheduled',
-  department = null,
-  facilitator = null,
-  recorder = null,
-  keyDiscussions = null,
-  meetingMinutes = null,
-  decisions = null,
   tagId = null,
   createdBy,
 }) => {
@@ -71,9 +53,9 @@ export const createMeeting = async ({
     `
       INSERT INTO meetings (
         title, description, starts_at, ends_at, timezone_name,
-        location, status, department, facilitator, recorder, key_discussions, meeting_minutes, decisions, tag_id, created_by
+        location, status, tag_id, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `,
     [
@@ -84,12 +66,6 @@ export const createMeeting = async ({
       timezoneName,
       location,
       status,
-      department,
-      facilitator,
-      recorder,
-      keyDiscussions,
-      meetingMinutes,
-      decisions,
       tagId,
       createdBy,
     ]
@@ -121,12 +97,6 @@ const FIELD_TO_COLUMN = {
   timezoneName: 'timezone_name',
   location: 'location',
   status: 'status',
-  department: 'department',
-  facilitator: 'facilitator',
-  recorder: 'recorder',
-  keyDiscussions: 'key_discussions',
-  meetingMinutes: 'meeting_minutes',
-  decisions: 'decisions',
   tagId: 'tag_id',
 }
 
@@ -210,7 +180,6 @@ export const listMeetings = async ({
   from,
   to,
   status,
-  department,
   q,
 } = {}) => {
   const filters = []
@@ -232,10 +201,6 @@ export const listMeetings = async ({
 
   if (status) {
     filters.push({ column: 'm.status', op: '=', value: status })
-  }
-
-  if (department) {
-    filters.push({ column: 'm.department', op: '=', value: department })
   }
 
   if (q) {

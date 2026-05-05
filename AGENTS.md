@@ -73,6 +73,7 @@ docker compose up -d
 - Split work into small tasks
 - Keep changes tightly scoped to the ticket
 - Do not refactor unrelated areas unless asked
+- When API endpoints, request bodies, response shapes, auth behavior, or query params change, update both `server/README.md` and `docs/postman/dost-meeting-mgnt.postman_collection.json`
 
 ## Server Architecture
 
@@ -222,6 +223,10 @@ describe('POST /meetings', () => {
 - Keep component state close to where it is used
 - Avoid deeply nested prop drilling when a cleaner shared pattern exists
 - Keep presentational and data-fetching concerns reasonably separated
+- Use Tailwind CSS utility classes for client-side styling
+- Do not add native CSS, inline `<style>` blocks, or ad hoc stylesheet files for React UI
+- Keep `client/src/index.css` limited to Tailwind entrypoint/global baseline concerns
+- For print/PDF preview UI, render a React component styled with Tailwind and print utilities instead of writing raw HTML with embedded CSS
 
 ### Imports
 - Group imports consistently

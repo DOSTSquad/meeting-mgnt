@@ -8,18 +8,17 @@ const mapMeetingRow = (row) => ({
   timezoneName: row.timezone_name,
   location: row.location,
   status: row.status,
-  department: row.department,
 })
 
 const baseMeetingAccessCte = `
   WITH accessible_meetings AS (
-    SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status, m.department
+    SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status
     FROM meetings m
     WHERE m.created_by = $1
 
     UNION
 
-    SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status, m.department
+    SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status
     FROM meetings m
     JOIN meeting_participants mp ON mp.meeting_id = m.id
     WHERE mp.user_id = $1
@@ -30,7 +29,7 @@ export const listRecentMeetingsForUser = async (userId, limit = 5) => {
   const result = await query(
     `
       ${baseMeetingAccessCte}
-      SELECT id, title, starts_at, ends_at, timezone_name, location, status, department
+      SELECT id, title, starts_at, ends_at, timezone_name, location, status
       FROM accessible_meetings
       ORDER BY starts_at DESC
       LIMIT $2
@@ -52,7 +51,6 @@ export const listPendingRsvpMeetingsForUser = async (userId, limit = 5) => {
         m.timezone_name,
         m.location,
         m.status,
-        m.department,
         COUNT(*) FILTER (WHERE all_mp.rsvp_status = 'accepted')::int AS accepted_count,
         COUNT(*) FILTER (WHERE all_mp.rsvp_status = 'declined')::int AS declined_count,
         COUNT(*) FILTER (WHERE all_mp.rsvp_status = 'pending')::int AS pending_count,

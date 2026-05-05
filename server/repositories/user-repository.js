@@ -61,28 +61,6 @@ export const findUserByEmail = async (email) => {
   return mapUser(result.rows[0])
 }
 
-export const findUserByLoginIdentifier = async (identifier) => {
-  const trimmed = identifier.trim()
-  const isEmail = trimmed.includes('@')
-
-  const result = await query(
-    `
-      SELECT ${USER_COLUMNS}
-      FROM users
-      WHERE ${
-        isEmail
-          ? 'email = $1'
-          : "LOWER(split_part(email, '@', 1)) = LOWER($1)"
-      }
-      ORDER BY created_at ASC
-      LIMIT 1
-    `,
-    [isEmail ? normalizeEmail(trimmed) : trimmed]
-  )
-
-  return mapUser(result.rows[0])
-}
-
 export const findUserById = async (id) => {
   const result = await query(
     `

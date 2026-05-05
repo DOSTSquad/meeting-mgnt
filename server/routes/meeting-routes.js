@@ -52,36 +52,6 @@ meetingRouter.post(
       .isString()
       .withMessage('Location must be a string'),
     body('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
-    body('department')
-      .optional({ nullable: true })
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Department must be at most 100 characters'),
-    body('facilitator')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('Facilitator must be a string')
-      .bail()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Facilitator must be at most 100 characters'),
-    body('recorder')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('Recorder must be a string')
-      .bail()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Recorder must be at most 100 characters'),
-    body('keyDiscussions')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('keyDiscussions must be a string'),
-    body('meetingMinutes')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('meetingMinutes must be a string'),
-    body('decisions').optional({ nullable: true }).isString().withMessage('decisions must be a string'),
     body('tag')
       .optional({ nullable: true })
       .isString()
@@ -119,11 +89,6 @@ meetingRouter.get(
       .withMessage('to must be a valid ISO 8601 datetime')
       .toDate(),
     query('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
-    query('department')
-      .optional()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Department must be at most 100 characters'),
     query('q')
       .optional()
       .isString()
@@ -180,36 +145,6 @@ meetingRouter.put(
       .isString()
       .withMessage('Location must be a string'),
     body('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
-    body('department')
-      .optional({ nullable: true })
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Department must be at most 100 characters'),
-    body('facilitator')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('Facilitator must be a string')
-      .bail()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Facilitator must be at most 100 characters'),
-    body('recorder')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('Recorder must be a string')
-      .bail()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Recorder must be at most 100 characters'),
-    body('keyDiscussions')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('keyDiscussions must be a string'),
-    body('meetingMinutes')
-      .optional({ nullable: true })
-      .isString()
-      .withMessage('meetingMinutes must be a string'),
-    body('decisions').optional({ nullable: true }).isString().withMessage('decisions must be a string'),
     body('tag')
       .optional({ nullable: true })
       .isString()

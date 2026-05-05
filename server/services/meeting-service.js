@@ -74,12 +74,6 @@ export const createMeetingForUser = async (input, userId) => {
     timezoneName = 'UTC',
     location,
     status,
-    department,
-    facilitator,
-    recorder,
-    keyDiscussions,
-    meetingMinutes,
-    decisions,
     tag,
   } = input
 
@@ -112,12 +106,6 @@ export const createMeetingForUser = async (input, userId) => {
     timezoneName,
     location: location ?? null,
     status: status ?? 'scheduled',
-    department: department ?? null,
-    facilitator: facilitator ?? null,
-    recorder: recorder ?? null,
-    keyDiscussions: keyDiscussions ?? null,
-    meetingMinutes: meetingMinutes ?? null,
-    decisions: decisions ?? null,
     tagId,
     createdBy: userId,
   })
@@ -168,12 +156,6 @@ export const updateMeetingById = async (id, input) => {
     'timezoneName',
     'location',
     'status',
-    'department',
-    'facilitator',
-    'recorder',
-    'keyDiscussions',
-    'meetingMinutes',
-    'decisions',
     'tag',
   ]) {
     if (input[field] !== undefined) {
@@ -237,7 +219,6 @@ export const listMeetingsForQuery = async ({
   from,
   to,
   status,
-  department,
   q,
 } = {}) => {
   if (!userId) {
@@ -261,7 +242,6 @@ export const listMeetingsForQuery = async ({
     from: from ? toDate(from) : undefined,
     to: to ? toDate(to) : undefined,
     status,
-    department,
     q: trimmedQ && trimmedQ.length > 0 ? trimmedQ : undefined,
   })
 }

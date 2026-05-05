@@ -8,6 +8,7 @@ import { parse } from 'dotenv'
 import { runMigrations } from '../db/migrate.js'
 import { closePool, query } from '../db/postgres.js'
 import { create, getOne, list, remove, update } from '../controllers/meeting-controller.js'
+import { getForMeeting, updateForMeeting } from '../controllers/minute-controller.js'
 import { buildLinkHeader } from '../middleware/pagination.js'
 import { createUser } from '../repositories/user-repository.js'
 
@@ -127,7 +128,6 @@ const baseCreateBody = (overrides = {}) => ({
   timezoneName: 'Australia/Brisbane',
   location: 'Room A',
   status: 'scheduled',
-  department: 'engineering',
   ...overrides,
 })
 
@@ -143,25 +143,22 @@ const createMeetingViaController = async (overrides = {}) => {
 }
 
 dbDescribe('Meeting controller (DB-backed)', () => {
-  it(
-    'creates a meeting and normalises datetimes to UTC while preserving timezoneName',
-    async () => {
-      const meeting = await createMeetingViaController()
+  it('creates a meeting and normalises datetimes to UTC while preserving timezoneName', async () => {
+    const meeting = await createMeetingViaController()
 
-      expect(meeting.id).toEqual(expect.any(String))
-      expect(meeting.title).toBe('Sprint Planning')
-      expect(meeting.timezoneName).toBe('Australia/Brisbane')
-      expect(meeting.createdBy).toBe(testUser.id)
-      expect(meeting.status).toBe('scheduled')
+    expect(meeting.id).toEqual(expect.any(String))
+    expect(meeting.title).toBe('Sprint Planning')
+    expect(meeting.timezoneName).toBe('Australia/Brisbane')
+    expect(meeting.createdBy).toBe(testUser.id)
+    expect(meeting.status).toBe('scheduled')
 
-      expect(new Date(meeting.startsAt).toISOString()).toBe(
-        new Date('2026-05-01T09:00:00+10:00').toISOString()
-      )
-      expect(new Date(meeting.endsAt).toISOString()).toBe(
-        new Date('2026-05-01T10:00:00+10:00').toISOString()
-      )
-    }
-  )
+    expect(new Date(meeting.startsAt).toISOString()).toBe(
+      new Date('2026-05-01T09:00:00+10:00').toISOString()
+    )
+    expect(new Date(meeting.endsAt).toISOString()).toBe(
+      new Date('2026-05-01T10:00:00+10:00').toISOString()
+    )
+  })
 
   it('rejects creation when endsAt is not after startsAt', async () => {
     const req = buildRequest({
@@ -213,13 +210,12 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(missing.nextError.statusCode).toBe(404)
   })
 
-  it('lists meetings filtered by status, department, from, and to', async () => {
+  it('lists meetings filtered by status, from, and to', async () => {
     await createMeetingViaController({
       title: 'Past completed',
       startsAt: '2026-04-01T09:00:00+10:00',
       endsAt: '2026-04-01T10:00:00+10:00',
       status: 'completed',
-      department: 'engineering',
     })
 
     await createMeetingViaController({
@@ -227,7 +223,6 @@ dbDescribe('Meeting controller (DB-backed)', () => {
       startsAt: '2026-05-01T09:00:00+10:00',
       endsAt: '2026-05-01T10:00:00+10:00',
       status: 'scheduled',
-      department: 'engineering',
     })
 
     await createMeetingViaController({
@@ -235,7 +230,6 @@ dbDescribe('Meeting controller (DB-backed)', () => {
       startsAt: '2026-05-02T09:00:00+10:00',
       endsAt: '2026-05-02T10:00:00+10:00',
       status: 'scheduled',
-      department: 'marketing',
     })
 
     const byStatus = await runHandler(
@@ -243,12 +237,6 @@ dbDescribe('Meeting controller (DB-backed)', () => {
       buildRequest({ query: { status: 'completed' }, user: { id: testUser.id } })
     )
     expect(byStatus.res.body.meetings.map((m) => m.title)).toEqual(['Past completed'])
-
-    const byDepartment = await runHandler(
-      list,
-      buildRequest({ query: { department: 'marketing' }, user: { id: testUser.id } })
-    )
-    expect(byDepartment.res.body.meetings.map((m) => m.title)).toEqual(['Marketing chat'])
 
     const byFrom = await runHandler(
       list,
@@ -280,14 +268,13 @@ dbDescribe('Meeting controller (DB-backed)', () => {
         startsAt: `2026-06-${day}T09:00:00+10:00`,
         endsAt: `2026-06-${day}T10:00:00+10:00`,
         status: 'scheduled',
-        department: 'engineering',
       })
     }
 
     const page1 = await runHandler(
       list,
       buildRequest({
-        query: { page: 1, limit: 2, status: 'scheduled', department: 'engineering' },
+        query: { page: 1, limit: 2, status: 'scheduled' },
         user: { id: testUser.id },
       })
     )
@@ -301,13 +288,12 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(page1Link).toContain('rel="next"')
     expect(page1Link).not.toContain('rel="prev"')
     expect(page1Link).toContain('status=scheduled')
-    expect(page1Link).toContain('department=engineering')
     expect(page1Link).toContain('limit=2')
 
     const page2 = await runHandler(
       list,
       buildRequest({
-        query: { page: 2, limit: 2, status: 'scheduled', department: 'engineering' },
+        query: { page: 2, limit: 2, status: 'scheduled' },
         user: { id: testUser.id },
       })
     )
@@ -319,7 +305,6 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(page2Link).toContain('rel="prev"')
     expect(page2Link).not.toContain('rel="next"')
     expect(page2Link).toContain('status=scheduled')
-    expect(page2Link).toContain('department=engineering')
   })
 
   it('updates only the provided fields and bumps updated_at', async () => {
@@ -395,29 +380,27 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(result.res.body.meetings).toHaveLength(1)
   })
 
-  it('combines q with status and department filters', async () => {
+  it('combines q with status filters', async () => {
     await createMeetingViaController({
       title: 'Finance budget review',
       status: 'completed',
-      department: 'finance',
     })
     await createMeetingViaController({
       title: 'Engineering budget review',
       status: 'scheduled',
-      department: 'engineering',
     })
 
     const result = await runHandler(
       list,
       buildRequest({
-        query: { q: 'budget', status: 'scheduled', department: 'engineering' },
+        query: { q: 'budget', status: 'scheduled' },
         user: { id: testUser.id },
       })
     )
 
     expect(result.nextError).toBeUndefined()
     expect(result.res.body.meetings).toHaveLength(1)
-    expect(result.res.body.meetings[0].department).toBe('engineering')
+    expect(result.res.body.meetings[0].title).toBe('Engineering budget review')
   })
 
   it('rejects q longer than 200 characters with 400', async () => {
@@ -561,6 +544,68 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(fetchRes.nextError).toBeDefined()
     expect(fetchRes.nextError.statusCode).toBe(404)
   })
+
+  it('eagerly creates minutes for a meeting and updates moved minutes fields', async () => {
+    const created = await createMeetingViaController()
+
+    const getResult = await runHandler(
+      getForMeeting,
+      buildRequest({
+        params: { meetingId: created.id },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(getResult.nextError).toBeUndefined()
+    expect(getResult.res.body.minutes.meetingId).toBe(created.id)
+    expect(getResult.res.body.minutes.content).toBe('')
+
+    const updateResult = await runHandler(
+      updateForMeeting,
+      buildRequest({
+        params: {
+          meetingId: created.id,
+          minutesId: getResult.res.body.minutes.id,
+        },
+        body: {
+          content: 'Reviewed delivery risk.',
+          keyDiscussions: 'Timeline risk',
+          decisions: 'Keep current milestone scope.',
+          facilitatorId: testUser.id,
+          recorderId: testUser.id,
+        },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(updateResult.nextError).toBeUndefined()
+    expect(updateResult.res.body.minutes.content).toBe('Reviewed delivery risk.')
+    expect(updateResult.res.body.minutes.keyDiscussions).toBe('Timeline risk')
+    expect(updateResult.res.body.minutes.decisions).toBe('Keep current milestone scope.')
+    expect(updateResult.res.body.minutes.facilitatorId).toBe(testUser.id)
+    expect(updateResult.res.body.minutes.recorderId).toBe(testUser.id)
+    expect(updateResult.res.body.minutes.version).toBe(2)
+  })
+
+  it('returns 404 when updating an unknown minutes id for a meeting', async () => {
+    const created = await createMeetingViaController()
+
+    const result = await runHandler(
+      updateForMeeting,
+      buildRequest({
+        params: {
+          meetingId: created.id,
+          minutesId: '00000000-0000-0000-0000-000000000000',
+        },
+        body: { content: 'Updated content' },
+        user: { id: testUser.id },
+      })
+    )
+
+    expect(result.nextError).toBeDefined()
+    expect(result.nextError.statusCode).toBe(404)
+    expect(result.nextError.message).toBe('Minutes not found')
+  })
 })
 
 describe('buildLinkHeader', () => {
@@ -602,14 +647,13 @@ describe('buildLinkHeader', () => {
 
   it('preserves existing filter query params in the generated URLs', () => {
     const link = buildLinkHeader({
-      req: baseReq({ page: 1, limit: 5, status: 'scheduled', department: 'sales' }),
+      req: baseReq({ page: 1, limit: 5, status: 'scheduled' }),
       page: 1,
       limit: 5,
       total: 12,
     })
 
     expect(link).toContain('status=scheduled')
-    expect(link).toContain('department=sales')
     expect(link).toContain('limit=5')
   })
 })

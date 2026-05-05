@@ -67,7 +67,6 @@ const usersSeed = [
 
 const defaultTags = ['strategy', 'operations', 'engineering']
 const meetingTags = [...defaultTags]
-const departments = ['operations', 'engineering', 'finance', 'product']
 const locations = ['Room A / Teams', 'Room B', 'Room C', 'Zoom', 'Board Room']
 const statuses = ['scheduled', 'in_progress', 'completed']
 const participantRoles = ['attendee', 'attendee', 'attendee', 'optional', 'organizer']
@@ -157,12 +156,11 @@ const buildMeetingsSeed = () => {
       timezoneName: 'Australia/Brisbane',
       location: randomPick(locations),
       status: randomPick(statuses),
-      department: randomPick(departments),
-      facilitator: randomPick(usersSeed).name,
-      recorder: randomPick(usersSeed).name,
+      facilitatorEmail: randomPick(usersSeed).email.toLowerCase(),
+      recorderEmail: randomPick(usersSeed).email.toLowerCase(),
       keyDiscussions: randomPickMany(keyDiscussionPool, 2, 3).join('\n- '),
-      meetingMinutes: randomPickMany(minutesPool, 2, 3).join('\n'),
       decisions: randomPickMany(decisionsPool, 2, 3).join('\n'),
+      minutesContent: randomPickMany(minutesPool, 2, 3).join('\n'),
       tag: randomPick(meetingTags),
     }
   })
@@ -211,9 +209,64 @@ const clearNonSeedUsers = async () => {
   )
 }
 
+const getTableColumns = async (tableName) => {
+  const result = await query(
+    `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+    `,
+    [tableName]
+  )
+
+  return new Set(result.rows.map((row) => row.column_name))
+}
+
+const insertMinutes = async (minutesColumns, meeting, meetingId, defaultCreatorId, usersByEmail) => {
+  const minutesRecord = {
+    meeting_id: meetingId,
+    prepared_by: defaultCreatorId,
+    facilitator_id: usersByEmail.get(meeting.facilitatorEmail),
+    recorder_id: usersByEmail.get(meeting.recorderEmail),
+    content: meeting.minutesContent,
+    key_discussions: meeting.keyDiscussions,
+    decisions: meeting.decisions,
+    body: meeting.minutesContent,
+    created_by: defaultCreatorId,
+    updated_by: defaultCreatorId,
+  }
+  const minutesColumnOrder = [
+    'meeting_id',
+    'prepared_by',
+    'facilitator_id',
+    'recorder_id',
+    'content',
+    'key_discussions',
+    'decisions',
+    'body',
+    'created_by',
+    'updated_by',
+  ]
+  const activeColumns = minutesColumnOrder.filter(
+    (column) => minutesColumns.has(column) && Object.hasOwn(minutesRecord, column)
+  )
+  const placeholders = activeColumns.map((_, index) => `$${index + 1}`).join(', ')
+  const values = activeColumns.map((column) => minutesRecord[column])
+
+  await query(
+    `
+      INSERT INTO minutes (${activeColumns.join(', ')})
+      VALUES (${placeholders})
+    `,
+    values
+  )
+}
+
 const seedMeetings = async (usersByEmail) => {
   const meetingsByTitle = new Map()
   const defaultCreatorId = usersByEmail.get('paveen.anuntakulnatee@seed.local')
+  const minutesColumns = await getTableColumns('minutes')
 
   const tagsByName = new Map()
   for (const tagName of defaultTags) {
@@ -240,16 +293,10 @@ const seedMeetings = async (usersByEmail) => {
           timezone_name,
           location,
           status,
-          department,
-          facilitator,
-          recorder,
-          key_discussions,
-          meeting_minutes,
-          decisions,
           created_by,
           tag_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id, title
       `,
       [
@@ -260,16 +307,12 @@ const seedMeetings = async (usersByEmail) => {
         meeting.timezoneName,
         meeting.location,
         meeting.status,
-        meeting.department,
-        meeting.facilitator,
-        meeting.recorder,
-        meeting.keyDiscussions,
-        meeting.meetingMinutes,
-        meeting.decisions,
         defaultCreatorId,
         tagsByName.get((meeting.tag || '').toLowerCase()) || null,
       ]
     )
+
+    await insertMinutes(minutesColumns, meeting, result.rows[0].id, defaultCreatorId, usersByEmail)
 
     meetingsByTitle.set(result.rows[0].title, result.rows[0].id)
   }

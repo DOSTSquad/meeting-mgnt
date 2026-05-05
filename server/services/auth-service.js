@@ -5,7 +5,6 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
-  findUserByLoginIdentifier,
 } from '../repositories/user-repository.js'
 
 const SALT_ROUNDS = 10
@@ -24,6 +23,10 @@ const createHttpError = (message, statusCode) => {
 
   return error
 }
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const isEmailAddress = (value) => EMAIL_PATTERN.test(value.trim())
 
 const sanitizeUser = (user) => ({
   id: user.id,
@@ -79,14 +82,18 @@ export const registerUser = async ({ name, email, password }) => {
 
 export const loginUser = async ({ email, password }) => {
   if (!email || !email.trim()) {
-    throw createHttpError('Username or email is required', 400)
+    throw createHttpError('Email is required', 400)
+  }
+
+  if (!isEmailAddress(email)) {
+    throw createHttpError('Email must be a valid email address', 400)
   }
 
   if (!password) {
     throw createHttpError('Password is required', 400)
   }
 
-  const user = await findUserByLoginIdentifier(email)
+  const user = await findUserByEmail(email)
 
   if (!user) {
     throw createHttpError('Invalid email or password', 401)
