@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { SuccessModal } from './components/feedback/SuccessModal.jsx'
 import { Sidebar } from './components/layout/Sidebar.jsx'
+import { Topbar } from './components/layout/Topbar.jsx'
 import { getApiClient } from './lib/apiClient.js'
 import { ActionItemsView } from './features/action-items/ActionItemsView.jsx'
 import { LoginView } from './features/auth/LoginView.jsx'
@@ -12,7 +13,6 @@ import { CreateMeetingModal } from './features/meetings/CreateMeetingModal.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { MeetingPreviewModal } from './features/meetings/MeetingPreviewModal.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
-import { NotificationsView } from './features/notifications/NotificationsView.jsx'
 
 const AppShell = ({ token, user, onLogout }) => {
   const [activePage, setActivePage] = useState('dashboard')
@@ -51,7 +51,9 @@ const AppShell = ({ token, user, onLogout }) => {
         meetingList.map(async (meeting) => {
           try {
             const response = await client.get(`/api/meetings/${meeting.id}/participants`)
-            const names = (response.data?.participants || []).map((participant) => participant.name).filter(Boolean)
+            const names = (response.data?.participants || [])
+              .map((participant) => participant.name)
+              .filter(Boolean)
             return [meeting.id, names]
           } catch {
             return [meeting.id, []]
@@ -68,14 +70,15 @@ const AppShell = ({ token, user, onLogout }) => {
     try {
       const client = getApiClient(token)
 
-      const [dashboardRes, meetingsRes, actionItemsRes, notificationsRes, usersRes, tagsRes] = await Promise.all([
-        client.get('/api/dashboard'),
-        client.get('/api/meetings', { params: { limit: 100 } }),
-        client.get('/api/action-items'),
-        client.get('/api/notifications'),
-        client.get('/api/users'),
-        client.get('/api/tags'),
-      ])
+      const [dashboardRes, meetingsRes, actionItemsRes, notificationsRes, usersRes, tagsRes] =
+        await Promise.all([
+          client.get('/api/dashboard'),
+          client.get('/api/meetings', { params: { limit: 100 } }),
+          client.get('/api/action-items'),
+          client.get('/api/notifications'),
+          client.get('/api/users'),
+          client.get('/api/tags'),
+        ])
 
       setDashboardData(dashboardRes.data)
       const loadedMeetings = meetingsRes.data?.meetings || []
@@ -107,14 +110,15 @@ const AppShell = ({ token, user, onLogout }) => {
       try {
         const client = getApiClient(token)
 
-        const [dashboardRes, meetingsRes, actionItemsRes, notificationsRes, usersRes, tagsRes] = await Promise.all([
-          client.get('/api/dashboard'),
-          client.get('/api/meetings', { params: { limit: 100 } }),
-          client.get('/api/action-items'),
-          client.get('/api/notifications'),
-          client.get('/api/users'),
-          client.get('/api/tags'),
-        ])
+        const [dashboardRes, meetingsRes, actionItemsRes, notificationsRes, usersRes, tagsRes] =
+          await Promise.all([
+            client.get('/api/dashboard'),
+            client.get('/api/meetings', { params: { limit: 100 } }),
+            client.get('/api/action-items'),
+            client.get('/api/notifications'),
+            client.get('/api/users'),
+            client.get('/api/tags'),
+          ])
 
         if (isCancelled) {
           return
@@ -326,7 +330,12 @@ const AppShell = ({ token, user, onLogout }) => {
             ...prev,
             actionItems: prev.actionItems.map((item) =>
               item.id === actionItemId
-                ? { ...item, dueDate: dueDateValue ? new Date(`${dueDateValue}T00:00:00Z`).toISOString() : null }
+                ? {
+                    ...item,
+                    dueDate: dueDateValue
+                      ? new Date(`${dueDateValue}T00:00:00Z`).toISOString()
+                      : null,
+                  }
                 : item
             ),
           }
@@ -375,15 +384,18 @@ const AppShell = ({ token, user, onLogout }) => {
     }
   }
 
-  const loadFilesForMeeting = useCallback(async (meetingId) => {
-    try {
-      const client = getApiClient(token)
-      const response = await client.get(`/api/meetings/${meetingId}/files`)
-      setFilesByMeeting((prev) => ({ ...prev, [meetingId]: response.data?.files || [] }))
-    } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'Unable to load files')
-    }
-  }, [token])
+  const loadFilesForMeeting = useCallback(
+    async (meetingId) => {
+      try {
+        const client = getApiClient(token)
+        const response = await client.get(`/api/meetings/${meetingId}/files`)
+        setFilesByMeeting((prev) => ({ ...prev, [meetingId]: response.data?.files || [] }))
+      } catch (error) {
+        setErrorMessage(error.response?.data?.error || 'Unable to load files')
+      }
+    },
+    [token]
+  )
 
   const loadAllFilesForMeetings = useCallback(async () => {
     const ids = meetings.map((meeting) => meeting.id)
@@ -489,15 +501,16 @@ const AppShell = ({ token, user, onLogout }) => {
 
   return (
     <main className="min-h-screen bg-slate-100 lg:flex">
-      <Sidebar
-        activePage={activePage}
-        onSelect={setActivePage}
-        onLogout={onLogout}
-        currentUser={user}
-        notificationCount={newNotificationCount}
-      />
+      <Sidebar activePage={activePage} onSelect={setActivePage} />
 
-      <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+      <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
+        <Topbar
+          currentUser={user}
+          notifications={notifications}
+          notificationCount={newNotificationCount}
+          onLogout={onLogout}
+        />
+
         {errorMessage ? (
           <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {errorMessage}
@@ -566,10 +579,12 @@ const AppShell = ({ token, user, onLogout }) => {
           />
         ) : null}
         {activePage === 'action-items' ? (
-          <ActionItemsView actionItems={actionItems} onMoveActionItem={moveActionItemStatus} />
-        ) : null}
-        {activePage === 'notifications' ? (
-          <NotificationsView notifications={notifications} />
+          <ActionItemsView
+            actionItems={actionItems}
+            meetings={meetings}
+            users={users}
+            onMoveActionItem={moveActionItemStatus}
+          />
         ) : null}
       </div>
 
