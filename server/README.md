@@ -28,21 +28,21 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 
 ### Auth (`/api/auth`)
 
-| Method | Path        | Body                          | Returns                           |
-| ------ | ----------- | ----------------------------- | --------------------------------- |
-| POST   | `/register` | `{ name, email, password }`   | `201 { token, user }`             |
-| POST   | `/login`    | `{ email, password }`         | `200 { token, user }`             |
-| GET    | `/me`       | —                             | `200 { user }` for current token  |
+| Method | Path        | Body                        | Returns                          |
+| ------ | ----------- | --------------------------- | -------------------------------- |
+| POST   | `/register` | `{ name, email, password }` | `201 { token, user }`            |
+| POST   | `/login`    | `{ email, password }`       | `200 { token, user }`            |
+| GET    | `/me`       | —                           | `200 { user }` for current token |
 
 ### Meetings (`/api/meetings`)
 
-| Method | Path    | Body / Query                                                                             | Returns                                                |
-| ------ | ------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| POST   | `/`     | `{ title, description?, startsAt, endsAt, timezoneName?, location?, status?, department? }` | `201 { meeting }`                                      |
-| GET    | `/`     | `?page=&limit=&from=&to=&status=&department=&q=`                                         | `200 { meetings }` + `Link` & `X-Total-Count` headers  |
-| GET    | `/:id`  | —                                                                                        | `200 { meeting }` or `404`                             |
-| PUT    | `/:id`  | partial subset of POST body fields                                                       | `200 { meeting }` or `404`                             |
-| DELETE | `/:id`  | —                                                                                        | `204` or `404`                                         |
+| Method | Path   | Body / Query                                                                   | Returns                                               |
+| ------ | ------ | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| POST   | `/`    | `{ title, description?, startsAt, endsAt, timezoneName?, location?, status? }` | `201 { meeting }`                                     |
+| GET    | `/`    | `?page=&limit=&from=&to=&status=&q=`                                           | `200 { meetings }` + `Link` & `X-Total-Count` headers |
+| GET    | `/:id` | —                                                                              | `200 { meeting }` or `404`                            |
+| PUT    | `/:id` | partial subset of POST body fields                                             | `200 { meeting }` or `404`                            |
+| DELETE | `/:id` | —                                                                              | `204` or `404`                                        |
 
 Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`, `archived`.
 
@@ -58,16 +58,28 @@ Updating `status` to the same value is a no-op. `archived` is terminal. Any othe
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
 
-**Full-text search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`. Stemming applies (e.g., `q=plan` matches "planning"); multi-word queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled&department=finance`.
+**Full-text search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`. Stemming applies (e.g., `q=plan` matches "planning"); multi-word queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
+
+### Meeting Minutes (`/api/meetings/:meetingId/minutes`)
+
+| Method | Path          | Body / Query                                                                               | Returns                    |
+| ------ | ------------- | ------------------------------------------------------------------------------------------ | -------------------------- |
+| GET    | `/`           | —                                                                                          | `200 { minutes }`          |
+| PUT    | `/`           | partial: `{ content?, keyDiscussions?, decisions?, facilitatorId?, recorderId?, status? }` | `200 { minutes }`          |
+| PUT    | `/:minutesId` | same as above                                                                              | `200 { minutes }` or `404` |
+
+`GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId` and `recorderId` are nullable user UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
+
+Any meeting participant can read minutes. Only the meeting creator or a participant with `role='organizer'` can update minutes.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)
 
-| Method | Path         | Body / Query                                         | Returns                    |
-| ------ | ------------ | ---------------------------------------------------- | -------------------------- |
-| GET    | `/`          | —                                                    | `200 { participants }`     |
-| POST   | `/`          | `{ userIds: string[], role? }`                       | `201 { participants }`     |
-| PATCH  | `/:userId`   | `{ role?, rsvpStatus? }` (at least one required)     | `200 { participant }`      |
-| DELETE | `/:userId`   | —                                                    | `204`                      |
+| Method | Path       | Body / Query                                     | Returns                |
+| ------ | ---------- | ------------------------------------------------ | ---------------------- |
+| GET    | `/`        | —                                                | `200 { participants }` |
+| POST   | `/`        | `{ userIds: string[], role? }`                   | `201 { participants }` |
+| PATCH  | `/:userId` | `{ role?, rsvpStatus? }` (at least one required) | `200 { participant }`  |
+| DELETE | `/:userId` | —                                                | `204`                  |
 
 Allowed `role` values: `organizer`, `attendee`, `optional` (default `attendee`).
 Allowed `rsvpStatus` values: `pending`, `accepted`, `declined` (default `pending`).
@@ -79,12 +91,12 @@ Only the meeting creator or a participant with `role='organizer'` can add, updat
 
 ### Meeting Files (`/api/meetings/:meetingId/files` and `/api/files`)
 
-| Method | Path                            | Body / Query                                      | Returns                      |
-| ------ | ------------------------------- | ------------------------------------------------- | ---------------------------- |
-| POST   | `/meetings/:meetingId/files`    | `multipart/form-data`: field `file`, optional `description` | `201 { file }`   |
-| GET    | `/meetings/:meetingId/files`    | —                                                 | `200 { files }`              |
-| GET    | `/files/:id/download`           | —                                                 | `200 { url, expiresAt }`     |
-| DELETE | `/files/:id`                    | —                                                 | `204`                        |
+| Method | Path                         | Body / Query                                                | Returns                  |
+| ------ | ---------------------------- | ----------------------------------------------------------- | ------------------------ |
+| POST   | `/meetings/:meetingId/files` | `multipart/form-data`: field `file`, optional `description` | `201 { file }`           |
+| GET    | `/meetings/:meetingId/files` | —                                                           | `200 { files }`          |
+| GET    | `/files/:id/download`        | —                                                           | `200 { url, expiresAt }` |
+| DELETE | `/files/:id`                 | —                                                           | `204`                    |
 
 Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, and Markdown files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`.
 
@@ -94,9 +106,9 @@ Any meeting participant (creator or any role) can upload, list, and request down
 
 ### RSVP (self-service)
 
-| Method | Path                    | Body                    | Returns                |
-| ------ | ----------------------- | ----------------------- | ---------------------- |
-| PUT    | `/meetings/:id/rsvp`    | `{ rsvpStatus }`        | `200 { participant }`  |
+| Method | Path                 | Body             | Returns               |
+| ------ | -------------------- | ---------------- | --------------------- |
+| PUT    | `/meetings/:id/rsvp` | `{ rsvpStatus }` | `200 { participant }` |
 
 Participants update their own attendance response. Allowed `rsvpStatus`: `accepted`, `declined` (self-reset to `pending` is not allowed — it's the system-assigned initial state). Non-participants receive 403.
 
@@ -104,12 +116,12 @@ Participants update their own attendance response. Allowed `rsvpStatus`: `accept
 
 ### Action Items (`/api/meetings/:meetingId/action-items` and `/api/action-items`)
 
-| Method | Path                                    | Body / Query                                                                                         | Returns                |
-| ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
-| POST   | `/meetings/:meetingId/action-items`     | `{ title, description?, assigneeId?, dueDate?, priority? }`                                          | `201 { actionItem }`   |
-| GET    | `/meetings/:meetingId/action-items`     | `?status=...&assigneeId=...` (both optional)                                                         | `200 { actionItems }`  |
-| PUT    | `/action-items/:id`                     | partial: `{ title?, description?, assigneeId?, dueDate?, status?, priority? }` (at least one)        | `200 { actionItem }`   |
-| DELETE | `/action-items/:id`                     | —                                                                                                    | `204`                  |
+| Method | Path                                | Body / Query                                                                                  | Returns               |
+| ------ | ----------------------------------- | --------------------------------------------------------------------------------------------- | --------------------- |
+| POST   | `/meetings/:meetingId/action-items` | `{ title, description?, assigneeId?, dueDate?, priority? }`                                   | `201 { actionItem }`  |
+| GET    | `/meetings/:meetingId/action-items` | `?status=...&assigneeId=...` (both optional)                                                  | `200 { actionItems }` |
+| PUT    | `/action-items/:id`                 | partial: `{ title?, description?, assigneeId?, dueDate?, status?, priority? }` (at least one) | `200 { actionItem }`  |
+| DELETE | `/action-items/:id`                 | —                                                                                             | `204`                 |
 
 - `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
 - `priority` — one of `low`, `medium` (default), `high`.

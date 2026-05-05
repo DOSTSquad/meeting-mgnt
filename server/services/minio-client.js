@@ -31,5 +31,8 @@ export const presignedPutObject = (bucket, key, ttlSeconds) =>
 export const statObject = (bucket, key) =>
   getClient().statObject(bucket, key)
 
+export const getObject = (bucket, key) =>
+  getClient().getObject(bucket, key)
+
 export const removeObject = (bucket, key) =>
   getClient().removeObject(bucket, key)

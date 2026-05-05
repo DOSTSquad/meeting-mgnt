@@ -179,7 +179,9 @@ dbDescribe('Participant controller (DB-backed)', () => {
     )
 
     expect(nextError).toBeUndefined()
-    expect(res.body.participants).toEqual([])
+    expect(res.body.participants).toHaveLength(1)
+    expect(res.body.participants[0].userId).toBe(organizerUser.id)
+    expect(res.body.participants[0].role).toBe('organizer')
   })
 
   it('adds participants with default role attendee and rsvp_status pending', async () => {
@@ -231,8 +233,11 @@ dbDescribe('Participant controller (DB-backed)', () => {
       })
     )
 
-    expect(listRes.res.body.participants).toHaveLength(2)
-    for (const participant of listRes.res.body.participants) {
+    expect(listRes.res.body.participants).toHaveLength(3)
+    const organizer = listRes.res.body.participants.find((p) => p.userId === organizerUser.id)
+    expect(organizer?.role).toBe('organizer')
+    const attendees = listRes.res.body.participants.filter((p) => p.userId !== organizerUser.id)
+    for (const participant of attendees) {
       expect(participant.role).toBe('attendee')
     }
   })
@@ -395,7 +400,9 @@ dbDescribe('Participant controller (DB-backed)', () => {
       })
     )
 
-    expect(listRes.res.body.participants).toEqual([])
+    expect(listRes.res.body.participants).toHaveLength(1)
+    expect(listRes.res.body.participants[0].userId).toBe(organizerUser.id)
+    expect(listRes.res.body.participants[0].role).toBe('organizer')
   })
 
   it('cannot demote or remove the last organizer', async () => {
@@ -454,7 +461,9 @@ dbDescribe('Participant controller (DB-backed)', () => {
 
     expect(nextError).toBeUndefined()
     expect(Array.isArray(res.body.meeting.participants)).toBe(true)
-    expect(res.body.meeting.participants).toHaveLength(1)
-    expect(res.body.meeting.participants[0].userId).toBe(aliceUser.id)
+    expect(res.body.meeting.participants).toHaveLength(2)
+    const userIds = res.body.meeting.participants.map((participant) => participant.userId)
+    expect(userIds).toContain(organizerUser.id)
+    expect(userIds).toContain(aliceUser.id)
   })
 })

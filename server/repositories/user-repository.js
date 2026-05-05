@@ -91,3 +91,22 @@ export const findUsersByIds = async (ids) => {
 
   return result.rows.map(mapUser)
 }
+
+export const listUsers = async () => {
+  const result = await query(
+    `
+      SELECT id, name, email, role, department, created_at
+      FROM users
+      ORDER BY name ASC, email ASC
+    `
+  )
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    department: row.department,
+    createdAt: row.created_at.toISOString(),
+  }))
+}

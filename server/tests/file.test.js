@@ -20,6 +20,9 @@ const runDatabaseTests = process.env.RUN_DB_TESTS === 'true' && Boolean(projectE
 const mockPutObject = jest.fn().mockResolvedValue(undefined)
 const mockPresignedGetObject = jest.fn().mockResolvedValue('https://minio.local/presigned-url')
 const mockRemoveObject = jest.fn().mockResolvedValue(undefined)
+const mockGetObject = jest.fn().mockResolvedValue({
+  pipe: jest.fn(),
+})
 
 jest.unstable_mockModule('../services/minio-client.js', () => ({
   BUCKET_FILES: 'meeting-files',
@@ -28,6 +31,7 @@ jest.unstable_mockModule('../services/minio-client.js', () => ({
   presignedGetObject: mockPresignedGetObject,
   presignedPutObject: jest.fn().mockResolvedValue('https://minio.local/presigned-put'),
   statObject: jest.fn().mockResolvedValue({}),
+  getObject: mockGetObject,
   removeObject: mockRemoveObject,
 }))
 
@@ -173,6 +177,7 @@ beforeEach(async () => {
   mockPutObject.mockClear()
   mockPresignedGetObject.mockClear()
   mockRemoveObject.mockClear()
+  mockGetObject.mockClear()
 
   await query('TRUNCATE TABLE meetings RESTART IDENTITY CASCADE')
   await query('TRUNCATE TABLE users RESTART IDENTITY CASCADE')

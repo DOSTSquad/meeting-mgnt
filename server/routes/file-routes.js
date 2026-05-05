@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { param } from 'express-validator'
 
-import { download, list, remove, upload } from '../controllers/file-controller.js'
+import { download, downloadContent, list, remove, upload } from '../controllers/file-controller.js'
 import { handleUploadErrors, uploadSingle } from '../middleware/upload-middleware.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 
@@ -32,6 +32,13 @@ fileRouter.get(
   [param('id').isUUID().withMessage('id must be a UUID')],
   handleValidationErrors,
   download
+)
+
+fileRouter.get(
+  '/:id/content',
+  [param('id').isUUID().withMessage('id must be a UUID')],
+  handleValidationErrors,
+  downloadContent
 )
 
 fileRouter.delete(

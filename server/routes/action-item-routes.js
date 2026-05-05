@@ -4,6 +4,7 @@ import { body, param, query } from 'express-validator'
 import {
   create,
   list,
+  listMine,
   remove,
   update,
 } from '../controllers/action-item-controller.js'
@@ -51,6 +52,16 @@ meetingActionItemRouter.post(
 
 // Mounted at /api/action-items
 export const actionItemRouter = Router()
+
+actionItemRouter.get(
+  '/',
+  [
+    query('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
+    query('priority').optional().isIn(ALLOWED_PRIORITIES).withMessage('Invalid priority'),
+  ],
+  handleValidationErrors,
+  listMine
+)
 
 actionItemRouter.put(
   '/:id',

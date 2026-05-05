@@ -62,6 +62,20 @@ afterAll(async () => {
 
 const dbDescribe = runDatabaseTests ? describe : describe.skip
 
+describe('Auth service validation', () => {
+  it('loginUser rejects non-email account identifiers', async () => {
+    await expect(
+      loginUser({
+        email: 'test',
+        password: 'password123',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Email must be a valid email address',
+    })
+  })
+})
+
 dbDescribe('DB-backed auth service', () => {
   it('registerUser hashes passwords and returns a token plus sanitized user', async () => {
     const result = await registerUser({

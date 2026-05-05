@@ -1,5 +1,6 @@
 import {
   deleteFileById,
+  getDownloadStream,
   getDownloadUrl,
   listFiles,
   uploadFile,
@@ -49,6 +50,23 @@ export const remove = async (req, res, next) => {
     await deleteFileById(req.params.id, req.user?.id)
 
     res.status(204).end()
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const downloadContent = async (req, res, next) => {
+  try {
+    const { stream, file } = await getDownloadStream(req.params.id, req.user?.id)
+    const safeFileName = encodeURIComponent(file.fileName)
+
+    res.setHeader('Content-Type', file.mimeType || 'application/octet-stream')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${safeFileName}"; filename*=UTF-8''${safeFileName}`
+    )
+    stream.on('error', next)
+    stream.pipe(res)
   } catch (error) {
     next(error)
   }

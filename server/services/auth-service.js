@@ -1,7 +1,11 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-import { createUser, findUserByEmail, findUserById } from '../repositories/user-repository.js'
+import {
+  createUser,
+  findUserByEmail,
+  findUserById,
+} from '../repositories/user-repository.js'
 
 const SALT_ROUNDS = 10
 
@@ -19,6 +23,10 @@ const createHttpError = (message, statusCode) => {
 
   return error
 }
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const isEmailAddress = (value) => EMAIL_PATTERN.test(value.trim())
 
 const sanitizeUser = (user) => ({
   id: user.id,
@@ -75,6 +83,10 @@ export const registerUser = async ({ name, email, password }) => {
 export const loginUser = async ({ email, password }) => {
   if (!email || !email.trim()) {
     throw createHttpError('Email is required', 400)
+  }
+
+  if (!isEmailAddress(email)) {
+    throw createHttpError('Email must be a valid email address', 400)
   }
 
   if (!password) {

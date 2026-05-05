@@ -1,9 +1,23 @@
 import {
   createActionItem,
   deleteActionItem,
+  listMyActionItems,
   listActionItems,
   updateActionItem,
 } from '../services/action-item-service.js'
+
+export const listMine = async (req, res, next) => {
+  try {
+    const { actionItems } = await listMyActionItems(req.user?.id, {
+      status: req.query.status,
+      priority: req.query.priority,
+    })
+
+    res.json({ actionItems })
+  } catch (error) {
+    next(error)
+  }
+}
 
 export const list = async (req, res, next) => {
   try {

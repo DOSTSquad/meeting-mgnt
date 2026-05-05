@@ -5,7 +5,9 @@ import {
   listMeetings,
   updateMeeting,
 } from '../repositories/meeting-repository.js'
+import { bulkUpsert } from '../repositories/participant-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
+import { createTag, findTagByName } from '../repositories/tag-repository.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -72,7 +74,7 @@ export const createMeetingForUser = async (input, userId) => {
     timezoneName = 'UTC',
     location,
     status,
-    department,
+    tag,
   } = input
 
   if (!title || !title.trim()) {
@@ -90,7 +92,13 @@ export const createMeetingForUser = async (input, userId) => {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
 
-  return createMeeting({
+  let tagId = null
+  if (tag !== undefined && tag !== null && String(tag).trim()) {
+    const existingTag = await findTagByName(String(tag))
+    tagId = existingTag ? existingTag.id : (await createTag(String(tag))).id
+  }
+
+  const meeting = await createMeeting({
     title,
     description: description ?? null,
     startsAt: toDate(startsAt),
@@ -98,9 +106,18 @@ export const createMeetingForUser = async (input, userId) => {
     timezoneName,
     location: location ?? null,
     status: status ?? 'scheduled',
-    department: department ?? null,
+    tagId,
     createdBy: userId,
   })
+
+  await bulkUpsert({
+    meetingId: meeting.id,
+    userIds: [userId],
+    role: 'organizer',
+    addedBy: userId,
+  })
+
+  return meeting
 }
 
 export const getMeetingById = async (id) => {
@@ -139,7 +156,7 @@ export const updateMeetingById = async (id, input) => {
     'timezoneName',
     'location',
     'status',
-    'department',
+    'tag',
   ]) {
     if (input[field] !== undefined) {
       updates[field] = input[field]
@@ -148,6 +165,17 @@ export const updateMeetingById = async (id, input) => {
 
   if (updates.timezoneName !== undefined) {
     validateTimezone(updates.timezoneName)
+  }
+
+  if (updates.tag !== undefined) {
+    const tagValue = updates.tag
+    if (tagValue === null || String(tagValue).trim() === '') {
+      updates.tagId = null
+    } else {
+      const existingTag = await findTagByName(String(tagValue))
+      updates.tagId = existingTag ? existingTag.id : (await createTag(String(tagValue))).id
+    }
+    delete updates.tag
   }
 
   if (updates.status !== undefined) {
@@ -185,14 +213,18 @@ export const deleteMeetingById = async (id) => {
 }
 
 export const listMeetingsForQuery = async ({
+  userId,
   page = 1,
   limit = 20,
   from,
   to,
   status,
-  department,
   q,
 } = {}) => {
+  if (!userId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
   if (status && !ALLOWED_STATUSES.includes(status)) {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
@@ -204,12 +236,12 @@ export const listMeetingsForQuery = async ({
   }
 
   return listMeetings({
+    userId,
     page,
     limit,
     from: from ? toDate(from) : undefined,
     to: to ? toDate(to) : undefined,
     status,
-    department,
     q: trimmedQ && trimmedQ.length > 0 ? trimmedQ : undefined,
   })
 }

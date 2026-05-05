@@ -13,6 +13,7 @@
     { "key": "baseUrl", "value": "http://localhost:3001/api", "type": "string" },
     { "key": "token", "value": "", "type": "string" },
     { "key": "meetingId", "value": "", "type": "string" },
+    { "key": "minutesId", "value": "", "type": "string" },
     { "key": "participantUserId", "value": "", "type": "string" },
     { "key": "fileId", "value": "", "type": "string" },
     { "key": "actionItemId", "value": "", "type": "string" },
@@ -29,7 +30,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Smoke User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
@@ -57,7 +62,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
@@ -83,7 +92,11 @@
           "name": "Get current user",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] },
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
             "description": "Returns the user attached to the current bearer token."
           }
         }
@@ -100,7 +113,7 @@
             "url": { "raw": "{{baseUrl}}/meetings", "host": ["{{baseUrl}}"], "path": ["meetings"] },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\",\n  \"department\": \"engineering\"\n}"
+              "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\"\n}"
             },
             "description": "Creates a meeting. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
           },
@@ -140,14 +153,25 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/meetings?status=scheduled&department=engineering&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&page=1&limit=10",
+              "raw": "{{baseUrl}}/meetings?status=scheduled&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&page=1&limit=10",
               "host": ["{{baseUrl}}"],
               "path": ["meetings"],
               "query": [
-                { "key": "status", "value": "scheduled", "description": "scheduled | in_progress | completed | cancelled | archived" },
-                { "key": "department", "value": "engineering" },
-                { "key": "from", "value": "2026-05-01T00:00:00Z", "description": "ISO 8601; starts_at >= from" },
-                { "key": "to", "value": "2026-05-31T23:59:59Z", "description": "ISO 8601; starts_at <= to" },
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "description": "scheduled | in_progress | completed | cancelled | archived"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-05-01T00:00:00Z",
+                  "description": "ISO 8601; starts_at >= from"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31T23:59:59Z",
+                  "description": "ISO 8601; starts_at <= to"
+                },
                 { "key": "page", "value": "1", "description": "default 1, min 1" },
                 { "key": "limit", "value": "10", "description": "default 20, min 1, max 100" }
               ]
@@ -163,8 +187,16 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings"],
               "query": [
-                { "key": "q", "value": "budget", "description": "plainto_tsquery over title + description (english config, stemmed); max 200 chars" },
-                { "key": "status", "value": "scheduled", "description": "optional; composes with q" }
+                {
+                  "key": "q",
+                  "value": "budget",
+                  "description": "plainto_tsquery over title + description (english config, stemmed); max 200 chars"
+                },
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "description": "optional; composes with q"
+                }
               ]
             }
           }
@@ -207,6 +239,137 @@
               "path": ["meetings", "{{meetingId}}"]
             },
             "description": "Hard delete. Returns 204 on success, 404 if not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Minutes",
+      "description": "Manage minutes for a meeting. `content`, `keyDiscussions`, `decisions`, `facilitatorId`, and `recorderId` live on `/meetings/{{meetingId}}/minutes`, not on the meeting record.",
+      "item": [
+        {
+          "name": "Get meeting minutes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
+            },
+            "description": "Returns `{ minutes }`. If the meeting has no minutes yet, the API creates an empty draft minutes row."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.minutes && data.minutes.id) pm.collectionVariables.set('minutesId', data.minutes.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update meeting minutes",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Reviewed delivery risk and agreed follow-up owners.\",\n  \"keyDiscussions\": \"Timeline risk\\nResourcing\",\n  \"decisions\": \"Keep current milestone scope.\",\n  \"facilitatorId\": null,\n  \"recorderId\": null\n}"
+            },
+            "description": "Updates moved minutes fields. Only the meeting creator or an organizer can update minutes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.minutes && data.minutes.id) pm.collectionVariables.set('minutesId', data.minutes.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update meeting minutes without id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"draft\"\n}"
+            },
+            "description": "Updates the meeting's current minutes row, creating a draft row first if needed."
+          }
+        },
+        {
+          "name": "Update meeting minutes missing body",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Expected 400 with `No updates supplied`."
+          }
+        },
+        {
+          "name": "Get minutes for unknown meeting",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/00000000-0000-0000-0000-000000000000/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "00000000-0000-0000-0000-000000000000", "minutes"]
+            },
+            "description": "Expected 404."
+          }
+        },
+        {
+          "name": "Update unknown minutes id",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "minutes",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This should not update.\"\n}"
+            },
+            "description": "Expected 404 with `Minutes not found`."
           }
         }
       ]
@@ -330,8 +493,18 @@
             "body": {
               "mode": "formdata",
               "formdata": [
-                { "key": "file", "type": "file", "src": "", "description": "Select a PDF/DOCX/XLSX/PPTX/image ≤ 50 MB" },
-                { "key": "description", "value": "Meeting agenda", "type": "text", "description": "Optional description" }
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a PDF/DOCX/XLSX/PPTX/image ≤ 50 MB"
+                },
+                {
+                  "key": "description",
+                  "value": "Meeting agenda",
+                  "type": "text",
+                  "description": "Optional description"
+                }
               ]
             },
             "description": "Multipart upload. Field name must be `file`. Returns `201 { file }`. Auto-saves `fileId` to collection variable."
@@ -433,8 +606,18 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "action-items"],
               "query": [
-                { "key": "status", "value": "todo", "description": "Optional: todo | in_progress | blocked | completed | cancelled", "disabled": true },
-                { "key": "assigneeId", "value": "", "description": "Optional: filter to items assigned to a user", "disabled": true }
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "description": "Optional: todo | in_progress | blocked | completed | cancelled",
+                  "disabled": true
+                },
+                {
+                  "key": "assigneeId",
+                  "value": "",
+                  "description": "Optional: filter to items assigned to a user",
+                  "disabled": true
+                }
               ]
             },
             "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters."
@@ -479,7 +662,11 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/../health/live", "host": ["{{baseUrl}}"], "path": ["..", "health", "live"] }
+            "url": {
+              "raw": "{{baseUrl}}/../health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "live"]
+            }
           }
         },
         {
@@ -487,7 +674,11 @@
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/../health/ready", "host": ["{{baseUrl}}"], "path": ["..", "health", "ready"] }
+            "url": {
+              "raw": "{{baseUrl}}/../health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "ready"]
+            }
           }
         }
       ]

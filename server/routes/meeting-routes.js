@@ -52,11 +52,14 @@ meetingRouter.post(
       .isString()
       .withMessage('Location must be a string'),
     body('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
-    body('department')
+    body('tag')
       .optional({ nullable: true })
+      .isString()
+      .withMessage('tag must be a string')
+      .bail()
       .trim()
       .isLength({ max: 100 })
-      .withMessage('Department must be at most 100 characters'),
+      .withMessage('tag must be at most 100 characters'),
   ],
   handleValidationErrors,
   create
@@ -86,11 +89,6 @@ meetingRouter.get(
       .withMessage('to must be a valid ISO 8601 datetime')
       .toDate(),
     query('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
-    query('department')
-      .optional()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage('Department must be at most 100 characters'),
     query('q')
       .optional()
       .isString()
@@ -147,11 +145,14 @@ meetingRouter.put(
       .isString()
       .withMessage('Location must be a string'),
     body('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
-    body('department')
+    body('tag')
       .optional({ nullable: true })
+      .isString()
+      .withMessage('tag must be a string')
+      .bail()
       .trim()
       .isLength({ max: 100 })
-      .withMessage('Department must be at most 100 characters'),
+      .withMessage('tag must be at most 100 characters'),
   ],
   handleValidationErrors,
   update

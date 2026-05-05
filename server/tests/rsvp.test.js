@@ -350,6 +350,6 @@ dbDescribe('RSVP controller (DB-backed)', () => {
     )
 
     expect(nextError).toBeUndefined()
-    expect(res.body.meeting.rsvpCounts).toEqual({ accepted: 2, declined: 1, pending: 0 })
+    expect(res.body.meeting.rsvpCounts).toEqual({ accepted: 2, declined: 1, pending: 1 })
   })
 })

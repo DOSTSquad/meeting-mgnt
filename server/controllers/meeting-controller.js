@@ -21,15 +21,15 @@ export const list = async (req, res, next) => {
   try {
     const page = Number(req.query.page ?? 1)
     const limit = Number(req.query.limit ?? 20)
-    const { from, to, status, department, q } = req.query
+    const { from, to, status, q } = req.query
 
     const { rows, total } = await listMeetingsForQuery({
+      userId: req.user?.id,
       page,
       limit,
       from,
       to,
       status,
-      department,
       q,
     })
 
