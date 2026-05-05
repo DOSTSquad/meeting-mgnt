@@ -2,8 +2,6 @@
 
 Meeting Management is a workspace app for creating meeting scheduling requests, collecting participant availability, confirming meetings, managing meeting files, tracking action items, and maintaining dedicated meeting minutes.
 
-The app is a local-first monorepo used for the IFN735/DOST meeting management project.
-
 ## Structure
 
 ```
