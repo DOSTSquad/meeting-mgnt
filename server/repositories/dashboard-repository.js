@@ -10,6 +10,24 @@ const mapMeetingRow = (row) => ({
   status: row.status,
 })
 
+const mapMeetingRequestRow = (row) => ({
+  id: row.id,
+  title: row.title,
+  description: row.description,
+  durationMinutes: row.duration_minutes,
+  timezoneName: row.timezone_name,
+  responseDeadline: row.response_deadline ? row.response_deadline.toISOString() : null,
+  status: row.status,
+  createdAt: row.created_at.toISOString(),
+  updatedAt: row.updated_at.toISOString(),
+  inviteeCounts: {
+    submitted: row.submitted_count,
+    pending: row.pending_count,
+    total: row.invitee_count,
+  },
+  timeOptionCount: row.time_option_count,
+})
+
 const baseMeetingAccessCte = `
   WITH accessible_meetings AS (
     SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status
@@ -110,6 +128,38 @@ export const listMyActionItems = async (userId, limit = 10) => {
     dueDate: row.due_date ? row.due_date.toISOString() : null,
     createdAt: row.created_at.toISOString(),
   }))
+}
+
+export const listPendingMeetingRequestsForUser = async (userId, limit = 5) => {
+  const result = await query(
+    `
+      SELECT
+        mr.id,
+        mr.title,
+        mr.description,
+        mr.duration_minutes,
+        mr.timezone_name,
+        mr.response_deadline,
+        mr.status,
+        mr.created_at,
+        mr.updated_at,
+        COUNT(DISTINCT mto.id)::int AS time_option_count,
+        COUNT(DISTINCT mri.id)::int AS invitee_count,
+        COUNT(DISTINCT mri.id) FILTER (WHERE mri.response_status = 'submitted')::int AS submitted_count,
+        COUNT(DISTINCT mri.id) FILTER (WHERE mri.response_status = 'pending')::int AS pending_count
+      FROM meeting_requests mr
+      LEFT JOIN meeting_time_options mto ON mto.meeting_request_id = mr.id
+      LEFT JOIN meeting_request_invitees mri ON mri.meeting_request_id = mr.id
+      WHERE mr.created_by = $1
+        AND mr.status NOT IN ('confirmed', 'cancelled')
+      GROUP BY mr.id
+      ORDER BY mr.updated_at DESC
+      LIMIT $2
+    `,
+    [userId, limit]
+  )
+
+  return result.rows.map(mapMeetingRequestRow)
 }
 
 export const listNotificationItemsForUser = async (userId, limit = 20) => {

@@ -62,6 +62,31 @@ Updating `status` to the same value is a no-op. `archived` is terminal. Any othe
 
 **Full-text search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`. Stemming applies (e.g., `q=plan` matches "planning"); multi-word queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
 
+### Meeting Requests (`/api/meeting-requests`)
+
+Meeting requests support the 5-step scheduling flow before a confirmed meeting exists. Confirmed meetings still live in `/api/meetings`.
+
+| Method | Path                                             | Body / Query                                                                                          | Returns                                      |
+| ------ | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| POST   | `/`                                              | `{ title, description?, durationMinutes?, timezoneName?, responseDeadline? }`                         | `201 { meetingRequest }`                     |
+| GET    | `/:requestId`                                    | —                                                                                                     | `200 { meetingRequest, timeOptions, invitees }` |
+| PUT    | `/:requestId/time-options`                       | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                                                 | `200 { timeOptions }`                        |
+| PUT    | `/:requestId/invitees`                           | `{ invitees: [{ email, name? }] }`                                                                    | `200 { invitees }`                           |
+| PUT    | `/:requestId/invitees/:inviteeId/availability`   | `{ responses: [{ timeOptionId, isAvailable }] }`                                                      | `200 { responses }`                          |
+| POST   | `/:requestId/confirm`                            | `{ timeOptionId, location?, tag? }`                                                                   | `201 { meeting, meetingRequest }`            |
+
+Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
+
+Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet.
+
+### Dashboard (`/api/dashboard`)
+
+| Method | Path | Body / Query | Returns |
+| ------ | ---- | ------------ | ------- |
+| GET    | `/`  | —            | `200 { recentMeetings, pendingRsvpMeetings, pendingMeetingRequests, myActionItems }` |
+
+`pendingMeetingRequests` contains unconfirmed, uncancelled meeting requests created by the current user. Each item includes `inviteeCounts`, `timeOptionCount`, `durationMinutes`, `timezoneName`, `responseDeadline`, and `status` so the dashboard can show in-progress meeting polls before a real meeting exists.
+
 ### Meeting Minutes (`/api/meetings/:meetingId/minutes`)
 
 | Method | Path          | Body / Query                                                                               | Returns                    |

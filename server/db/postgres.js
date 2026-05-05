@@ -24,6 +24,23 @@ export const getPool = () => {
 
 export const query = (text, params) => getPool().query(text, params)
 
+export const transaction = async (callback) => {
+  const client = await getPool().connect()
+
+  try {
+    await client.query('BEGIN')
+    const result = await callback(client)
+    await client.query('COMMIT')
+
+    return result
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 export const closePool = async () => {
   if (!pool) {
     return

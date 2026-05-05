@@ -16,6 +16,7 @@ import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'
 import dashboardRouter from './routes/dashboard-routes.js'
 import devRouter from './routes/dev-routes.js'
+import meetingRequestRouter from './routes/meeting-request-routes.js'
 import meetingRouter from './routes/meeting-routes.js'
 import minuteRouter from './routes/minute-routes.js'
 import participantRouter from './routes/participant-routes.js'
@@ -237,6 +238,7 @@ export const createApp = () => {
   }
   app.use('/api/tags', tagRouter)
   app.use('/api/users', userRouter)
+  app.use('/api/meeting-requests', meetingRequestRouter)
   app.use('/api/meetings', meetingRouter)
   app.use('/api/meetings/:meetingId/minutes', minuteRouter)
   app.use('/api/meetings/:meetingId/participants', participantRouter)

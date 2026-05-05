@@ -7,18 +7,72 @@
   },
   "auth": {
     "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3001/api", "type": "string" },
-    { "key": "token", "value": "", "type": "string" },
-    { "key": "meetingId", "value": "", "type": "string" },
-    { "key": "minutesId", "value": "", "type": "string" },
-    { "key": "participantUserId", "value": "", "type": "string" },
-    { "key": "fileId", "value": "", "type": "string" },
-    { "key": "actionItemId", "value": "", "type": "string" },
-    { "key": "email", "value": "smoke@test.local", "type": "string" },
-    { "key": "password", "value": "password123", "type": "string" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "meetingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "minutesId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "participantUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fileId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "actionItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "smoke@test.local",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "password123",
+      "type": "string"
+    },
+    {
+      "key": "meetingRequestId",
+      "value": ""
+    },
+    {
+      "key": "timeOptionId",
+      "value": ""
+    },
+    {
+      "key": "inviteeId",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -27,13 +81,25 @@
         {
           "name": "Register",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -59,13 +125,25 @@
         {
           "name": "Login",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -94,8 +172,13 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
             },
             "description": "Returns the user attached to the current bearer token."
           }
@@ -109,8 +192,21 @@
           "name": "Create meeting",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{baseUrl}}/meetings", "host": ["{{baseUrl}}"], "path": ["meetings"] },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings"
+              ]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\"\n}"
@@ -138,11 +234,21 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings?page=1&limit=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings"
+              ],
               "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
               ]
             },
             "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, and `fileCount`; repository clients should group by meeting tag while keeping files attached to their meeting."
@@ -154,8 +260,12 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings?status=scheduled&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&page=1&limit=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings"
+              ],
               "query": [
                 {
                   "key": "status",
@@ -172,8 +282,16 @@
                   "value": "2026-05-31T23:59:59Z",
                   "description": "ISO 8601; starts_at <= to"
                 },
-                { "key": "page", "value": "1", "description": "default 1, min 1" },
-                { "key": "limit", "value": "10", "description": "default 20, min 1, max 100" }
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "default 1, min 1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "default 20, min 1, max 100"
+                }
               ]
             }
           }
@@ -184,8 +302,12 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings?q=budget&status=scheduled",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings"
+              ],
               "query": [
                 {
                   "key": "q",
@@ -207,8 +329,13 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}"
+              ]
             },
             "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, and `fileCount`."
           }
@@ -217,11 +344,21 @@
           "name": "Update meeting",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -236,10 +373,256 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}"
+              ]
             },
             "description": "Hard delete. Returns 204 on success, 404 if not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meeting requests",
+      "item": [
+        {
+          "name": "Create meeting request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meeting-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.meetingRequest && data.meetingRequest.id) pm.collectionVariables.set(meetingRequestId, data.meetingRequest.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace time options",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/time-options",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meeting-requests",
+                "{{meetingRequestId}}",
+                "time-options"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timeOptions\": [\n    {\n      \"startsAt\": \"2026-05-12T09:00:00+10:00\",\n      \"endsAt\": \"2026-05-12T10:00:00+10:00\"\n    },\n    {\n      \"startsAt\": \"2026-05-12T11:00:00+10:00\",\n      \"endsAt\": \"2026-05-12T12:00:00+10:00\"\n    }\n  ]\n}"
+            },
+            "description": "Replaces candidate time options. Returns 409 if any option overlaps the request creator's existing non-cancelled/non-archived meetings."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.timeOptions && data.timeOptions[0]) pm.collectionVariables.set(timeOptionId, data.timeOptions[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace invitees",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meeting-requests",
+                "{{meetingRequestId}}",
+                "invitees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invitees\": [\n    {\n      \"email\": \"nattanan.thepsathorn@seed.local\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.invitees && data.invitees[0]) pm.collectionVariables.set(inviteeId, data.invitees[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get meeting request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meeting-requests",
+                "{{meetingRequestId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit availability",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees/{{inviteeId}}/availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meeting-requests",
+                "{{meetingRequestId}}",
+                "invitees",
+                "{{inviteeId}}",
+                "availability"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"responses\": [\n    {\n      \"timeOptionId\": \"{{timeOptionId}}\",\n      \"isAvailable\": true\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm meeting request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meeting-requests",
+                "{{meetingRequestId}}",
+                "confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timeOptionId\": \"{{timeOptionId}}\",\n  \"location\": \"Room 4.1\",\n  \"tag\": \"Operations\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.meeting && data.meeting.id) pm.collectionVariables.set(meetingId, data.meeting.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard aggregate data for the signed-in user, including pending meeting requests before they become confirmed meetings.",
+      "item": [
+        {
+          "name": "Get dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            },
+            "description": "Returns `{ recentMeetings, pendingRsvpMeetings, pendingMeetingRequests, myActionItems }`. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user."
           }
         }
       ]
@@ -254,8 +637,14 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "minutes"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "minutes"
+              ]
             },
             "description": "Returns `{ minutes }`. If the meeting has no minutes yet, the API creates an empty draft minutes row."
           },
@@ -278,11 +667,23 @@
           "name": "Update meeting minutes",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "minutes",
+                "{{minutesId}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -309,11 +710,22 @@
           "name": "Update meeting minutes without id",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "minutes"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "minutes"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -326,11 +738,23 @@
           "name": "Update meeting minutes missing body",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "minutes",
+                "{{minutesId}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -345,8 +769,14 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/00000000-0000-0000-0000-000000000000/minutes",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "00000000-0000-0000-0000-000000000000", "minutes"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "00000000-0000-0000-0000-000000000000",
+                "minutes"
+              ]
             },
             "description": "Expected 404."
           }
@@ -355,10 +785,17 @@
           "name": "Update unknown minutes id",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/00000000-0000-0000-0000-000000000000",
-              "host": ["{{baseUrl}}"],
+              "host": [
+                "{{baseUrl}}"
+              ],
               "path": [
                 "meetings",
                 "{{meetingId}}",
@@ -385,8 +822,14 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "participants"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "participants"
+              ]
             },
             "description": "Returns `{ participants: [...] }`. Each row includes `userId`, `name`, `email`, `role`, `rsvpStatus`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
           }
@@ -395,11 +838,22 @@
           "name": "Add participants (bulk)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "participants"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "participants"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -428,11 +882,23 @@
           "name": "Update participant (role / RSVP)",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "participants",
+                "{{participantUserId}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -447,8 +913,15 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "participants",
+                "{{participantUserId}}"
+              ]
             },
             "description": "Removes the participant from the meeting. Returns 204 on success, 404 if not a participant, 400 if they are the last organizer."
           }
@@ -463,11 +936,22 @@
           "name": "Update my RSVP",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/rsvp",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "rsvp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "rsvp"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -488,8 +972,14 @@
             "method": "POST",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "files"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "files"
+              ]
             },
             "body": {
               "mode": "formdata",
@@ -531,8 +1021,14 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "files"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "files"
+              ]
             },
             "description": "Returns `{ files: [...] }` for the meeting. Any participant can list."
           }
@@ -543,8 +1039,14 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/files/{{fileId}}/download",
-              "host": ["{{baseUrl}}"],
-              "path": ["files", "{{fileId}}", "download"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files",
+                "{{fileId}}",
+                "download"
+              ]
             },
             "description": "Returns `{ url, expiresAt }`. The presigned URL is valid for 60 seconds — paste it into a browser or use it in a fetch to retrieve the file bytes directly from MinIO."
           }
@@ -555,8 +1057,13 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/files/{{fileId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["files", "{{fileId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "files",
+                "{{fileId}}"
+              ]
             },
             "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only creator or organizer can delete."
           }
@@ -571,11 +1078,22 @@
           "name": "Create action item",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "action-items"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "action-items"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -604,8 +1122,14 @@
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items?status=todo",
-              "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "action-items"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "action-items"
+              ],
               "query": [
                 {
                   "key": "status",
@@ -628,11 +1152,21 @@
           "name": "Update action item",
           "request": {
             "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["action-items", "{{actionItemId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "action-items",
+                "{{actionItemId}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -647,8 +1181,13 @@
             "method": "DELETE",
             "url": {
               "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["action-items", "{{actionItemId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "action-items",
+                "{{actionItemId}}"
+              ]
             },
             "description": "Hard delete. Returns 204 on success, 404 if not found. Any meeting participant can delete."
           }
@@ -661,24 +1200,40 @@
         {
           "name": "Liveness",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/../health/live",
-              "host": ["{{baseUrl}}"],
-              "path": ["..", "health", "live"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "..",
+                "health",
+                "live"
+              ]
             }
           }
         },
         {
           "name": "Readiness",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "url": {
               "raw": "{{baseUrl}}/../health/ready",
-              "host": ["{{baseUrl}}"],
-              "path": ["..", "health", "ready"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "..",
+                "health",
+                "ready"
+              ]
             }
           }
         }

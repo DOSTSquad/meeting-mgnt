@@ -1,7 +1,6 @@
-import axios from 'axios'
 import { useMemo, useState } from 'react'
 
-import { apiBaseUrl } from '../../lib/apiClient.js'
+import { login } from '../../services/authService.js'
 
 export const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('')
@@ -23,12 +22,10 @@ export const LoginView = ({ onLogin }) => {
       setIsSubmitting(true)
       setErrorMessage('')
 
-      const response = await axios.post(`${apiBaseUrl}/api/auth/login`, {
+      const { token, user } = await login({
         email: trimmedEmail,
         password,
       })
-
-      const { token, user } = response.data ?? {}
 
       if (!token || !user) {
         throw new Error('Invalid login response from server')

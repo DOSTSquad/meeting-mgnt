@@ -12,6 +12,14 @@ import { CreateMeetingModal } from './features/meetings/CreateMeetingModal.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { MeetingPreviewModal } from './features/meetings/MeetingPreviewModal.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
+import {
+  createMeetingActionItem,
+  deleteActionItem,
+  updateActionItem,
+} from './services/actionItemService.js'
+import { loadAppData } from './services/appDataService.js'
+import { downloadFileContent, uploadMeetingFile } from './services/fileService.js'
+import { getMeetingDetail, updateMeeting } from './services/meetingService.js'
 
 const getActivePage = (pathname) => {
   if (pathname.startsWith('/meetings')) {
@@ -38,6 +46,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
   const [pendingMeetingAudioFiles, setPendingMeetingAudioFiles] = useState([])
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [activeMeetingRequestId, setActiveMeetingRequestId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [successModalMessage, setSuccessModalMessage] = useState('')
@@ -51,22 +60,16 @@ const AppShell = ({ token, user, onLogout }) => {
   const reloadData = useCallback(async () => {
     try {
       const client = getApiClient(token)
+      const appData = await loadAppData(client)
+      const loadedMeetings = appData.meetings
+      const loadedUsers = appData.users
 
-      const dashboardRes = await client.get('/api/dashboard')
-      const meetingsRes = await client.get('/api/meetings', { params: { limit: 100 } })
-      const actionItemsRes = await client.get('/api/action-items')
-      const notificationsRes = await client.get('/api/notifications')
-      const usersRes = await client.get('/api/users')
-      const tagsRes = await client.get('/api/tags')
-
-      setDashboardData(dashboardRes.data)
-      const loadedMeetings = meetingsRes.data?.meetings || []
+      setDashboardData(appData.dashboard)
       setMeetings(loadedMeetings)
-      setActionItems(actionItemsRes.data?.actionItems || [])
-      setNotifications(notificationsRes.data?.notifications || [])
-      const loadedUsers = usersRes.data?.users || []
+      setActionItems(appData.actionItems)
+      setNotifications(appData.notifications)
       setUsers(loadedUsers)
-      setTags(tagsRes.data?.tags || [])
+      setTags(appData.tags)
 
       const currentUserExists = loadedUsers.some((item) => item.id === user.id)
       if (!currentUserExists) {
@@ -87,26 +90,21 @@ const AppShell = ({ token, user, onLogout }) => {
     const loadInitialData = async () => {
       try {
         const client = getApiClient(token)
-
-        const dashboardRes = await client.get('/api/dashboard')
-        const meetingsRes = await client.get('/api/meetings', { params: { limit: 100 } })
-        const actionItemsRes = await client.get('/api/action-items')
-        const notificationsRes = await client.get('/api/notifications')
-        const usersRes = await client.get('/api/users')
-        const tagsRes = await client.get('/api/tags')
+        const appData = await loadAppData(client)
 
         if (isCancelled) {
           return
         }
 
-        setDashboardData(dashboardRes.data)
-        const loadedMeetings = meetingsRes.data?.meetings || []
+        const loadedMeetings = appData.meetings
+        const loadedUsers = appData.users
+
+        setDashboardData(appData.dashboard)
         setMeetings(loadedMeetings)
-        setActionItems(actionItemsRes.data?.actionItems || [])
-        setNotifications(notificationsRes.data?.notifications || [])
-        const loadedUsers = usersRes.data?.users || []
+        setActionItems(appData.actionItems)
+        setNotifications(appData.notifications)
         setUsers(loadedUsers)
-        setTags(tagsRes.data?.tags || [])
+        setTags(appData.tags)
 
         const currentUserExists = loadedUsers.some((item) => item.id === user.id)
         if (!currentUserExists) {
@@ -135,17 +133,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const fetchMeetingDetail = useCallback(
     async (meetingId) => {
       const client = getApiClient(token)
-      const meetingRes = await client.get(`/api/meetings/${meetingId}`)
-      const participantsRes = await client.get(`/api/meetings/${meetingId}/participants`)
-      const actionItemsRes = await client.get(`/api/meetings/${meetingId}/action-items`)
-      const filesRes = await client.get(`/api/meetings/${meetingId}/files`)
-
-      return {
-        meeting: meetingRes.data.meeting,
-        participants: participantsRes.data.participants || [],
-        actionItems: actionItemsRes.data.actionItems || [],
-        files: filesRes.data.files || [],
-      }
+      return getMeetingDetail(client, meetingId)
     },
     [token]
   )
@@ -185,6 +173,16 @@ const AppShell = ({ token, user, onLogout }) => {
 
   const openMeetingDetail = (meetingId) => {
     navigate(`/meetings/${meetingId}`)
+  }
+
+  const openNewMeetingModal = () => {
+    setActiveMeetingRequestId(null)
+    setIsCreateModalOpen(true)
+  }
+
+  const openMeetingRequestModal = (meetingRequestId) => {
+    setActiveMeetingRequestId(meetingRequestId)
+    setIsCreateModalOpen(true)
   }
 
   const reloadSelectedMeetingDetail = async () => {
@@ -243,7 +241,7 @@ const AppShell = ({ token, user, onLogout }) => {
         tag: selectedMeetingDetail.meeting.tag,
       }
 
-      await client.put(`/api/meetings/${selectedMeetingDetail.meeting.id}`, payload)
+      await updateMeeting(client, selectedMeetingDetail.meeting.id, payload)
       await Promise.all(
         selectedMeetingDetail.actionItems.map((item) => {
           const updatePayload = {
@@ -256,24 +254,28 @@ const AppShell = ({ token, user, onLogout }) => {
             updatePayload.status = 'todo'
           }
 
-          return client.put(`/api/action-items/${item.id}`, updatePayload)
+          return updateActionItem(client, item.id, updatePayload)
         })
       )
       if (pendingMeetingMaterialFiles.length > 0) {
         for (const file of pendingMeetingMaterialFiles) {
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('description', 'Meeting material upload from detail view')
-          await client.post(`/api/meetings/${selectedMeetingDetail.meeting.id}/files`, formData)
+          await uploadMeetingFile(
+            client,
+            selectedMeetingDetail.meeting.id,
+            file,
+            'Meeting material upload from detail view'
+          )
         }
       }
 
       if (pendingMeetingAudioFiles.length > 0) {
         for (const file of pendingMeetingAudioFiles) {
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('description', 'Meeting audio upload from detail view')
-          await client.post(`/api/meetings/${selectedMeetingDetail.meeting.id}/files`, formData)
+          await uploadMeetingFile(
+            client,
+            selectedMeetingDetail.meeting.id,
+            file,
+            'Meeting audio upload from detail view'
+          )
         }
       }
       await reloadData()
@@ -286,22 +288,24 @@ const AppShell = ({ token, user, onLogout }) => {
     }
   }
 
-  const addActionItemInDetail = async () => {
+  const addActionItemInDetail = async (input = {}) => {
     if (!selectedMeetingDetail) {
       return
     }
 
     try {
       const client = getApiClient(token)
-      const res = await client.post(
-        `/api/meetings/${selectedMeetingDetail.meeting.id}/action-items`,
-        { title: 'New action item' }
-      )
+      const actionItem = await createMeetingActionItem(client, selectedMeetingDetail.meeting.id, {
+        title: input.title?.trim() || 'New action item',
+        assigneeId: input.assigneeId || undefined,
+        dueDate: input.dueDate || undefined,
+        priority: input.priority || undefined,
+      })
       setSelectedMeetingDetail((prev) =>
         prev
           ? {
               ...prev,
-              actionItems: [res.data.actionItem, ...prev.actionItems],
+              actionItems: [actionItem, ...prev.actionItems],
             }
           : prev
       )
@@ -309,6 +313,27 @@ const AppShell = ({ token, user, onLogout }) => {
       await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to add action item')
+    }
+  }
+
+  const updateActionItemStatusInDetail = async (actionItemId, nextStatus) => {
+    try {
+      const client = getApiClient(token)
+      await updateActionItem(client, actionItemId, { status: nextStatus })
+      setSelectedMeetingDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              actionItems: prev.actionItems.map((item) =>
+                item.id === actionItemId ? { ...item, status: nextStatus } : item
+              ),
+            }
+          : prev
+      )
+      await reloadData()
+      await reloadSelectedMeetingDetail()
+    } catch (error) {
+      setErrorMessage(error.response?.data?.error || 'Unable to update action item status')
     }
   }
 
@@ -370,7 +395,7 @@ const AppShell = ({ token, user, onLogout }) => {
 
     try {
       const client = getApiClient(token)
-      await client.put(`/api/action-items/${actionItemId}`, {
+      await updateActionItem(client, actionItemId, {
         title: target.title.trim(),
         assigneeId: target.assigneeId || null,
         dueDate: target.dueDate || null,
@@ -385,7 +410,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const removeActionItem = async (actionItemId) => {
     try {
       const client = getApiClient(token)
-      await client.delete(`/api/action-items/${actionItemId}`)
+      await deleteActionItem(client, actionItemId)
       setSelectedMeetingDetail((prev) =>
         prev
           ? {
@@ -404,11 +429,9 @@ const AppShell = ({ token, user, onLogout }) => {
   const openUploadedFile = async (fileId) => {
     try {
       const client = getApiClient(token)
-      const response = await client.get(`/api/files/${fileId}/content`, {
-        responseType: 'blob',
-      })
+      const blob = await downloadFileContent(client, fileId)
 
-      const blobUrl = URL.createObjectURL(response.data)
+      const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = blobUrl
       link.download = `meeting-file-${fileId}`
@@ -450,7 +473,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const moveActionItemStatus = async (actionItemId, nextStatus) => {
     try {
       const client = getApiClient(token)
-      await client.put(`/api/action-items/${actionItemId}`, { status: nextStatus })
+      await updateActionItem(client, actionItemId, { status: nextStatus })
       await reloadData()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to update action item status')
@@ -482,8 +505,9 @@ const AppShell = ({ token, user, onLogout }) => {
             element={
               <DashboardView
                 data={dashboardData}
-                onOpenCreateModal={() => setIsCreateModalOpen(true)}
+                onOpenCreateModal={openNewMeetingModal}
                 onOpenMeeting={openMeetingDetail}
+                onOpenMeetingRequest={openMeetingRequestModal}
               />
             }
           />
@@ -513,6 +537,7 @@ const AppShell = ({ token, user, onLogout }) => {
                   onActionItemSave={saveActionItemTitle}
                   onActionItemAssigneeChange={editActionItemAssignee}
                   onActionItemDueDateChange={editActionItemDueDate}
+                  onActionItemStatusChange={updateActionItemStatusInDetail}
                   onActionItemRemove={removeActionItem}
                   pendingMaterialFiles={pendingMeetingMaterialFiles}
                   pendingAudioFiles={pendingMeetingAudioFiles}
@@ -547,11 +572,19 @@ const AppShell = ({ token, user, onLogout }) => {
 
       <CreateMeetingModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onCreated={reloadData}
+        onClose={() => {
+          setIsCreateModalOpen(false)
+          setActiveMeetingRequestId(null)
+        }}
+        onCreated={async () => {
+          await reloadData()
+          setActiveMeetingRequestId(null)
+        }}
         token={token}
         users={users}
         tags={tags}
+        meetings={meetings}
+        meetingRequestId={activeMeetingRequestId}
         currentUserId={user.id}
       />
 

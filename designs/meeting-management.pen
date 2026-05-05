@@ -2723,6 +2723,1849 @@
     },
     {
       "type": "frame",
+      "id": "f7BYJ",
+      "name": "Meeting Detail",
+      "x": 3270,
+      "y": 0,
+      "width": 1024,
+      "height": 720,
+      "fill": "#f7f9fc",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "detailSide",
+          "name": "detailSide",
+          "x": 0,
+          "y": 0,
+          "width": 205,
+          "height": 720,
+          "fill": "#17293a",
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            24,
+            18
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "detailBrand",
+              "name": "brand",
+              "x": 0,
+              "y": 0,
+              "content": "Meeting Manager",
+              "fill": "#ffffff",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "detailDivider",
+              "name": "divider",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 1,
+              "fill": "#405163",
+              "children": []
+            },
+            {
+              "type": "frame",
+              "id": "detailNavDashboard",
+              "name": "Dashboard",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 22,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailNavDashboardIcon",
+                  "name": "Dashboard icon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "house",
+                  "fill": "#dbe4ef"
+                },
+                {
+                  "type": "text",
+                  "id": "detailNavDashboardText",
+                  "name": "Dashboard text",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Dashboard",
+                  "fill": "#dbe4ef",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailNavRepo",
+              "name": "Meeting Repository",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 22,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailNavRepoIcon",
+                  "name": "Meeting Repository icon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "folder",
+                  "fill": "#ffffff"
+                },
+                {
+                  "type": "text",
+                  "id": "detailNavRepoText",
+                  "name": "Meeting Repository text",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Repository",
+                  "fill": "#ffffff",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailNavActions",
+              "name": "Action Items",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 22,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailNavActionsIcon",
+                  "name": "Action Items icon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "square-check",
+                  "fill": "#dbe4ef"
+                },
+                {
+                  "type": "text",
+                  "id": "detailNavActionsText",
+                  "name": "Action Items text",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Action Items",
+                  "fill": "#dbe4ef",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailBackButton",
+          "name": "backButton",
+          "x": 230,
+          "y": 30,
+          "width": 142,
+          "height": 34,
+          "fill": "#ffffff",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 6,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#d9e0e8"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "detailBackIcon",
+              "name": "backIcon",
+              "x": 0,
+              "y": 0,
+              "width": 14,
+              "height": 14,
+              "iconFontFamily": "lucide",
+              "iconFontName": "arrow-left",
+              "fill": "#64748b"
+            },
+            {
+              "type": "text",
+              "id": "detailBackText",
+              "name": "backText",
+              "x": 0,
+              "y": 0,
+              "content": "Back to repository",
+              "fill": "#64748b",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "detailTitle",
+          "name": "detailTitle",
+          "x": 230,
+          "y": 78,
+          "content": "Quarterly Operations Review",
+          "fill": "#243447",
+          "fontFamily": "Inter",
+          "fontSize": 24,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "detailSub",
+          "name": "detailSub",
+          "x": 230,
+          "y": 111,
+          "content": "Thu, 7 May 2026 at 10:00 AM · Room 4.1 · Operations",
+          "fill": "#64748b",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "detailBell",
+          "name": "notificationBell",
+          "x": 842,
+          "y": 31,
+          "width": 40,
+          "height": 40,
+          "fill": "#ffffff",
+          "layout": "none",
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "detailBellIcon",
+              "name": "bellIcon",
+              "x": 11,
+              "y": 10,
+              "width": 18,
+              "height": 18,
+              "iconFontFamily": "lucide",
+              "iconFontName": "bell",
+              "fill": "#64748b"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailProfile",
+          "name": "userProfileMenu",
+          "x": 890,
+          "y": 31,
+          "width": 110,
+          "height": 40,
+          "fill": "#ffffff",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "gap": 8,
+          "padding": [
+            0,
+            8
+          ],
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailAvatar",
+              "name": "avatar",
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 24,
+              "fill": "#dbeafe",
+              "layout": "horizontal",
+              "alignItems": "center",
+              "justifyContent": "center",
+              "cornerRadius": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "detailAvatarText",
+                  "name": "avatarText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "JL",
+                  "fill": "#2563eb",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "detailProfileName",
+              "name": "profileName",
+              "x": 0,
+              "y": 0,
+              "content": "Jordan",
+              "fill": "#334155",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailPreviewButton",
+          "name": "previewButton",
+          "x": 662,
+          "y": 82,
+          "width": 88,
+          "height": 34,
+          "fill": "#ffffff",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 6,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#d9e0e8"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "detailPreviewIcon",
+              "name": "previewIcon",
+              "x": 0,
+              "y": 0,
+              "width": 14,
+              "height": 14,
+              "iconFontFamily": "lucide",
+              "iconFontName": "eye",
+              "fill": "#64748b"
+            },
+            {
+              "type": "text",
+              "id": "detailPreviewText",
+              "name": "previewText",
+              "x": 0,
+              "y": 0,
+              "content": "Preview",
+              "fill": "#334155",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailSaveButton",
+          "name": "saveButton",
+          "x": 762,
+          "y": 82,
+          "width": 126,
+          "height": 34,
+          "fill": "#2563eb",
+          "layout": "horizontal",
+          "alignItems": "center",
+          "justifyContent": "center",
+          "gap": 7,
+          "cornerRadius": 8,
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "offset": {
+              "x": 0,
+              "y": 5
+            },
+            "blur": 12,
+            "color": "#2563eb33"
+          },
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "detailSaveIcon",
+              "name": "saveIcon",
+              "x": 0,
+              "y": 0,
+              "width": 14,
+              "height": 14,
+              "iconFontFamily": "lucide",
+              "iconFontName": "check",
+              "fill": "#ffffff"
+            },
+            {
+              "type": "text",
+              "id": "detailSaveText",
+              "name": "saveText",
+              "x": 0,
+              "y": 0,
+              "content": "Save & Finalize",
+              "fill": "#ffffff",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "700"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailInfoCard",
+          "name": "Meeting Information Card",
+          "x": 230,
+          "y": 148,
+          "width": 500,
+          "height": 250,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailInfoHeader",
+              "name": "infoHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailInfoIcon",
+                  "name": "infoIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "calendar-clock",
+                  "fill": "#2563eb"
+                },
+                {
+                  "type": "text",
+                  "id": "detailInfoTitle",
+                  "name": "infoTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Information",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailInfoGrid",
+              "name": "infoGrid",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 9,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "detailInfoRow1",
+                  "name": "infoRow1",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 54,
+                  "layout": "horizontal",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailTitleField",
+                      "name": "Meeting title",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailTitleFieldLabel",
+                          "name": "Meeting title label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "MEETING TITLE",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailTitleFieldValue",
+                          "name": "Meeting title value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Quarterly Operations Review",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "detailLocationField",
+                      "name": "Location",
+                      "x": 0,
+                      "y": 0,
+                      "width": 170,
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailLocationFieldLabel",
+                          "name": "Location label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "LOCATION",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailLocationFieldValue",
+                          "name": "Location value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Room 4.1",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailInfoRow2",
+                  "name": "infoRow2",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 54,
+                  "layout": "horizontal",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailDateField",
+                      "name": "Date",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailDateFieldLabel",
+                          "name": "Date label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "DATE",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailDateFieldValue",
+                          "name": "Date value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "7 May 2026",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "detailTimeField",
+                      "name": "Time",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#f8fafc",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#e2e8f0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailTimeFieldLabel",
+                          "name": "Time label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "TIME",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailTimeFieldValue",
+                          "name": "Time value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "10:00 AM - 11:00 AM",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailInfoRow3",
+                  "name": "infoRow3",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 54,
+                  "layout": "horizontal",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailTagField",
+                      "name": "Tag",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 54,
+                      "fill": "#eff6ff",
+                      "layout": "vertical",
+                      "gap": 7,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "cornerRadius": 7,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#bfdbfe"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailTagFieldLabel",
+                          "name": "Tag label",
+                          "x": 0,
+                          "y": 0,
+                          "content": "TAG",
+                          "fill": "#2563eb",
+                          "fontFamily": "Inter",
+                          "fontSize": 8,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailTagFieldValue",
+                          "name": "Tag value",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Operations",
+                          "fill": "#1d4ed8",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailAgendaCard",
+          "name": "Agenda Card",
+          "x": 230,
+          "y": 414,
+          "width": 500,
+          "height": 112,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailAgendaHeader",
+              "name": "agendaHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailAgendaIcon",
+                  "name": "agendaIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "notebook-tabs",
+                  "fill": "#7c3aed"
+                },
+                {
+                  "type": "text",
+                  "id": "detailAgendaTitle",
+                  "name": "agendaTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Agenda",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "detailAgendaText",
+              "name": "agendaText",
+              "x": 0,
+              "y": 0,
+              "content": "Review quarterly delivery health, risks, upcoming milestones, and confirm owners for follow-up actions before the next steering committee.",
+              "fill": "#475569",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "lineHeight": 1.35
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailActionItemsCard",
+          "name": "Detail Action Items Card",
+          "x": 230,
+          "y": 530,
+          "width": 500,
+          "height": 184,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailActionsHeader",
+              "name": "actionsHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 26,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "justifyContent": "space_between",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "detailActionsHeaderLeft",
+                  "name": "actionsHeaderLeft",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fit_content",
+                  "height": 24,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "detailActionsIcon",
+                      "name": "actionsIcon",
+                      "x": 0,
+                      "y": 0,
+                      "width": 16,
+                      "height": 16,
+                      "iconFontFamily": "lucide",
+                      "iconFontName": "list-checks",
+                      "fill": "#2563eb"
+                    },
+                    {
+                      "type": "text",
+                      "id": "detailActionsTitle",
+                      "name": "actionsTitle",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Action Items",
+                      "fill": "#243447",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailAddItemButton",
+                  "name": "addItemButton",
+                  "x": 0,
+                  "y": 0,
+                  "width": 76,
+                  "height": 26,
+                  "fill": "#eff6ff",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "gap": 5,
+                  "cornerRadius": 7,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#bfdbfe"
+                  },
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "detailAddIcon",
+                      "name": "addIcon",
+                      "x": 0,
+                      "y": 0,
+                      "width": 12,
+                      "height": 12,
+                      "iconFontFamily": "lucide",
+                      "iconFontName": "plus",
+                      "fill": "#2563eb"
+                    },
+                    {
+                      "type": "text",
+                      "id": "detailAddText",
+                      "name": "addText",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Add item",
+                      "fill": "#2563eb",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailActionQuickAdd",
+              "name": "quickAddActionItem",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 34,
+              "fill": "#eff6ff",
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 7,
+              "padding": [
+                0,
+                8
+              ],
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#bfdbfe"
+              },
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "detailActionQuickTask",
+                  "name": "Add a new follow-up task...",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 30,
+                  "fill": "#ffffff",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 6,
+                  "padding": [
+                    0,
+                    9
+                  ],
+                  "cornerRadius": 7,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#bfdbfe"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "detailActionQuickTaskText",
+                      "name": "Add a new follow-up task... text",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Add a new follow-up task...",
+                      "fill": "#64748b",
+                      "fontFamily": "Inter",
+                      "fontSize": 9,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailActionQuickOwner",
+                  "name": "Owner",
+                  "x": 0,
+                  "y": 0,
+                  "width": 64,
+                  "height": 30,
+                  "fill": "#ffffff",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 6,
+                  "padding": [
+                    0,
+                    9
+                  ],
+                  "cornerRadius": 7,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#bfdbfe"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "detailActionQuickOwnerText",
+                      "name": "Owner text",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Owner",
+                      "fill": "#64748b",
+                      "fontFamily": "Inter",
+                      "fontSize": 9,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailActionQuickDue",
+                  "name": "Due",
+                  "x": 0,
+                  "y": 0,
+                  "width": 54,
+                  "height": 30,
+                  "fill": "#ffffff",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 6,
+                  "padding": [
+                    0,
+                    9
+                  ],
+                  "cornerRadius": 7,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#bfdbfe"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "detailActionQuickDueText",
+                      "name": "Due text",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Due",
+                      "fill": "#64748b",
+                      "fontFamily": "Inter",
+                      "fontSize": 9,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailActionQuickSubmit",
+                  "name": "addButton",
+                  "x": 0,
+                  "y": 0,
+                  "width": 42,
+                  "height": 30,
+                  "fill": "#2563eb",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "justifyContent": "center",
+                  "cornerRadius": 7,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "detailActionQuickSubmitText",
+                      "name": "add",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Add",
+                      "fill": "#ffffff",
+                      "fontFamily": "Inter",
+                      "fontSize": 9,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailActionItemsList",
+              "name": "actionItemsList",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "detailActionCard1",
+                  "name": "Confirm milestone owner list",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 34,
+                  "fill": "#f8fafc",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    9
+                  ],
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#e2e8f0"
+                  },
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailActionCard1CheckWrap",
+                      "name": "unchecked",
+                      "x": 0,
+                      "y": 0,
+                      "width": 20,
+                      "height": 20,
+                      "fill": "#ffffff",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#cbd5e1"
+                      },
+                      "children": []
+                    },
+                    {
+                      "type": "frame",
+                      "id": "detailActionCard1TextStack",
+                      "name": "itemText",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 26,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "gap": 1,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailActionCard1Task",
+                          "name": "task",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Confirm milestone owner list",
+                          "fill": "#182536",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailActionCard1Meta",
+                          "name": "meta",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Mina Chen · Due 10 May",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8.5,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "detailActionCard1Chip",
+                      "name": "High",
+                      "x": 0,
+                      "y": 0,
+                      "width": 62,
+                      "height": 20,
+                      "fill": "#fee2e2",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 10,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailActionCard1ChipText",
+                          "name": "High text",
+                          "x": 0,
+                          "y": 0,
+                          "content": "High",
+                          "fill": "#dc2626",
+                          "fontFamily": "Inter",
+                          "fontSize": 8.5,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailActionCard2",
+                  "name": "Upload revised risk register",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 34,
+                  "fill": "#ecfdf5",
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    9
+                  ],
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#bbf7d0"
+                  },
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailActionCard2CheckWrap",
+                      "name": "checked",
+                      "x": 0,
+                      "y": 0,
+                      "width": 20,
+                      "height": 20,
+                      "fill": "#16a34a",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#16a34a"
+                      },
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "detailActionCard2Check",
+                          "name": "check",
+                          "x": 0,
+                          "y": 0,
+                          "width": 11,
+                          "height": 11,
+                          "iconFontFamily": "lucide",
+                          "iconFontName": "check",
+                          "fill": "#ffffff"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "detailActionCard2TextStack",
+                      "name": "itemText",
+                      "x": 0,
+                      "y": 0,
+                      "width": "fill_container",
+                      "height": 26,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "gap": 1,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailActionCard2Task",
+                          "name": "task",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Upload revised risk register",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "700",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container"
+                        },
+                        {
+                          "type": "text",
+                          "id": "detailActionCard2Meta",
+                          "name": "meta",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Alex Kim · Completed today",
+                          "fill": "#64748b",
+                          "fontFamily": "Inter",
+                          "fontSize": 8.5,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "detailActionCard2Chip",
+                      "name": "Done",
+                      "x": 0,
+                      "y": 0,
+                      "width": 62,
+                      "height": 20,
+                      "fill": "#dcfce7",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 10,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#bbf7d0"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailActionCard2ChipText",
+                          "name": "Done text",
+                          "x": 0,
+                          "y": 0,
+                          "content": "Done",
+                          "fill": "#16a34a",
+                          "fontFamily": "Inter",
+                          "fontSize": 8.5,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailAttendeesCard",
+          "name": "Attendees Card",
+          "x": 748,
+          "y": 148,
+          "width": 252,
+          "height": 168,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailAttendeesHeader",
+              "name": "attendeesHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailAttendeesIcon",
+                  "name": "attendeesIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "users",
+                  "fill": "#16a34a"
+                },
+                {
+                  "type": "text",
+                  "id": "detailAttendeesTitle",
+                  "name": "attendeesTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Attendees",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailAttendeesList",
+              "name": "attendeesList",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "detailAttendee1",
+                  "name": "Mina Chen · Organizer",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 28,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailAttendee1Avatar",
+                      "name": "attendeeAvatar",
+                      "x": 0,
+                      "y": 0,
+                      "width": 24,
+                      "height": 24,
+                      "fill": "#dbeafe",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailAttendee1Initial",
+                          "name": "attendeeInitial",
+                          "x": 0,
+                          "y": 0,
+                          "content": "MC",
+                          "fill": "#2563eb",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "detailAttendee1Name",
+                      "name": "attendeeName",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Mina Chen · Organizer",
+                      "fill": "#334155",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailAttendee2",
+                  "name": "Alex Kim · Accepted",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 28,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "detailAttendee2Avatar",
+                      "name": "attendeeAvatar",
+                      "x": 0,
+                      "y": 0,
+                      "width": 24,
+                      "height": 24,
+                      "fill": "#dcfce7",
+                      "layout": "horizontal",
+                      "alignItems": "center",
+                      "justifyContent": "center",
+                      "cornerRadius": 12,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "detailAttendee2Initial",
+                          "name": "attendeeInitial",
+                          "x": 0,
+                          "y": 0,
+                          "content": "AK",
+                          "fill": "#16a34a",
+                          "fontFamily": "Inter",
+                          "fontSize": 9,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "detailAttendee2Name",
+                      "name": "attendeeName",
+                      "x": 0,
+                      "y": 0,
+                      "content": "Alex Kim · Accepted",
+                      "fill": "#334155",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "detailAttendeeMore",
+                  "name": "attendeeMore",
+                  "x": 0,
+                  "y": 0,
+                  "width": "fill_container",
+                  "height": 24,
+                  "layout": "horizontal",
+                  "alignItems": "center",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "detailAttendeeMoreIcon",
+                      "name": "attendeeMoreIcon",
+                      "x": 0,
+                      "y": 0,
+                      "width": 16,
+                      "height": 16,
+                      "iconFontFamily": "lucide",
+                      "iconFontName": "ellipsis",
+                      "fill": "#64748b"
+                    },
+                    {
+                      "type": "text",
+                      "id": "detailAttendeeMoreText",
+                      "name": "attendeeMoreText",
+                      "x": 0,
+                      "y": 0,
+                      "content": "6 more participants",
+                      "fill": "#64748b",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailMaterialsCard",
+          "name": "Meeting Materials Card",
+          "x": 748,
+          "y": 344,
+          "width": 252,
+          "height": 142,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailMaterialsHeader",
+              "name": "materialsHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailMaterialsIcon",
+                  "name": "materialsIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "paperclip",
+                  "fill": "#f97316"
+                },
+                {
+                  "type": "text",
+                  "id": "detailMaterialsTitle",
+                  "name": "materialsTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Materials",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailMaterialsDropzone",
+              "name": "materialsDropzone",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 52,
+              "fill": "#f8fafc",
+              "layout": "vertical",
+              "alignItems": "center",
+              "justifyContent": "center",
+              "gap": 6,
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#cbd5e1",
+                "dashPattern": [
+                  4,
+                  3
+                ]
+              },
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailUploadIcon",
+                  "name": "uploadIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "upload",
+                  "fill": "#64748b"
+                },
+                {
+                  "type": "text",
+                  "id": "detailDropText",
+                  "name": "dropText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Drop files or browse",
+                  "fill": "#64748b",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailMaterialFileList",
+              "name": "materialFileList",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 26,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailFileIcon",
+                  "name": "fileIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 14,
+                  "height": 14,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "file-text",
+                  "fill": "#64748b"
+                },
+                {
+                  "type": "text",
+                  "id": "detailFileText",
+                  "name": "fileText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "agenda.pdf · 2 more",
+                  "fill": "#334155",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "detailAudioCard",
+          "name": "Meeting Audio Card",
+          "x": 748,
+          "y": 502,
+          "width": 252,
+          "height": 102,
+          "fill": "#ffffff",
+          "layout": "vertical",
+          "gap": 10,
+          "padding": 16,
+          "cornerRadius": 8,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#e5e7eb"
+          },
+          "children": [
+            {
+              "type": "frame",
+              "id": "detailAudioHeader",
+              "name": "audioHeader",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 24,
+              "layout": "horizontal",
+              "alignItems": "center",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailAudioIcon",
+                  "name": "audioIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 16,
+                  "height": 16,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "audio-lines",
+                  "fill": "#7c3aed"
+                },
+                {
+                  "type": "text",
+                  "id": "detailAudioTitle",
+                  "name": "audioTitle",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Meeting Audio",
+                  "fill": "#243447",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "detailAudioDropzone",
+              "name": "audioDropzone",
+              "x": 0,
+              "y": 0,
+              "width": "fill_container",
+              "height": 38,
+              "fill": "#faf5ff",
+              "layout": "horizontal",
+              "alignItems": "center",
+              "justifyContent": "center",
+              "gap": 8,
+              "cornerRadius": 8,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#e9d5ff",
+                "dashPattern": [
+                  4,
+                  3
+                ]
+              },
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "detailAudioUploadIcon",
+                  "name": "audioUploadIcon",
+                  "x": 0,
+                  "y": 0,
+                  "width": 15,
+                  "height": 15,
+                  "iconFontFamily": "lucide",
+                  "iconFontName": "mic",
+                  "fill": "#7c3aed"
+                },
+                {
+                  "type": "text",
+                  "id": "detailAudioDropText",
+                  "name": "audioDropText",
+                  "x": 0,
+                  "y": 0,
+                  "content": "Upload MP3, WAV, M4A",
+                  "fill": "#7c3aed",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
       "id": "uQH91",
       "x": 2180,
       "y": 760,
