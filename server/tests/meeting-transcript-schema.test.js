@@ -19,7 +19,7 @@ const runDatabaseTests = process.env.RUN_DB_TESTS === 'true' && Boolean(projectE
 
 let creatorUser
 let baseMeeting
-let sourceFile
+let recording
 
 beforeAll(async () => {
   process.env.DATABASE_URL = projectEnv.DATABASE_URL
@@ -69,17 +69,18 @@ beforeEach(async () => {
   )
   baseMeeting = meetingResult.rows[0]
 
-  const fileResult = await query(
+  const recordingResult = await query(
     `
-      INSERT INTO meeting_files (
+      INSERT INTO meeting_recordings (
         meeting_id,
         uploaded_by,
         file_name,
         mime_type,
         size_bytes,
+        bucket_name,
         object_key
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `,
     [
@@ -88,10 +89,11 @@ beforeEach(async () => {
       'recording.mp3',
       'audio/mpeg',
       2048,
-      `meetings/${baseMeeting.id}/recording.mp3`,
+      'meeting-audio',
+      `meetings/${baseMeeting.id}/recordings/recording.mp3`,
     ]
   )
-  sourceFile = fileResult.rows[0]
+  recording = recordingResult.rows[0]
 })
 
 afterAll(async () => {
@@ -109,112 +111,62 @@ const createTranscript = (overrides = {}) =>
     `
       INSERT INTO meeting_transcripts (
         meeting_id,
-        source_file_id,
+        recording_id,
         created_by,
         status,
-        language_code,
-        provider,
-        model,
         transcript_text,
         segments,
-        confidence,
         duration_seconds,
+        error_message,
         completed_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
       RETURNING *
     `,
     [
       overrides.meetingId ?? baseMeeting.id,
-      overrides.sourceFileId ?? sourceFile.id,
+      overrides.recordingId ?? recording.id,
       overrides.createdBy ?? creatorUser.id,
       overrides.status ?? 'completed',
-      overrides.languageCode ?? 'en-AU',
-      overrides.provider ?? 'openai',
-      overrides.model ?? 'gpt-4o-transcribe',
       overrides.transcriptText ?? 'Welcome to the meeting.',
       JSON.stringify(overrides.segments ?? []),
-      overrides.confidence ?? 0.92,
       overrides.durationSeconds ?? 120,
+      overrides.errorMessage ?? null,
       overrides.completedAt ?? new Date('2026-05-01T00:05:00.000Z'),
     ]
   )
 
 dbDescribe('meeting_transcripts schema', () => {
-  it('stores transcript metadata and defaults segments to an array', async () => {
+  it('stores lean transcript metadata linked to a recording', async () => {
     const result = await createTranscript()
 
     expect(result.rows[0]).toMatchObject({
       meeting_id: baseMeeting.id,
-      source_file_id: sourceFile.id,
+      recording_id: recording.id,
       created_by: creatorUser.id,
       status: 'completed',
-      language_code: 'en-AU',
-      provider: 'openai',
-      model: 'gpt-4o-transcribe',
       transcript_text: 'Welcome to the meeting.',
       duration_seconds: 120,
     })
-    expect(Number(result.rows[0].confidence)).toBe(0.92)
     expect(result.rows[0].segments).toEqual([])
   })
 
-  it('allows one transcript per source file', async () => {
+  it('allows multiple transcript attempts for the same recording', async () => {
     await createTranscript()
-
-    await expect(
-      createTranscript({
-        transcriptText: 'Duplicate source file transcript.',
-        completedAt: new Date('2026-05-01T00:06:00.000Z'),
-      })
-    ).rejects.toThrow(/meeting_transcripts_source_file_unique_idx/)
-  })
-
-  it('allows multiple transcripts for a meeting when each source file is different', async () => {
-    await createTranscript()
-
-    const otherFileResult = await query(
-      `
-        INSERT INTO meeting_files (
-          meeting_id,
-          uploaded_by,
-          file_name,
-          mime_type,
-          size_bytes,
-          object_key
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-      `,
-      [
-        baseMeeting.id,
-        creatorUser.id,
-        'recording-2.mp3',
-        'audio/mpeg',
-        4096,
-        `meetings/${baseMeeting.id}/recording-2.mp3`,
-      ]
-    )
-    const otherFile = otherFileResult.rows[0]
     const result = await createTranscript({
-      sourceFileId: otherFile.id,
-      transcriptText: 'Live note transcript.',
+      transcriptText: 'Retry transcript.',
       completedAt: new Date('2026-05-01T00:07:00.000Z'),
     })
 
     expect(result.rows[0].meeting_id).toBe(baseMeeting.id)
-    expect(result.rows[0].source_file_id).toBe(otherFile.id)
+    expect(result.rows[0].recording_id).toBe(recording.id)
   })
 
-  it('rejects invalid status, segment shape, confidence, and duration values', async () => {
+  it('rejects invalid status, segment shape, and duration values', async () => {
     await expect(createTranscript({ status: 'queued' })).rejects.toThrow(/meeting_transcripts/)
 
     await expect(createTranscript({ segments: { text: 'not an array' } })).rejects.toThrow(
       /meeting_transcripts_segments_check/
-    )
-
-    await expect(createTranscript({ confidence: 1.5 })).rejects.toThrow(
-      /meeting_transcripts_confidence_check/
     )
 
     await expect(createTranscript({ durationSeconds: 0 })).rejects.toThrow(
@@ -233,14 +185,15 @@ dbDescribe('meeting_transcripts schema', () => {
     expect(result.rows).toHaveLength(0)
   })
 
-  it('keeps transcripts when the source file is deleted', async () => {
+  it('keeps transcripts when the recording is deleted', async () => {
     const result = await createTranscript()
 
-    await query('DELETE FROM meeting_files WHERE id = $1', [sourceFile.id])
+    await query('DELETE FROM meeting_recordings WHERE id = $1', [recording.id])
 
-    const transcriptResult = await query('SELECT source_file_id FROM meeting_transcripts WHERE id = $1', [
-      result.rows[0].id,
-    ])
-    expect(transcriptResult.rows[0].source_file_id).toBeNull()
+    const transcriptResult = await query(
+      'SELECT recording_id FROM meeting_transcripts WHERE id = $1',
+      [result.rows[0].id]
+    )
+    expect(transcriptResult.rows[0].recording_id).toBeNull()
   })
 })

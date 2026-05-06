@@ -97,6 +97,7 @@ export const NotificationMenu = ({
   notificationCount,
   notificationNextCursor,
   isLoadingMoreNotifications = false,
+  triggerClassName = 'relative flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700',
   onLoadMoreNotifications,
   onArchiveReadNotifications,
   onMarkAllNotificationsRead,
@@ -171,7 +172,7 @@ export const NotificationMenu = ({
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+        className={triggerClassName}
         aria-label="Open notifications"
       >
         <Bell className="h-5 w-5" aria-hidden="true" />

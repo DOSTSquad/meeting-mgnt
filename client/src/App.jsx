@@ -316,7 +316,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const {
     selectedMeetingDetail,
     pendingMeetingMaterialFiles,
-    pendingMeetingAudioFiles,
+    pendingMeetingRecordingFile,
     isPreviewOpen,
     setIsPreviewOpen,
     updateMeetingDetailField,
@@ -329,7 +329,9 @@ const AppShell = ({ token, user, onLogout }) => {
     removeActionItem,
     openUploadedFile,
     addPendingMeetingMaterialFiles,
-    addPendingMeetingAudioFiles,
+    uploadRecording,
+    removeRecording,
+    generateMinutesFromActiveRecording,
   } = meetingDetail
 
   const moveActionItemStatus = async (actionItemId, nextStatus) => {
@@ -419,9 +421,11 @@ const AppShell = ({ token, user, onLogout }) => {
                     onActionItemPatch={updateActionItemFieldsInDetail}
                     onActionItemRemove={removeActionItem}
                     pendingMaterialFiles={pendingMeetingMaterialFiles}
-                    pendingAudioFiles={pendingMeetingAudioFiles}
+                    pendingRecordingFile={pendingMeetingRecordingFile}
                     onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
-                    onAddPendingAudioFiles={addPendingMeetingAudioFiles}
+                    onUploadRecording={uploadRecording}
+                    onRemoveRecording={removeRecording}
+                    onGenerateMinutesFromRecording={generateMinutesFromActiveRecording}
                     onDownloadMeetingFile={openUploadedFile}
                     onPreview={() => setIsPreviewOpen(true)}
                   />

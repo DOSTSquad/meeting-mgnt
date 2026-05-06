@@ -8,11 +8,16 @@ import {
 } from '../../services/actionItemService.js'
 import { downloadFileContent, uploadMeetingFile } from '../../services/fileService.js'
 import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
+import {
+  generateMinutesFromRecording,
+  removeMeetingRecording,
+  uploadMeetingRecording,
+} from '../../services/recordingService.js'
 
 export const useMeetingDetailController = ({ token, activeMeetingId, onError }) => {
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
-  const [pendingMeetingAudioFiles, setPendingMeetingAudioFiles] = useState([])
+  const [pendingMeetingRecordingFile, setPendingMeetingRecordingFile] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const selectedMeetingId = selectedMeetingDetail?.meeting?.id
 
@@ -40,7 +45,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
 
         setSelectedMeetingDetail(detail)
         setPendingMeetingMaterialFiles([])
-        setPendingMeetingAudioFiles([])
+        setPendingMeetingRecordingFile(null)
       } catch (error) {
         if (isCancelled) {
           return
@@ -363,21 +368,87 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     [uploadFilesImmediately]
   )
 
-  const addPendingMeetingAudioFiles = useCallback(
-    (incomingFiles) =>
-      uploadFilesImmediately({
-        incomingFiles,
-        storageKind: 'audio',
-        description: 'Meeting audio upload from detail view',
-        setUploadingFiles: setPendingMeetingAudioFiles,
-      }),
-    [uploadFilesImmediately]
+  const uploadRecording = useCallback(
+    async (incomingFiles, { replace = false } = {}) => {
+      const [file] = Array.from(incomingFiles || [])
+      if (!file || !selectedMeetingId) {
+        return
+      }
+
+      setPendingMeetingRecordingFile(file)
+
+      try {
+        const client = getApiClient(token)
+        const result = await uploadMeetingRecording(client, selectedMeetingId, file, { replace })
+        setSelectedMeetingDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                recording: result.recording,
+                transcript: result.transcript,
+              }
+            : prev
+        )
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to upload meeting recording')
+      } finally {
+        setPendingMeetingRecordingFile(null)
+      }
+    },
+    [onError, selectedMeetingId, token]
   )
+
+  const removeRecording = useCallback(async () => {
+    if (!selectedMeetingId) {
+      return
+    }
+
+    try {
+      const client = getApiClient(token)
+      await removeMeetingRecording(client, selectedMeetingId)
+      setSelectedMeetingDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              recording: null,
+              transcript: null,
+            }
+          : prev
+      )
+    } catch (error) {
+      onError(error.response?.data?.error || 'Unable to remove meeting recording')
+    }
+  }, [onError, selectedMeetingId, token])
+
+  const generateMinutesFromActiveRecording = useCallback(async () => {
+    if (!selectedMeetingId) {
+      return
+    }
+
+    try {
+      const client = getApiClient(token)
+      const result = await generateMinutesFromRecording(client, selectedMeetingId)
+      setSelectedMeetingDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              recording: result.recording,
+              transcript: result.transcript,
+            }
+          : prev
+      )
+      if (result.generationStatus === 'not_configured') {
+        onError('Speech-to-text provider is not configured yet')
+      }
+    } catch (error) {
+      onError(error.response?.data?.error || 'Unable to generate minutes')
+    }
+  }, [onError, selectedMeetingId, token])
 
   return {
     selectedMeetingDetail,
     pendingMeetingMaterialFiles,
-    pendingMeetingAudioFiles,
+    pendingMeetingRecordingFile,
     isPreviewOpen,
     setIsPreviewOpen,
     updateMeetingDetailField,
@@ -390,6 +461,8 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     removeActionItem,
     openUploadedFile,
     addPendingMeetingMaterialFiles,
-    addPendingMeetingAudioFiles,
+    uploadRecording,
+    removeRecording,
+    generateMinutesFromActiveRecording,
   }
 }

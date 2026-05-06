@@ -118,6 +118,7 @@ export const updateMinutesForMeeting = async ({ meetingId, minuteId, input, call
     'decisions',
     'facilitatorId',
     'recorderId',
+    'generatedFromTranscriptId',
     'status',
   ]) {
     if (input[field] !== undefined) {
@@ -137,6 +138,7 @@ export const updateMinutesForMeeting = async ({ meetingId, minuteId, input, call
 
   assertValidNullableUuid('facilitatorId', updates.facilitatorId)
   assertValidNullableUuid('recorderId', updates.recorderId)
+  assertValidNullableUuid('generatedFromTranscriptId', updates.generatedFromTranscriptId)
   await assertReferencedUsersExist(updates)
 
   if (updates.status !== undefined && !ALLOWED_MINUTE_STATUSES.includes(updates.status)) {

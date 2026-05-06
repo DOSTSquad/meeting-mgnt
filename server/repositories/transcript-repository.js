@@ -1,0 +1,99 @@
+import { query } from '../db/postgres.js'
+
+const TRANSCRIPT_COLUMNS = `
+  id,
+  meeting_id,
+  source_file_id,
+  recording_id,
+  created_by,
+  status,
+  transcript_text,
+  segments,
+  duration_seconds,
+  error_message,
+  created_at,
+  updated_at,
+  completed_at
+`
+
+const mapNullableDate = (value) => (value ? value.toISOString() : null)
+
+const mapTranscript = (row) => {
+  if (!row) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    meetingId: row.meeting_id,
+    sourceFileId: row.source_file_id,
+    recordingId: row.recording_id,
+    createdBy: row.created_by,
+    status: row.status,
+    transcriptText: row.transcript_text,
+    segments: row.segments,
+    durationSeconds: row.duration_seconds,
+    errorMessage: row.error_message,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+    completedAt: mapNullableDate(row.completed_at),
+  }
+}
+
+export const findLatestTranscriptByRecordingId = async (recordingId) => {
+  const result = await query(
+    `
+      SELECT ${TRANSCRIPT_COLUMNS}
+      FROM meeting_transcripts
+      WHERE recording_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    [recordingId]
+  )
+
+  return mapTranscript(result.rows[0])
+}
+
+export const createTranscript = async ({
+  meetingId,
+  recordingId,
+  createdBy,
+  status = 'processing',
+  transcriptText = null,
+  segments = [],
+  durationSeconds = null,
+  errorMessage = null,
+  completedAt = null,
+}) => {
+  const result = await query(
+    `
+      INSERT INTO meeting_transcripts (
+        meeting_id,
+        recording_id,
+        created_by,
+        status,
+        transcript_text,
+        segments,
+        duration_seconds,
+        error_message,
+        completed_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
+      RETURNING ${TRANSCRIPT_COLUMNS}
+    `,
+    [
+      meetingId,
+      recordingId,
+      createdBy,
+      status,
+      transcriptText,
+      JSON.stringify(segments),
+      durationSeconds,
+      errorMessage,
+      completedAt,
+    ]
+  )
+
+  return mapTranscript(result.rows[0])
+}

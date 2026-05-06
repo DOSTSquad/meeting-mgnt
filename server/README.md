@@ -107,15 +107,30 @@ Notifications are table-backed lifecycle records. New rows are created for meeti
 
 ### Meeting Minutes (`/api/meetings/:meetingId/minutes`)
 
-| Method | Path          | Body / Query                                                                               | Returns                    |
-| ------ | ------------- | ------------------------------------------------------------------------------------------ | -------------------------- |
-| GET    | `/`           | —                                                                                          | `200 { minutes }`          |
-| PUT    | `/`           | partial: `{ content?, keyDiscussions?, decisions?, facilitatorId?, recorderId?, status? }` | `200 { minutes }`          |
-| PUT    | `/:minutesId` | same as above                                                                              | `200 { minutes }` or `404` |
+| Method | Path          | Body / Query                                                                                                           | Returns                    |
+| ------ | ------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| GET    | `/`           | —                                                                                                                      | `200 { minutes }`          |
+| PUT    | `/`           | partial: `{ content?, keyDiscussions?, decisions?, facilitatorId?, recorderId?, generatedFromTranscriptId?, status? }` | `200 { minutes }`          |
+| PUT    | `/:minutesId` | same as above                                                                                                          | `200 { minutes }` or `404` |
 
-`GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId` and `recorderId` are nullable user UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
+`GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId`, `recorderId`, and `generatedFromTranscriptId` are nullable UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
 
 Any meeting participant can read minutes. Only the meeting creator or a participant with `role='organizer'` can update minutes.
+
+### Meeting Recording (`/api/meetings/:meetingId/recording`)
+
+Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
+
+| Method | Path                | Body / Query                                             | Returns                                      |
+| ------ | ------------------- | -------------------------------------------------------- | -------------------------------------------- |
+| GET    | `/`                 | —                                                        | `200 { recording, transcript }`              |
+| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`              |
+| DELETE | `/`                 | —                                                        | `204`                                        |
+| POST   | `/generate-minutes` | —                                                        | `202 { recording, transcript, generationStatus }` |
+
+Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+
+`POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)
 

@@ -3,7 +3,7 @@ import { query } from '../db/postgres.js'
 const MINUTE_COLUMNS = `
   minutes.id,
   minutes.meeting_id,
-  minutes.summary_id,
+  minutes.generated_from_transcript_id,
   minutes.prepared_by,
   minutes.approved_by,
   minutes.facilitator_id,
@@ -42,7 +42,7 @@ const mapMinute = (row) => {
   return {
     id: row.id,
     meetingId: row.meeting_id,
-    summaryId: row.summary_id,
+    generatedFromTranscriptId: row.generated_from_transcript_id,
     preparedBy: row.prepared_by,
     preparedByUser: mapUserRef(row.prepared_by, row.prepared_by_name),
     approvedBy: row.approved_by,
@@ -61,20 +61,6 @@ const mapMinute = (row) => {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   }
-}
-
-const getTableColumns = async (tableName) => {
-  const result = await query(
-    `
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = $1
-    `,
-    [tableName]
-  )
-
-  return new Set(result.rows.map((row) => row.column_name))
 }
 
 const findMinuteById = async (id) => {
@@ -108,35 +94,14 @@ export const findMinuteByMeetingId = async (meetingId) => {
 }
 
 export const createDraftMinute = async ({ meetingId, preparedBy }) => {
-  const minutesColumns = await getTableColumns('minutes')
-  const minuteRecord = {
-    meeting_id: meetingId,
-    prepared_by: preparedBy,
-    content: '',
-    body: '',
-    created_by: preparedBy,
-    updated_by: preparedBy,
-  }
-  const minuteColumnOrder = [
-    'meeting_id',
-    'prepared_by',
-    'content',
-    'body',
-    'created_by',
-    'updated_by',
-  ]
-  const activeColumns = minuteColumnOrder.filter((column) => minutesColumns.has(column))
-  const placeholders = activeColumns.map((_, index) => `$${index + 1}`).join(', ')
-  const values = activeColumns.map((column) => minuteRecord[column])
-
   const result = await query(
     `
-      INSERT INTO minutes (${activeColumns.join(', ')})
-      VALUES (${placeholders})
+      INSERT INTO minutes (meeting_id, prepared_by, content)
+      VALUES ($1, $2, $3)
       ON CONFLICT (meeting_id) DO NOTHING
       RETURNING id
     `,
-    values
+    [meetingId, preparedBy, '']
   )
 
   if (result.rows[0]?.id) {
@@ -152,11 +117,11 @@ const UPDATE_FIELD_TO_COLUMN = {
   decisions: 'decisions',
   facilitatorId: 'facilitator_id',
   recorderId: 'recorder_id',
+  generatedFromTranscriptId: 'generated_from_transcript_id',
   status: 'status',
 }
 
-export const updateMinute = async ({ meetingId, minuteId, updates, updatedBy }) => {
-  const minutesColumns = await getTableColumns('minutes')
+export const updateMinute = async ({ meetingId, minuteId, updates }) => {
   const setClauses = []
   const params = []
   let paramIndex = 1
@@ -170,18 +135,6 @@ export const updateMinute = async ({ meetingId, minuteId, updates, updatedBy }) 
 
     setClauses.push(`${column} = $${paramIndex}`)
     params.push(value)
-    paramIndex += 1
-
-    if (field === 'content' && minutesColumns.has('body')) {
-      setClauses.push(`body = $${paramIndex}`)
-      params.push(value)
-      paramIndex += 1
-    }
-  }
-
-  if (minutesColumns.has('updated_by')) {
-    setClauses.push(`updated_by = $${paramIndex}`)
-    params.push(updatedBy)
     paramIndex += 1
   }
 
