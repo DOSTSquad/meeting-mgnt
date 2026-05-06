@@ -56,6 +56,22 @@ const assertCanUpdateActionItem = (actionItem, meeting, callerId, participants, 
   throw createHttpError('Only meeting participants can manage action items', 403)
 }
 
+const assertCanViewActionItem = (actionItem, meeting, callerId, participants) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  if (
+    callerId === actionItem.assigneeId ||
+    callerId === meeting.createdBy ||
+    participants.some((participant) => participant.userId === callerId)
+  ) {
+    return
+  }
+
+  throw createHttpError('Only meeting participants can view action items', 403)
+}
+
 const loadMeetingOrThrow = async (meetingId) => {
   const meeting = await findMeetingById(meetingId)
 
@@ -121,6 +137,26 @@ export const listMyActionItems = async (callerId, { status, priority } = {}) => 
   return { actionItems }
 }
 
+const loadActionItemOrThrow = async (id) => {
+  const actionItem = await findById(id)
+
+  if (!actionItem) {
+    throw createHttpError('Action item not found', 404)
+  }
+
+  return actionItem
+}
+
+export const getActionItem = async (itemId, callerId) => {
+  const actionItem = await loadActionItemOrThrow(itemId)
+  const meeting = await loadMeetingOrThrow(actionItem.meetingId)
+  const participants = await listParticipantsByMeeting(actionItem.meetingId)
+
+  assertCanViewActionItem(actionItem, meeting, callerId, participants)
+
+  return { actionItem }
+}
+
 export const createActionItem = async (meetingId, input, callerId) => {
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listParticipantsByMeeting(meetingId)
@@ -168,16 +204,6 @@ export const createActionItem = async (meetingId, input, callerId) => {
   })
 
   return { actionItem }
-}
-
-const loadActionItemOrThrow = async (id) => {
-  const actionItem = await findById(id)
-
-  if (!actionItem) {
-    throw createHttpError('Action item not found', 404)
-  }
-
-  return actionItem
 }
 
 export const updateActionItem = async (itemId, input, callerId) => {

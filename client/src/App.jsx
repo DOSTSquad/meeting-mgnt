@@ -16,11 +16,15 @@ import { RepositoryView } from './features/meetings/RepositoryView.jsx'
 import {
   createMeetingActionItem,
   deleteActionItem,
+  getActionItem,
+  listActionItems,
   updateActionItem,
 } from './services/actionItemService.js'
 import { loadAppData } from './services/appDataService.js'
+import { getDashboard } from './services/dashboardService.js'
 import { downloadFileContent, uploadMeetingFile } from './services/fileService.js'
-import { getMeetingDetail, updateMeeting } from './services/meetingService.js'
+import { getMeetingDetail, listMeetings, updateMeeting } from './services/meetingService.js'
+import { listNotifications } from './services/notificationService.js'
 
 const getActivePage = (pathname) => {
   if (pathname.startsWith('/meetings')) {
@@ -41,6 +45,9 @@ const AppShell = ({ token, user, onLogout }) => {
   const [meetings, setMeetings] = useState([])
   const [actionItems, setActionItems] = useState([])
   const [notifications, setNotifications] = useState([])
+  const [notificationCount, setNotificationCount] = useState(0)
+  const [notificationNextCursor, setNotificationNextCursor] = useState(null)
+  const [isLoadingMoreNotifications, setIsLoadingMoreNotifications] = useState(false)
   const [users, setUsers] = useState([])
   const [tags, setTags] = useState([])
   const [repositorySearch, setRepositorySearch] = useState('')
@@ -53,30 +60,13 @@ const AppShell = ({ token, user, onLogout }) => {
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [successModalMessage, setSuccessModalMessage] = useState('')
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
-  const newNotificationCount = notifications.filter(
-    (item) => item.type === 'meeting_created' || item.type === 'task_assigned'
-  ).length
   const activePage = getActivePage(location.pathname)
   const activeMeetingId = location.pathname.match(/^\/meetings\/([^/]+)$/)?.[1] ?? null
 
-  const reloadData = useCallback(async () => {
+  const reloadDashboardData = useCallback(async () => {
     try {
       const client = getApiClient(token)
-      const appData = await loadAppData(client)
-      const loadedMeetings = appData.meetings
-      const loadedUsers = appData.users
-
-      setDashboardData(appData.dashboard)
-      setMeetings(loadedMeetings)
-      setActionItems(appData.actionItems)
-      setNotifications(appData.notifications)
-      setUsers(loadedUsers)
-      setTags(appData.tags)
-
-      const currentUserExists = loadedUsers.some((item) => item.id === user.id)
-      if (!currentUserExists) {
-        onLogout()
-      }
+      setDashboardData(await getDashboard(client))
     } catch (error) {
       if (error.response?.status === 401) {
         onLogout()
@@ -84,12 +74,38 @@ const AppShell = ({ token, user, onLogout }) => {
       }
       setErrorMessage(error.response?.data?.error || 'Unable to load dashboard data')
     }
-  }, [token, user.id, onLogout])
+  }, [token, onLogout])
+
+  const reloadMeetingsData = useCallback(async () => {
+    try {
+      const client = getApiClient(token)
+      setMeetings(await listMeetings(client, { limit: 100 }))
+    } catch (error) {
+      if (error.response?.status === 401) {
+        onLogout()
+        return
+      }
+      setErrorMessage(error.response?.data?.error || 'Unable to load meetings')
+    }
+  }, [token, onLogout])
+
+  const reloadActionItemsData = useCallback(async () => {
+    try {
+      const client = getApiClient(token)
+      setActionItems(await listActionItems(client))
+    } catch (error) {
+      if (error.response?.status === 401) {
+        onLogout()
+        return
+      }
+      setErrorMessage(error.response?.data?.error || 'Unable to load action items')
+    }
+  }, [token, onLogout])
 
   useEffect(() => {
     let isCancelled = false
 
-    const loadInitialData = async () => {
+    const load = async () => {
       try {
         const client = getApiClient(token)
         const appData = await loadAppData(client)
@@ -98,13 +114,11 @@ const AppShell = ({ token, user, onLogout }) => {
           return
         }
 
-        const loadedMeetings = appData.meetings
         const loadedUsers = appData.users
 
-        setDashboardData(appData.dashboard)
-        setMeetings(loadedMeetings)
-        setActionItems(appData.actionItems)
         setNotifications(appData.notifications)
+        setNotificationCount(appData.notificationCount)
+        setNotificationNextCursor(appData.notificationNextCursor)
         setUsers(loadedUsers)
         setTags(appData.tags)
 
@@ -121,16 +135,127 @@ const AppShell = ({ token, user, onLogout }) => {
           onLogout()
           return
         }
-        setErrorMessage(error.response?.data?.error || 'Unable to load dashboard data')
+        setErrorMessage(error.response?.data?.error || 'Unable to load app data')
       }
     }
 
-    loadInitialData()
+    load()
 
     return () => {
       isCancelled = true
     }
   }, [token, user.id, onLogout])
+
+  useEffect(() => {
+    if (activePage !== 'dashboard') {
+      return
+    }
+
+    let isCancelled = false
+
+    const load = async () => {
+      try {
+        const client = getApiClient(token)
+        const dashboard = await getDashboard(client)
+
+        if (!isCancelled) {
+          setDashboardData(dashboard)
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+
+        if (error.response?.status === 401) {
+          onLogout()
+          return
+        }
+        setErrorMessage(error.response?.data?.error || 'Unable to load dashboard data')
+      }
+    }
+
+    load()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activePage, token, onLogout])
+
+  useEffect(() => {
+    if (activePage !== 'repository' || activeMeetingId) {
+      return
+    }
+
+    let isCancelled = false
+
+    const load = async () => {
+      try {
+        const client = getApiClient(token)
+        const loadedMeetings = await listMeetings(client, { limit: 100 })
+
+        if (!isCancelled) {
+          setMeetings(loadedMeetings)
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+
+        if (error.response?.status === 401) {
+          onLogout()
+          return
+        }
+        setErrorMessage(error.response?.data?.error || 'Unable to load meetings')
+      }
+    }
+
+    load()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activeMeetingId, activePage, token, onLogout])
+
+  useEffect(() => {
+    if (activePage !== 'action-items') {
+      return
+    }
+
+    let isCancelled = false
+
+    const load = async () => {
+      try {
+        const client = getApiClient(token)
+        const [loadedActionItems, loadedMeetings] = await Promise.all([
+          listActionItems(client),
+          listMeetings(client, { limit: 100 }),
+        ])
+
+        if (isCancelled) {
+          return
+        }
+
+        setActionItems(loadedActionItems)
+        setMeetings(loadedMeetings)
+      } catch (error) {
+        if (isCancelled) {
+          return
+        }
+
+        if (error.response?.status === 401) {
+          onLogout()
+          return
+        }
+        setErrorMessage(error.response?.data?.error || 'Unable to load action items')
+      }
+    }
+
+    load()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activePage, token, onLogout])
 
   const fetchMeetingDetail = useCallback(
     async (meetingId) => {
@@ -139,6 +264,37 @@ const AppShell = ({ token, user, onLogout }) => {
     },
     [token]
   )
+
+  const fetchActionItemDetail = useCallback(
+    async (actionItemId) => {
+      const client = getApiClient(token)
+      return getActionItem(client, actionItemId)
+    },
+    [token]
+  )
+
+  const loadMoreNotifications = async () => {
+    if (!notificationNextCursor || isLoadingMoreNotifications) {
+      return
+    }
+
+    setIsLoadingMoreNotifications(true)
+
+    try {
+      const client = getApiClient(token)
+      const page = await listNotifications(client, {
+        cursor: notificationNextCursor,
+        limit: 10,
+      })
+
+      setNotifications((prev) => [...prev, ...page.notifications])
+      setNotificationNextCursor(page.nextCursor)
+    } catch (error) {
+      setErrorMessage(error.response?.data?.error || 'Unable to load more notifications')
+    } finally {
+      setIsLoadingMoreNotifications(false)
+    }
+  }
 
   useEffect(() => {
     if (!activeMeetingId) {
@@ -177,7 +333,11 @@ const AppShell = ({ token, user, onLogout }) => {
     navigate(`/meetings/${meetingId}`)
   }
 
-  const openNewMeetingModal = () => {
+  const openNewMeetingModal = async () => {
+    if (meetings.length === 0) {
+      await reloadMeetingsData()
+    }
+
     setActiveMeetingRequestId(null)
     setIsCreateModalOpen(true)
   }
@@ -290,7 +450,6 @@ const AppShell = ({ token, user, onLogout }) => {
           )
         }
       }
-      await reloadData()
       setPendingMeetingMaterialFiles([])
       setPendingMeetingAudioFiles([])
       navigate('/dashboard')
@@ -321,7 +480,6 @@ const AppShell = ({ token, user, onLogout }) => {
             }
           : prev
       )
-      await reloadData()
       await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to add action item')
@@ -342,7 +500,6 @@ const AppShell = ({ token, user, onLogout }) => {
             }
           : prev
       )
-      await reloadData()
       await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to update action item status')
@@ -377,7 +534,6 @@ const AppShell = ({ token, user, onLogout }) => {
     try {
       const client = getApiClient(token)
       await updateActionItem(client, actionItemId, updates)
-      await reloadData()
       await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to save action item')
@@ -403,7 +559,6 @@ const AppShell = ({ token, user, onLogout }) => {
         dueDate: target.dueDate || null,
         priority: target.priority || 'medium',
       })
-      await reloadData()
       await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to save action item')
@@ -422,7 +577,6 @@ const AppShell = ({ token, user, onLogout }) => {
             }
           : prev
       )
-      await reloadData()
       await reloadSelectedMeetingDetail()
     } catch (error) {
       setErrorMessage(error.response?.data?.error || 'Unable to remove action item')
@@ -482,7 +636,7 @@ const AppShell = ({ token, user, onLogout }) => {
     try {
       const client = getApiClient(token)
       await updateActionItem(client, actionItemId, { status: nextStatus })
-      await reloadData()
+      await reloadActionItemsData()
     } catch (error) {
       setActionItems(previousActionItems)
       setErrorMessage(error.response?.data?.error || 'Unable to update action item status')
@@ -497,7 +651,10 @@ const AppShell = ({ token, user, onLogout }) => {
         <Topbar
           currentUser={user}
           notifications={notifications}
-          notificationCount={newNotificationCount}
+          notificationCount={notificationCount}
+          notificationNextCursor={notificationNextCursor}
+          isLoadingMoreNotifications={isLoadingMoreNotifications}
+          onLoadMoreNotifications={loadMoreNotifications}
           onLogout={onLogout}
         />
 
@@ -514,12 +671,15 @@ const AppShell = ({ token, user, onLogout }) => {
             element={
               <DashboardView
                 data={dashboardData}
+                currentUser={user}
+                users={users}
                 onOpenCreateModal={openNewMeetingModal}
                 onOpenMeeting={openMeetingDetail}
                 onOpenMeetingRequest={openMeetingRequestModal}
                 onOpenAvailabilityRequest={openAvailabilityRequestModal}
                 onViewAllMeetings={() => navigate('/meetings')}
                 onViewAllActionItems={() => navigate('/action-items')}
+                onLoadActionItemDetail={fetchActionItemDetail}
               />
             }
           />
@@ -588,10 +748,11 @@ const AppShell = ({ token, user, onLogout }) => {
           setActiveMeetingRequestId(null)
         }}
         onCreated={async (result) => {
-          await reloadData()
           setActiveMeetingRequestId(null)
           if (result?.meeting?.id) {
             navigate(`/meetings/${result.meeting.id}`)
+          } else if (activePage === 'dashboard') {
+            await reloadDashboardData()
           }
         }}
         token={token}
@@ -608,7 +769,7 @@ const AppShell = ({ token, user, onLogout }) => {
         token={token}
         isOpen={Boolean(activeAvailabilityRequest)}
         onClose={() => setActiveAvailabilityRequest(null)}
-        onSubmitted={reloadData}
+        onSubmitted={reloadDashboardData}
       />
       <MeetingPreviewModal
         detail={selectedMeetingDetail}

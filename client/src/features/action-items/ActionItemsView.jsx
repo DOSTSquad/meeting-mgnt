@@ -114,11 +114,12 @@ const DetailField = ({ icon, label, value, onClick }) => (
   </button>
 )
 
-const ActionItemDetailModal = ({
+export const ActionItemDetailModal = ({
   item,
   assigneeName,
   tagLabel,
   meetingTitle,
+  isLoading = false,
   onClose,
   onOpenMeeting,
 }) => {
@@ -199,7 +200,7 @@ const ActionItemDetailModal = ({
           <div>
             <p className="text-xs font-bold uppercase text-slate-400">Description</p>
             <p className="mt-2 min-h-20 rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-700">
-              {item.description || 'No description'}
+              {isLoading ? 'Loading details...' : item.description || 'No description'}
             </p>
           </div>
         </div>

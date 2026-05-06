@@ -17,7 +17,11 @@ import {
   submitAvailability,
 } from '../controllers/meeting-request-controller.js'
 import { createUser } from '../repositories/user-repository.js'
-import { getDashboardData } from '../services/dashboard-service.js'
+import {
+  getDashboardData,
+  getNotificationsData,
+  getNotificationSummaryData,
+} from '../services/dashboard-service.js'
 import { createMeetingForUser } from '../services/meeting-service.js'
 
 const serverDir = fileURLToPath(new URL('../', import.meta.url))
@@ -349,6 +353,106 @@ describe('meeting request flow', () => {
       'Earlier dashboard meeting',
       'Later dashboard meeting',
     ])
+  })
+
+  it('returns assignee fields for dashboard action item detail views', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const meeting = await createMeetingForUser(
+      {
+        title: 'Dashboard task meeting',
+        startsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+    await query(
+      `
+        INSERT INTO action_items (
+          meeting_id, title, description, assignee_id, due_date, priority, created_by
+        )
+        VALUES ($1, $2, $3, $4, NOW() + INTERVAL '3 days', $5, $6)
+      `,
+      [
+        meeting.id,
+        'Dashboard detail action item',
+        'Needs an owner in the dashboard modal',
+        creator.id,
+        'high',
+        creator.id,
+      ]
+    )
+
+    const dashboard = await getDashboardData(creator.id)
+    const actionItem = dashboard.myActionItems.find(
+      (item) => item.title === 'Dashboard detail action item'
+    )
+
+    expect(actionItem).toMatchObject({
+      assigneeId: creator.id,
+      priority: 'high',
+      status: 'todo',
+    })
+    expect(actionItem).not.toHaveProperty('description')
+    expect(actionItem).not.toHaveProperty('updatedAt')
+    expect(actionItem).not.toHaveProperty('completedAt')
+  })
+
+  it('returns notification summary and cursor-paginated notification list', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    await createMeetingForUser(
+      {
+        title: 'Notification oldest meeting',
+        startsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+    await createMeetingForUser(
+      {
+        title: 'Notification middle meeting',
+        startsAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+    await createMeetingForUser(
+      {
+        title: 'Notification latest meeting',
+        startsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+
+    const summary = await getNotificationSummaryData(creator.id)
+    expect(summary.unreadCount).toBeGreaterThanOrEqual(3)
+    expect(summary.notifications).toHaveLength(Math.min(summary.unreadCount, 5))
+    if (summary.unreadCount > 5) {
+      expect(summary.nextCursor).toEqual(expect.any(String))
+    } else {
+      expect(summary.nextCursor).toBeNull()
+    }
+
+    const firstPage = await getNotificationsData(creator.id, { limit: 2 })
+    expect(firstPage.notifications).toHaveLength(2)
+    expect(firstPage.nextCursor).toBeTruthy()
+
+    const secondPage = await getNotificationsData(creator.id, {
+      limit: 2,
+      cursor: firstPage.nextCursor,
+    })
+    expect(secondPage.notifications.length).toBeGreaterThanOrEqual(1)
+    expect(secondPage.notifications[0].title).not.toBe(firstPage.notifications[0].title)
   })
 
   it('rejects time options that overlap with the creator existing meetings', async () => {

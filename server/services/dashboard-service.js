@@ -1,4 +1,5 @@
 import {
+  getNotificationSummaryForUser,
   listMyActionItems,
   listNotificationItemsForUser,
   listPendingAvailabilityRequestsForUser,
@@ -35,10 +36,35 @@ export const getDashboardData = async (userId) => {
   }
 }
 
-export const getNotificationsData = async (userId) => {
+const normalizeLimit = (value, fallback = 20, maximum = 50) => {
+  const parsed = Number(value)
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback
+  }
+
+  return Math.min(parsed, maximum)
+}
+
+export const getNotificationsData = async (userId, { limit, cursor } = {}) => {
   assertUser(userId)
 
-  const notifications = await listNotificationItemsForUser(userId, 30)
+  const { notifications, nextCursor } = await listNotificationItemsForUser(userId, {
+    limit: normalizeLimit(limit),
+    cursor,
+  })
 
-  return { notifications }
+  return { notifications, nextCursor }
+}
+
+export const getNotificationSummaryData = async (userId) => {
+  assertUser(userId)
+
+  const summary = await getNotificationSummaryForUser(userId, 5)
+
+  return {
+    unreadCount: summary.unreadCount,
+    notifications: summary.latest,
+    nextCursor: summary.nextCursor,
+  }
 }

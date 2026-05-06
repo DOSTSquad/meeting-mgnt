@@ -112,6 +112,7 @@ export const listMyActionItems = async (userId, limit = 10) => {
         ai.meeting_id,
         m.title AS meeting_title,
         ai.title,
+        ai.assignee_id,
         ai.status,
         ai.priority,
         ai.due_date,
@@ -131,6 +132,7 @@ export const listMyActionItems = async (userId, limit = 10) => {
     meetingId: row.meeting_id,
     meetingTitle: row.meeting_title,
     title: row.title,
+    assigneeId: row.assignee_id,
     status: row.status,
     priority: row.priority,
     dueDate: row.due_date ? row.due_date.toISOString() : null,
@@ -210,67 +212,141 @@ export const listPendingAvailabilityRequestsForUser = async (userId, limit = 5) 
   return result.rows.map(mapPendingAvailabilityRequestRow)
 }
 
-export const listNotificationItemsForUser = async (userId, limit = 20) => {
+const encodeNotificationCursor = (row) => {
+  if (!row?.event_at || !row?.cursor_id) {
+    return null
+  }
+
+  return Buffer.from(
+    JSON.stringify({
+      eventAt: row.event_at.toISOString(),
+      id: row.cursor_id,
+    })
+  ).toString('base64url')
+}
+
+export const decodeNotificationCursor = (cursor) => {
+  if (!cursor) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))
+    if (!parsed.eventAt || !parsed.id) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+const notificationItemsCte = `
+  WITH items AS (
+    SELECT
+      'meeting_created'::text AS type,
+      m.id AS cursor_id,
+      m.id AS meeting_id,
+      NULL::uuid AS action_item_id,
+      m.title AS title,
+      m.created_at AS event_at,
+      'A new meeting has been created.'::text AS detail
+    FROM meetings m
+    WHERE m.created_by = $1
+       OR EXISTS (
+         SELECT 1
+         FROM meeting_participants mp
+         WHERE mp.meeting_id = m.id
+           AND mp.user_id = $1
+       )
+
+    UNION ALL
+
+    SELECT
+      'task_assigned'::text AS type,
+      ai.id AS cursor_id,
+      ai.meeting_id,
+      ai.id AS action_item_id,
+      ai.title,
+      ai.updated_at AS event_at,
+      'A task has been assigned to you.'::text AS detail
+    FROM action_items ai
+    WHERE ai.assignee_id = $1
+      AND ai.updated_at >= ai.created_at
+
+    UNION ALL
+
+    SELECT
+      'action_due'::text AS type,
+      ai.id AS cursor_id,
+      ai.meeting_id,
+      ai.id AS action_item_id,
+      ai.title,
+      ai.due_date AS event_at,
+      'An assigned action item is due soon.'::text AS detail
+    FROM action_items ai
+    WHERE ai.assignee_id = $1
+      AND ai.status NOT IN ('completed', 'cancelled')
+      AND ai.due_date IS NOT NULL
+  )
+`
+
+const mapNotificationRow = (row) => ({
+  type: row.type,
+  meetingId: row.meeting_id,
+  actionItemId: row.action_item_id,
+  title: row.title,
+  eventAt: row.event_at ? row.event_at.toISOString() : null,
+  detail: row.detail,
+})
+
+export const listNotificationItemsForUser = async (userId, { limit = 20, cursor } = {}) => {
+  const decodedCursor = decodeNotificationCursor(cursor)
+  const cursorFilter = decodedCursor
+    ? 'WHERE (event_at, cursor_id) < ($3::timestamptz, $4::uuid)'
+    : ''
+  const params = decodedCursor
+    ? [userId, limit + 1, decodedCursor.eventAt, decodedCursor.id]
+    : [userId, limit + 1]
+
   const result = await query(
     `
-      WITH items AS (
-        SELECT
-          'meeting_created'::text AS type,
-          m.id AS meeting_id,
-          NULL::uuid AS action_item_id,
-          m.title AS title,
-          m.created_at AS event_at,
-          'A new meeting has been created.'::text AS detail
-        FROM meetings m
-        WHERE m.created_by = $1
-           OR EXISTS (
-             SELECT 1
-             FROM meeting_participants mp
-             WHERE mp.meeting_id = m.id
-               AND mp.user_id = $1
-           )
-
-        UNION ALL
-
-        SELECT
-          'task_assigned'::text AS type,
-          ai.meeting_id,
-          ai.id AS action_item_id,
-          ai.title,
-          ai.updated_at AS event_at,
-          'A task has been assigned to you.'::text AS detail
-        FROM action_items ai
-        WHERE ai.assignee_id = $1
-          AND ai.updated_at >= ai.created_at
-
-        UNION ALL
-
-        SELECT
-          'action_due'::text AS type,
-          ai.meeting_id,
-          ai.id AS action_item_id,
-          ai.title,
-          ai.due_date AS event_at,
-          'An assigned action item is due soon.'::text AS detail
-        FROM action_items ai
-        WHERE ai.assignee_id = $1
-          AND ai.status NOT IN ('completed', 'cancelled')
-          AND ai.due_date IS NOT NULL
-      )
-      SELECT type, meeting_id, action_item_id, title, event_at, detail
+      ${notificationItemsCte}
+      SELECT type, cursor_id, meeting_id, action_item_id, title, event_at, detail
       FROM items
-      ORDER BY event_at DESC NULLS LAST
+      ${cursorFilter}
+      ORDER BY event_at DESC NULLS LAST, cursor_id DESC
       LIMIT $2
     `,
-    [userId, limit]
+    params
   )
 
-  return result.rows.map((row) => ({
-    type: row.type,
-    meetingId: row.meeting_id,
-    actionItemId: row.action_item_id,
-    title: row.title,
-    eventAt: row.event_at ? row.event_at.toISOString() : null,
-    detail: row.detail,
-  }))
+  const rows = result.rows.slice(0, limit)
+  const overflowRow = result.rows[limit]
+
+  return {
+    notifications: rows.map(mapNotificationRow),
+    nextCursor: overflowRow ? encodeNotificationCursor(rows.at(-1)) : null,
+  }
+}
+
+export const getNotificationSummaryForUser = async (userId, latestLimit = 5) => {
+  const result = await query(
+    `
+      ${notificationItemsCte}
+      SELECT type, cursor_id, meeting_id, action_item_id, title, event_at, detail, COUNT(*) OVER()::int AS total_count
+      FROM items
+      ORDER BY event_at DESC NULLS LAST, cursor_id DESC
+      LIMIT $2
+    `,
+    [userId, latestLimit + 1]
+  )
+  const rows = result.rows.slice(0, latestLimit)
+
+  return {
+    unreadCount: result.rows[0]?.total_count ?? 0,
+    latest: rows.map(mapNotificationRow),
+    nextCursor: result.rows.length > latestLimit ? encodeNotificationCursor(rows.at(-1)) : null,
+  }
 }

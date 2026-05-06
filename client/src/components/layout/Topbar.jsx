@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bell, CheckCheck } from 'lucide-react'
 
 const getInitials = (name = '') =>
@@ -26,15 +26,21 @@ const notificationCopy = {
 
 const toneStyles = {
   blue: {
-    card: 'border-blue-200 bg-blue-50',
+    unreadCard: 'border-blue-200 bg-blue-50',
+    readCard: 'border-slate-200 bg-white',
+    dot: 'bg-blue-500',
     time: 'text-blue-600',
   },
   amber: {
-    card: 'border-orange-200 bg-orange-50',
+    unreadCard: 'border-orange-200 bg-orange-50',
+    readCard: 'border-slate-200 bg-white',
+    dot: 'bg-orange-500',
     time: 'text-orange-600',
   },
   neutral: {
-    card: 'border-slate-200 bg-white',
+    unreadCard: 'border-slate-200 bg-slate-50',
+    readCard: 'border-slate-200 bg-white',
+    dot: 'bg-slate-400',
     time: 'text-slate-500',
   },
 }
@@ -69,15 +75,61 @@ const formatRelativeTime = (value) => {
   return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`
 }
 
-export const Topbar = ({ currentUser, notifications, notificationCount, onLogout }) => {
+export const Topbar = ({
+  currentUser,
+  notifications,
+  notificationCount,
+  notificationNextCursor,
+  isLoadingMoreNotifications = false,
+  onLoadMoreNotifications,
+  onLogout,
+}) => {
+  const topbarRef = useRef(null)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [readNotificationCount, setReadNotificationCount] = useState(0)
-  const recentNotifications = notifications.slice(0, 3)
-  const unreadCount = Math.max(0, notificationCount - readNotificationCount)
+  const [hasMarkedReadLocally, setHasMarkedReadLocally] = useState(false)
+  const [locallyReadNotificationKeys, setLocallyReadNotificationKeys] = useState(() => new Set())
+  const getNotificationKey = (item, index) =>
+    item.key || `${item.type}-${item.meetingId || item.actionItemId || index}`
+  const isNotificationRead = (item, index) =>
+    hasMarkedReadLocally ||
+    item.isRead ||
+    locallyReadNotificationKeys.has(getNotificationKey(item, index))
+  const unreadCount = hasMarkedReadLocally ? 0 : notificationCount
+
+  useEffect(() => {
+    if (!isNotificationsOpen && !isProfileOpen) {
+      return undefined
+    }
+
+    const closeMenus = () => {
+      setIsNotificationsOpen(false)
+      setIsProfileOpen(false)
+    }
+
+    const handlePointerDown = (event) => {
+      if (!topbarRef.current?.contains(event.target)) {
+        closeMenus()
+      }
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeMenus()
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isNotificationsOpen, isProfileOpen])
 
   return (
-    <header className="flex min-h-14 items-center justify-end gap-2">
+    <header ref={topbarRef} className="flex min-h-14 items-center justify-end gap-2">
       <div className="relative">
         <button
           type="button"
@@ -90,17 +142,31 @@ export const Topbar = ({ currentUser, notifications, notificationCount, onLogout
         >
           <Bell className="h-5 w-5" aria-hidden="true" />
           {unreadCount > 0 ? (
-            <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border border-white bg-rose-500" />
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border border-white bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           ) : null}
         </button>
 
         {isNotificationsOpen ? (
-          <div className="absolute right-0 z-20 mt-3 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:w-[30rem]">
+          <div className="absolute right-0 z-20 mt-3 flex max-h-[calc(100vh-5rem)] w-[calc(100vw-2rem)] max-w-[30rem] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold text-slate-900">Notifications</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">Notifications</h2>
+                {unreadCount > 0 ? (
+                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-bold text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : null}
+              </div>
               <button
                 type="button"
-                onClick={() => setReadNotificationCount(notificationCount)}
+                onClick={() => {
+                  setHasMarkedReadLocally(true)
+                  setLocallyReadNotificationKeys(
+                    new Set(notifications.map((item, index) => getNotificationKey(item, index)))
+                  )
+                }}
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
               >
                 <CheckCheck className="h-4 w-4" />
@@ -108,56 +174,73 @@ export const Topbar = ({ currentUser, notifications, notificationCount, onLogout
               </button>
             </div>
 
-            <div className="mt-7 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-500">
-                {unreadCount} unread update{unreadCount === 1 ? '' : 's'}
-              </p>
-              {unreadCount > 0 ? (
-                <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-red-500 px-2 text-sm font-bold text-white">
-                  {unreadCount}
-                </span>
-              ) : null}
-            </div>
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <div className="max-h-[22rem] overflow-y-auto overflow-x-hidden pb-3 pr-1">
+                <div className="space-y-3">
+                  {notifications.map((item, index) => {
+                    const config = notificationCopy[item.type] || {
+                      title: 'Notification',
+                      tone: 'neutral',
+                    }
+                    const styles = toneStyles[config.tone] || toneStyles.neutral
+                    const isRead = isNotificationRead(item, index)
 
-            <div className="mt-6 border-t border-slate-200 pt-4">
-              <div className="space-y-3">
-                {recentNotifications.map((item, index) => {
-                  const config = notificationCopy[item.type] || {
-                    title: 'Notification',
-                    tone: 'neutral',
-                  }
-                  const styles =
-                    toneStyles[index === 2 ? 'neutral' : config.tone] || toneStyles.neutral
-
-                  return (
-                    <article
-                      key={`${item.type}-${item.meetingId || item.actionItemId || index}`}
-                      className={`rounded-lg border p-4 ${styles.card}`}
-                    >
-                      <p className="text-sm font-bold text-slate-900">
-                        {item.title || config.title}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">{item.detail || config.title}</p>
-                      <p className={`mt-1 text-xs font-bold ${styles.time}`}>
-                        {formatRelativeTime(item.eventAt)}
-                      </p>
-                    </article>
-                  )
-                })}
+                    return (
+                      <article
+                        key={`${item.type}-${item.meetingId || item.actionItemId || index}`}
+                        className={`relative min-w-0 overflow-hidden rounded-lg border px-3 py-2.5 pl-7 transition ${
+                          isRead ? styles.readCard : styles.unreadCard
+                        }`}
+                      >
+                        {!isRead ? (
+                          <span
+                            className={`absolute left-3 top-4 h-2 w-2 rounded-full ${styles.dot}`}
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        <p
+                          className={`truncate text-sm ${
+                            isRead ? 'font-semibold text-slate-800' : 'font-bold text-slate-900'
+                          }`}
+                        >
+                          {item.title || config.title}
+                        </p>
+                        <p
+                          className={`mt-1 truncate text-xs ${
+                            isRead ? 'font-medium text-slate-500' : 'font-semibold text-slate-600'
+                          }`}
+                        >
+                          {item.detail || config.title}
+                        </p>
+                        <p
+                          className={`mt-1 text-xs font-bold ${
+                            isRead ? 'text-slate-400' : styles.time
+                          }`}
+                        >
+                          {formatRelativeTime(item.eventAt)}
+                        </p>
+                      </article>
+                    )
+                  })}
+                </div>
+                {notifications.length === 0 ? (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    No notifications.
+                  </p>
+                ) : null}
               </div>
-              {recentNotifications.length === 0 ? (
-                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-                  No notifications.
-                </p>
-              ) : null}
             </div>
 
-            <button
-              type="button"
-              className="mt-4 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 text-sm font-bold text-blue-600 transition hover:border-blue-200 hover:bg-blue-50"
-            >
-              View all notifications
-            </button>
+            {notificationNextCursor ? (
+              <button
+                type="button"
+                onClick={onLoadMoreNotifications}
+                disabled={isLoadingMoreNotifications}
+                className="mt-3 flex h-9 w-full items-center justify-center text-sm font-bold text-slate-500 transition hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoadingMoreNotifications ? 'Loading...' : 'Show more'}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
