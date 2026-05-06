@@ -48,6 +48,8 @@ Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g.
 
 Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
+`GET /api/meetings/:id` is available only to the meeting creator or meeting participants. Non-participants receive `403`, matching meeting file access rules.
+
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
 ```
@@ -82,11 +84,16 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 ### Dashboard (`/api/dashboard`)
 
-| Method | Path                     | Body / Query       | Returns                                                                                      |
-| ------ | ------------------------ | ------------------ | -------------------------------------------------------------------------------------------- |
-| GET    | `/`                      | —                  | `200 { recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }` |
-| GET    | `/notifications/summary` | —                  | `200 { unreadCount, notifications, nextCursor }`                                             |
-| GET    | `/notifications`         | `?limit=&cursor=`  | `200 { notifications, nextCursor }`                                                          |
+| Method | Path                          | Body / Query      | Returns                                                                                      |
+| ------ | ----------------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
+| GET    | `/`                           | —                 | `200 { recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }` |
+| GET    | `/notifications/summary`      | —                 | `200 { unreadCount, notifications, nextCursor }`                                             |
+| GET    | `/notifications`              | `?limit=&cursor=` | `200 { notifications, nextCursor }`                                                          |
+| POST   | `/notifications/:id/read`     | —                 | `200 { notification }`                                                                       |
+| POST   | `/notifications/:id/archive`  | —                 | `200 { notification }`                                                                       |
+| POST   | `/notifications/read`         | `{ ids: uuid[] }` | `200 { updatedCount }`                                                                       |
+| POST   | `/notifications/read-all`     | —                 | `200 { updatedCount }`                                                                       |
+| POST   | `/notifications/archive-read` | —                 | `200 { archivedCount }`                                                                      |
 
 `recentMeetings` contains the next six accessible active meetings ordered by earliest `startsAt`. Cancelled, archived, and past meetings are excluded.
 
@@ -96,19 +103,34 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 `myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
 
-`/notifications/summary` is intended for the topbar. It returns a total count, the latest five notifications, and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
+Notifications are table-backed lifecycle records. New rows are created for meeting creation, action-item assignment, meeting-request invitations, and meeting-request confirmation. Each notification stores `entityType` and `entityId` for navigation plus snapshot `title` and `detail` for fast feed rendering. `unreadCount` counts rows where `readAt` is null. Archived notifications are hidden from summary and feed responses. `/notifications/summary` is intended for the topbar. It returns the latest five notifications and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
 
 ### Meeting Minutes (`/api/meetings/:meetingId/minutes`)
 
-| Method | Path          | Body / Query                                                                               | Returns                    |
-| ------ | ------------- | ------------------------------------------------------------------------------------------ | -------------------------- |
-| GET    | `/`           | —                                                                                          | `200 { minutes }`          |
-| PUT    | `/`           | partial: `{ content?, keyDiscussions?, decisions?, facilitatorId?, recorderId?, status? }` | `200 { minutes }`          |
-| PUT    | `/:minutesId` | same as above                                                                              | `200 { minutes }` or `404` |
+| Method | Path          | Body / Query                                                                                                           | Returns                    |
+| ------ | ------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| GET    | `/`           | —                                                                                                                      | `200 { minutes }`          |
+| PUT    | `/`           | partial: `{ content?, keyDiscussions?, decisions?, facilitatorId?, recorderId?, generatedFromTranscriptId?, status? }` | `200 { minutes }`          |
+| PUT    | `/:minutesId` | same as above                                                                                                          | `200 { minutes }` or `404` |
 
-`GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId` and `recorderId` are nullable user UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
+`GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId`, `recorderId`, and `generatedFromTranscriptId` are nullable UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
 
 Any meeting participant can read minutes. Only the meeting creator or a participant with `role='organizer'` can update minutes.
+
+### Meeting Recording (`/api/meetings/:meetingId/recording`)
+
+Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
+
+| Method | Path                | Body / Query                                             | Returns                                      |
+| ------ | ------------------- | -------------------------------------------------------- | -------------------------------------------- |
+| GET    | `/`                 | —                                                        | `200 { recording, transcript }`              |
+| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`              |
+| DELETE | `/`                 | —                                                        | `204`                                        |
+| POST   | `/generate-minutes` | —                                                        | `202 { recording, transcript, generationStatus }` |
+
+Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+
+`POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)
 
@@ -135,7 +157,7 @@ Only the meeting creator or a participant with `role='organizer'` can add, updat
 | GET    | `/files/:id/download`        | —                                                           | `200 { url, expiresAt }` |
 | DELETE | `/files/:id`                 | —                                                           | `204`                    |
 
-Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, and Markdown files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`.
+Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, Markdown, and audio files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`. Regular files are stored in the `meeting-files` bucket with object keys shaped as `meetings/{meetingId}/files/{fileId}`. Audio uploads should send `storageKind=audio`; they are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/audio/{fileId}`.
 
 Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
 

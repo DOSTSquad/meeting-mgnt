@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileAudio, Trash2, UploadCloud } from 'lucide-react'
+import { Eye, FileAudio, Trash2, UploadCloud } from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
 
@@ -56,11 +56,24 @@ const getTimeInputValue = (value) => {
   return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`
 }
 
+const getParticipantInitials = (name = '') => {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) {
+    return '?'
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+}
+
 export const MeetingDetailView = ({
   detail,
   onBack,
   onChange,
-  onSave,
+  onSaveMeetingField,
   onAddActionItem,
   onActionItemChange,
   onActionItemSave,
@@ -68,16 +81,16 @@ export const MeetingDetailView = ({
   onActionItemPatch,
   onActionItemRemove,
   pendingMaterialFiles,
-  pendingAudioFiles,
+  pendingRecordingFile,
   onAddPendingMaterialFiles,
-  onRemovePendingMaterialFile,
-  onAddPendingAudioFiles,
-  onRemovePendingAudioFile,
+  onUploadRecording,
+  onRemoveRecording,
+  onGenerateMinutesFromRecording,
   onDownloadMeetingFile,
   onPreview,
 }) => {
   const [isDragOverMaterialFiles, setIsDragOverMaterialFiles] = useState(false)
-  const [isDragOverAudioFiles, setIsDragOverAudioFiles] = useState(false)
+  const [isDragOverRecording, setIsDragOverRecording] = useState(false)
   const [newActionItem, setNewActionItem] = useState({
     title: '',
     assigneeId: '',
@@ -105,10 +118,40 @@ export const MeetingDetailView = ({
     })
     setNewActionItem({ title: '', assigneeId: '', dueDate: '', priority: 'medium' })
   }
+  const materialFiles = detail.files
+  const visibleParticipants = detail.participants.slice(0, 6)
+  const hiddenParticipantCount = Math.max(
+    detail.participants.length - visibleParticipants.length,
+    0
+  )
+  const recordingStatus = detail.recording?.status || 'empty'
+  const recordingStatusLabel =
+    {
+      empty: 'No recording',
+      uploaded: 'Uploaded',
+      transcribing: 'Transcribing',
+      transcribed: 'Transcript ready',
+      failed: 'Needs setup',
+    }[recordingStatus] || recordingStatus
+  const transcriptMessage =
+    detail.transcript?.errorMessage ||
+    (detail.transcript?.status === 'completed' ? 'Transcript is ready.' : null)
+  const saveOnEnter = (event, field) => {
+    if (event.key === 'Enter') {
+      event.currentTarget.blur()
+      onSaveMeetingField(field)
+    }
+  }
+  const saveTextareaOnShortcut = (event, field) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.currentTarget.blur()
+      onSaveMeetingField(field)
+    }
+  }
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4">
         <button
           type="button"
           onClick={onBack}
@@ -116,441 +159,505 @@ export const MeetingDetailView = ({
         >
           ← Back to repository
         </button>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onPreview}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
-          >
-            Preview
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            Save & Finalize
-          </button>
-        </div>
       </div>
 
-      <h1 className="text-4xl font-semibold text-slate-800">{detail.meeting.title}</h1>
-      <p className="mt-1 text-slate-500">{formatDateTime(detail.meeting.startsAt)}</p>
-
-      <div className="mt-6 grid gap-5 xl:grid-cols-[2fr_1fr]">
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Core meeting metadata (title, schedule, and owner fields).
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Meeting Title
-                </span>
-                <input
-                  value={detail.meeting.title || ''}
-                  onChange={(event) => onChange('title', event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
-                  placeholder="Meeting title"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Location
-                </span>
-                <input
-                  value={detail.meeting.location || ''}
-                  onChange={(event) => onChange('location', event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
-                  placeholder="Location"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Date
-                </span>
-                <input
-                  type="date"
-                  value={getDateInputValue(detail.meeting.startsAt)}
-                  onChange={(event) => onChange('date', event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Time
-                </span>
-                <input
-                  type="time"
-                  value={getTimeInputValue(detail.meeting.startsAt)}
-                  onChange={(event) => onChange('time', event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-2xl font-semibold text-slate-700">Agenda</h2>
-            <p className="mt-1 text-sm text-slate-500">Meeting objective and discussion scope.</p>
-            <textarea
-              rows={4}
-              value={detail.meeting.description || ''}
-              onChange={(event) => onChange('description', event.target.value)}
-              className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2"
-            />
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold text-slate-700">Action Items</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Follow-ups captured from this meeting, with ownership and deadline at a glance.
-                </p>
-              </div>
-            </div>
-
-            <form
-              onSubmit={submitNewActionItem}
-              className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_8rem_auto]"
+      <header>
+        <div className="min-w-0">
+          <h1 className="text-4xl font-semibold text-slate-800">{detail.meeting.title}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+            <span>{formatDateTime(detail.meeting.startsAt)}</span>
+            <button
+              type="button"
+              onClick={onPreview}
+              className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-semibold text-slate-600 transition hover:bg-white hover:text-blue-700"
             >
-              <label className="block">
-                <span className="sr-only">New action item task</span>
-                <input
-                  value={newActionItem.title}
-                  onChange={(event) =>
-                    setNewActionItem((prev) => ({ ...prev, title: event.target.value }))
-                  }
-                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                  placeholder="Add a new follow-up task..."
-                />
-              </label>
-              <label className="block">
-                <span className="sr-only">New action item owner</span>
-                <select
-                  value={newActionItem.assigneeId}
-                  onChange={(event) =>
-                    setNewActionItem((prev) => ({ ...prev, assigneeId: event.target.value }))
-                  }
-                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
-                >
-                  <option value="">Owner</option>
-                  {detail.participants.map((participant) => (
-                    <option key={participant.userId} value={participant.userId}>
-                      {participant.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="sr-only">New action item due date</span>
-                <input
-                  type="date"
-                  value={newActionItem.dueDate}
-                  onChange={(event) =>
-                    setNewActionItem((prev) => ({ ...prev, dueDate: event.target.value }))
-                  }
-                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
-                />
-              </label>
-              <label className="block">
-                <span className="sr-only">New action item priority</span>
-                <select
-                  value={newActionItem.priority}
-                  onChange={(event) =>
-                    setNewActionItem((prev) => ({ ...prev, priority: event.target.value }))
-                  }
-                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium capitalize text-slate-700"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </label>
-              <button
-                type="submit"
-                disabled={!newActionItem.title.trim()}
-                className="h-10 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+              <Eye className="h-4 w-4" aria-hidden="true" />
+              Preview & export
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {visibleParticipants.map((participant) => (
+              <div
+                key={participant.userId}
+                className="inline-flex max-w-48 items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 text-xs font-semibold text-slate-600 shadow-sm"
+                title={participant.name}
               >
-                Add
-              </button>
-            </form>
-
-            <div className="mt-3 space-y-3">
-              {detail.actionItems.map((item) => {
-                const isCompleted = item.status === 'completed'
-
-                return (
-                  <article
-                    key={item.id}
-                    className={`rounded-xl border p-3 shadow-sm transition ${
-                      isCompleted
-                        ? 'border-emerald-100 bg-emerald-50/50 opacity-95'
-                        : 'border-slate-200 bg-white hover:border-blue-100 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <label className="block min-w-0 flex-1">
-                        <span className="sr-only">Task</span>
-                        <input
-                          value={item.title}
-                          onChange={(event) => onActionItemChange(item.id, event.target.value)}
-                          onBlur={() => onActionItemSave(item.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              event.currentTarget.blur()
-                            }
-                          }}
-                          className={`h-8 w-full rounded-md border border-transparent bg-transparent px-0 text-base font-extrabold text-slate-900 outline-none transition focus:border-blue-300 focus:px-2 focus:ring-2 focus:ring-blue-100 ${
-                            isCompleted
-                              ? 'text-slate-500 line-through focus:bg-emerald-50'
-                              : 'focus:bg-blue-50/40'
-                          }`}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => onActionItemRemove(item.id)}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                        aria-label="Remove action item"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <label className="block">
-                        <span className="sr-only">Owner</span>
-                        <select
-                          value={item.assigneeId || ''}
-                          onChange={(event) =>
-                            onActionItemPatch(item.id, { assigneeId: event.target.value || null })
-                          }
-                          className="h-8 max-w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
-                        >
-                          <option value="">Unassigned</option>
-                          {detail.participants.map((participant) => (
-                            <option key={participant.userId} value={participant.userId}>
-                              {participant.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="sr-only">Deadline</span>
-                        <input
-                          type="date"
-                          value={item.dueDate ? item.dueDate.slice(0, 10) : ''}
-                          onChange={(event) => {
-                            const dueDate = event.target.value
-                              ? new Date(`${event.target.value}T00:00:00Z`).toISOString()
-                              : null
-                            onActionItemPatch(item.id, { dueDate })
-                          }}
-                          className="h-8 w-36 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="sr-only">Status</span>
-                        <select
-                          value={item.status}
-                          onChange={(event) => onActionItemStatusChange(item.id, event.target.value)}
-                          className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold ${
-                            actionStatusStyles[item.status]?.className ||
-                            actionStatusStyles.todo.className
-                          }`}
-                        >
-                          <option value="todo">To do</option>
-                          <option value="in_progress">In progress</option>
-                          <option value="blocked">Blocked</option>
-                          <option value="completed">Done</option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="sr-only">Priority</span>
-                        <select
-                          value={item.priority || 'medium'}
-                          onChange={(event) =>
-                            onActionItemPatch(item.id, { priority: event.target.value })
-                          }
-                          className={`h-8 w-28 rounded-md border border-transparent px-2 text-xs font-extrabold capitalize ${
-                            priorityStyles[item.priority] || priorityStyles.medium
-                          }`}
-                        >
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                        </select>
-                      </label>
-                    </div>
-                  </article>
-                )
-              })}
-              {detail.actionItems.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-medium text-slate-500">
-                  No action items yet.
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-2xl font-semibold text-slate-700">Meeting Materials</h2>
-            <p className="mt-1 text-sm text-slate-500">Meeting documents and supporting files.</p>
-            <label
-              className={`mt-3 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
-                isDragOverMaterialFiles
-                  ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
-              }`}
-              onDragOver={(event) => {
-                event.preventDefault()
-                setIsDragOverMaterialFiles(true)
-              }}
-              onDragLeave={() => setIsDragOverMaterialFiles(false)}
-              onDrop={(event) => {
-                event.preventDefault()
-                setIsDragOverMaterialFiles(false)
-                onAddPendingMaterialFiles(event.dataTransfer?.files)
-              }}
-            >
-              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
-                <UploadCloud className="h-5 w-5" />
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[11px] font-extrabold text-blue-700">
+                  {getParticipantInitials(participant.name)}
+                </span>
+                <span className="truncate">{participant.name}</span>
               </div>
-              <span className="font-semibold">Drag & drop files here or click to browse</span>
+            ))}
+            {hiddenParticipantCount > 0 ? (
+              <span className="inline-flex h-8 items-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-500">
+                +{hiddenParticipantCount}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      <div className="mt-6 space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Title and location save when the field loses focus.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Meeting Title
+              </span>
               <input
-                type="file"
-                multiple
-                className="sr-only"
-                onChange={(event) => {
-                  onAddPendingMaterialFiles(event.target.files)
-                  event.target.value = ''
-                }}
+                value={detail.meeting.title || ''}
+                onChange={(event) => onChange('title', event.target.value)}
+                onBlur={() => onSaveMeetingField('title')}
+                onKeyDown={(event) => saveOnEnter(event, 'title')}
+                className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                placeholder="Meeting title"
               />
             </label>
-            <ul className="mt-3 space-y-2 text-sm text-slate-600">
-              {detail.files.map((file) => (
-                <li
-                  key={file.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-700" title={file.fileName}>
-                      {file.fileName}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {formatDateOnly(file.createdAt)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onDownloadMeetingFile(file.id)}
-                    className="ml-3 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Location
+              </span>
+              <input
+                value={detail.meeting.location || ''}
+                onChange={(event) => onChange('location', event.target.value)}
+                onBlur={() => onSaveMeetingField('location')}
+                onKeyDown={(event) => saveOnEnter(event, 'location')}
+                className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                placeholder="Location"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Date
+              </span>
+              <input
+                type="date"
+                value={getDateInputValue(detail.meeting.startsAt)}
+                disabled
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 text-slate-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Time
+              </span>
+              <input
+                type="time"
+                value={getTimeInputValue(detail.meeting.startsAt)}
+                disabled
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 text-slate-500"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-2xl font-semibold text-slate-700">Agenda</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Planned objective and discussion scope. This is separate from meeting minutes.
+          </p>
+          <textarea
+            rows={4}
+            value={detail.meeting.description || ''}
+            onChange={(event) => onChange('description', event.target.value)}
+            onBlur={() => onSaveMeetingField('description')}
+            onKeyDown={(event) => saveTextareaOnShortcut(event, 'description')}
+            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2"
+          />
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-700">Meeting Minutes</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Upload one recording to prepare a transcript and generate a minutes draft.
+              </p>
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                recordingStatus === 'failed'
+                  ? 'bg-amber-100 text-amber-700'
+                  : detail.recording
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {recordingStatusLabel}
+            </span>
+          </div>
+
+          {detail.recording ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500">
+                  <FileAudio className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate text-sm font-bold text-slate-800"
+                    title={detail.recording.fileName}
                   >
-                    Download
-                  </button>
-                </li>
-              ))}
-              {pendingMaterialFiles.map((file, index) => (
-                <li
-                  key={`${file.name}-${file.size}-${index}`}
-                  className="flex items-center justify-between text-blue-700"
-                >
-                  <span>{file.name} (pending)</span>
+                    {detail.recording.fileName}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Uploaded {formatDateOnly(detail.recording.createdAt)}
+                  </p>
+                  {transcriptMessage ? (
+                    <p
+                      className={`mt-2 text-xs font-semibold ${
+                        detail.transcript?.status === 'failed' ? 'text-amber-700' : 'text-slate-600'
+                      }`}
+                    >
+                      {transcriptMessage}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => onRemovePendingMaterialFile(index)}
-                    className="text-xs font-semibold text-rose-600"
+                    onClick={onGenerateMinutesFromRecording}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700"
+                  >
+                    Generate minutes
+                  </button>
+                  <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                    Replace
+                    <input
+                      type="file"
+                      accept=".mp3,.wav,.m4a,audio/*"
+                      className="sr-only"
+                      onChange={(event) => {
+                        onUploadRecording(event.target.files, { replace: true })
+                        event.target.value = ''
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onRemoveRecording}
+                    className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
                   >
                     Remove
                   </button>
-                </li>
-              ))}
-              {detail.files.length === 0 && pendingMaterialFiles.length === 0 ? (
-                <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">
-                  No files uploaded
-                </li>
-              ) : null}
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-2xl font-semibold text-slate-700">Upload Meeting Audio</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Audio recordings for transcription and archive.
-            </p>
+                </div>
+              </div>
+            </div>
+          ) : (
             <label
-              className={`mt-3 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
-                isDragOverAudioFiles
+              className={`mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
+                isDragOverRecording
                   ? 'border-blue-400 bg-blue-50 text-blue-700'
                   : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
               }`}
               onDragOver={(event) => {
                 event.preventDefault()
-                setIsDragOverAudioFiles(true)
+                setIsDragOverRecording(true)
               }}
-              onDragLeave={() => setIsDragOverAudioFiles(false)}
+              onDragLeave={() => setIsDragOverRecording(false)}
               onDrop={(event) => {
                 event.preventDefault()
-                setIsDragOverAudioFiles(false)
-                onAddPendingAudioFiles(event.dataTransfer?.files)
+                setIsDragOverRecording(false)
+                onUploadRecording(event.dataTransfer?.files)
               }}
             >
               <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
-                <FileAudio className="h-5 w-5" />
+                <FileAudio className="h-5 w-5" aria-hidden="true" />
               </div>
-              <span className="font-semibold">Drop audio here or click to browse</span>
-              <span className="mt-1 text-xs text-slate-400">Supports MP3, WAV, M4A</span>
+              <span className="font-semibold">Upload recording to generate minutes</span>
+              <span className="mt-1 text-xs text-slate-400">One active MP3, WAV, or M4A</span>
               <input
                 type="file"
-                multiple
                 accept=".mp3,.wav,.m4a,audio/*"
                 className="sr-only"
                 onChange={(event) => {
-                  onAddPendingAudioFiles(event.target.files)
+                  onUploadRecording(event.target.files)
                   event.target.value = ''
                 }}
               />
             </label>
-            <ul className="mt-3 space-y-1 text-sm text-slate-600">
-              {pendingAudioFiles.map((file, index) => (
-                <li
-                  key={`${file.name}-${file.size}-${index}`}
-                  className="flex items-center justify-between text-blue-700"
+          )}
+
+          {pendingRecordingFile ? (
+            <p className="mt-3 text-sm font-semibold text-blue-700">
+              {pendingRecordingFile.name} uploading...
+            </p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-700">Action Items</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Follow-ups captured from this meeting, with ownership and deadline at a glance.
+              </p>
+            </div>
+          </div>
+
+          <form
+            onSubmit={submitNewActionItem}
+            className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_8rem_auto]"
+          >
+            <label className="block">
+              <span className="sr-only">New action item task</span>
+              <input
+                value={newActionItem.title}
+                onChange={(event) =>
+                  setNewActionItem((prev) => ({ ...prev, title: event.target.value }))
+                }
+                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                placeholder="Add a new follow-up task..."
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">New action item owner</span>
+              <select
+                value={newActionItem.assigneeId}
+                onChange={(event) =>
+                  setNewActionItem((prev) => ({ ...prev, assigneeId: event.target.value }))
+                }
+                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
+              >
+                <option value="">Owner</option>
+                {detail.participants.map((participant) => (
+                  <option key={participant.userId} value={participant.userId}>
+                    {participant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="sr-only">New action item due date</span>
+              <input
+                type="date"
+                value={newActionItem.dueDate}
+                onChange={(event) =>
+                  setNewActionItem((prev) => ({ ...prev, dueDate: event.target.value }))
+                }
+                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">New action item priority</span>
+              <select
+                value={newActionItem.priority}
+                onChange={(event) =>
+                  setNewActionItem((prev) => ({ ...prev, priority: event.target.value }))
+                }
+                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium capitalize text-slate-700"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={!newActionItem.title.trim()}
+              className="h-10 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+            >
+              Add
+            </button>
+          </form>
+
+          <div className="mt-3 space-y-3">
+            {detail.actionItems.map((item) => {
+              const isCompleted = item.status === 'completed'
+
+              return (
+                <article
+                  key={item.id}
+                  className={`rounded-xl border p-3 shadow-sm transition ${
+                    isCompleted
+                      ? 'border-emerald-100 bg-emerald-50/50 opacity-95'
+                      : 'border-slate-200 bg-white hover:border-blue-100 hover:shadow-md'
+                  }`}
                 >
-                  <span>{file.name} (pending audio)</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemovePendingAudioFile(index)}
-                    className="text-xs font-semibold text-rose-600"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-              {pendingAudioFiles.length === 0 ? (
-                <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">No audio queued</li>
-              ) : null}
-            </ul>
+                  <div className="flex items-start gap-2">
+                    <label className="block min-w-0 flex-1">
+                      <span className="sr-only">Task</span>
+                      <input
+                        value={item.title}
+                        onChange={(event) => onActionItemChange(item.id, event.target.value)}
+                        onBlur={() => onActionItemSave(item.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur()
+                          }
+                        }}
+                        className={`h-8 w-full rounded-md border border-transparent bg-transparent px-0 text-base font-extrabold text-slate-900 outline-none transition focus:border-blue-300 focus:px-2 focus:ring-2 focus:ring-blue-100 ${
+                          isCompleted
+                            ? 'text-slate-500 line-through focus:bg-emerald-50'
+                            : 'focus:bg-blue-50/40'
+                        }`}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => onActionItemRemove(item.id)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                      aria-label="Remove action item"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <label className="block">
+                      <span className="sr-only">Owner</span>
+                      <select
+                        value={item.assigneeId || ''}
+                        onChange={(event) =>
+                          onActionItemPatch(item.id, { assigneeId: event.target.value || null })
+                        }
+                        className="h-8 max-w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+                      >
+                        <option value="">Unassigned</option>
+                        {detail.participants.map((participant) => (
+                          <option key={participant.userId} value={participant.userId}>
+                            {participant.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="sr-only">Deadline</span>
+                      <input
+                        type="date"
+                        value={item.dueDate ? item.dueDate.slice(0, 10) : ''}
+                        onChange={(event) => {
+                          const dueDate = event.target.value
+                            ? new Date(`${event.target.value}T00:00:00Z`).toISOString()
+                            : null
+                          onActionItemPatch(item.id, { dueDate })
+                        }}
+                        className="h-8 w-36 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="sr-only">Status</span>
+                      <select
+                        value={item.status}
+                        onChange={(event) => onActionItemStatusChange(item.id, event.target.value)}
+                        className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold ${
+                          actionStatusStyles[item.status]?.className ||
+                          actionStatusStyles.todo.className
+                        }`}
+                      >
+                        <option value="todo">To do</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="completed">Done</option>
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="sr-only">Priority</span>
+                      <select
+                        value={item.priority || 'medium'}
+                        onChange={(event) =>
+                          onActionItemPatch(item.id, { priority: event.target.value })
+                        }
+                        className={`h-8 w-28 rounded-md border border-transparent px-2 text-xs font-extrabold capitalize ${
+                          priorityStyles[item.priority] || priorityStyles.medium
+                        }`}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </label>
+                  </div>
+                </article>
+              )
+            })}
+            {detail.actionItems.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-medium text-slate-500">
+                No action items yet.
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-2xl font-semibold text-slate-700">Attendees</h2>
-            <p className="mt-1 text-sm text-slate-500">People involved in this meeting.</p>
-            <ul className="mt-3 space-y-2 text-sm text-slate-600">
-              {detail.participants.map((participant) => (
-                <li key={participant.userId}>{participant.name}</li>
-              ))}
-            </ul>
-          </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-2xl font-semibold text-slate-700">Meeting Materials</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Meeting documents, images, audio, and supporting files.
+          </p>
+          <label
+            className={`mt-3 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
+              isDragOverMaterialFiles
+                ? 'border-blue-400 bg-blue-50 text-blue-700'
+                : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
+            }`}
+            onDragOver={(event) => {
+              event.preventDefault()
+              setIsDragOverMaterialFiles(true)
+            }}
+            onDragLeave={() => setIsDragOverMaterialFiles(false)}
+            onDrop={(event) => {
+              event.preventDefault()
+              setIsDragOverMaterialFiles(false)
+              onAddPendingMaterialFiles(event.dataTransfer?.files)
+            }}
+          >
+            <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
+              <UploadCloud className="h-5 w-5" />
+            </div>
+            <span className="font-semibold">Drag & drop files here or click to browse</span>
+            <span className="mt-1 text-xs text-slate-400">
+              Audio uploaded here stays as an attachment.
+            </span>
+            <input
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={(event) => {
+                onAddPendingMaterialFiles(event.target.files)
+                event.target.value = ''
+              }}
+            />
+          </label>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+            {materialFiles.map((file) => (
+              <li
+                key={file.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-700" title={file.fileName}>
+                    {file.fileName}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">{formatDateOnly(file.createdAt)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDownloadMeetingFile(file.id)}
+                  className="ml-3 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Download
+                </button>
+              </li>
+            ))}
+            {pendingMaterialFiles.map((file, index) => (
+              <li
+                key={`${file.name}-${file.size}-${index}`}
+                className="flex items-center justify-between text-blue-700"
+              >
+                <span>{file.name} (uploading...)</span>
+              </li>
+            ))}
+            {materialFiles.length === 0 && pendingMaterialFiles.length === 0 ? (
+              <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">No files uploaded</li>
+            ) : null}
+          </ul>
         </div>
       </div>
     </section>

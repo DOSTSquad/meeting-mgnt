@@ -9,6 +9,7 @@ import {
   remove as removeActionItemRow,
   updateOne,
 } from '../repositories/action-item-repository.js'
+import { notifyActionItemAssigned } from './notification-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -162,15 +163,7 @@ export const createActionItem = async (meetingId, input, callerId) => {
   const participants = await listParticipantsByMeeting(meetingId)
   assertIsParticipant(meeting, callerId, participants)
 
-  const {
-    title,
-    description,
-    assigneeId,
-    dueDate,
-    priority,
-    source,
-    sourceRef,
-  } = input ?? {}
+  const { title, description, assigneeId, dueDate, priority, source, sourceRef } = input ?? {}
 
   if (typeof title !== 'string' || title.trim().length === 0) {
     throw createHttpError('title is required', 400)
@@ -202,6 +195,8 @@ export const createActionItem = async (meetingId, input, callerId) => {
     source: source ?? 'manual',
     sourceRef: sourceRef ?? null,
   })
+
+  await notifyActionItemAssigned(actionItem)
 
   return { actionItem }
 }
@@ -282,6 +277,14 @@ export const updateActionItem = async (itemId, input, callerId) => {
   }
 
   const actionItem = await updateOne(itemId, updates)
+
+  if (
+    assigneeId !== undefined &&
+    actionItem?.assigneeId &&
+    actionItem.assigneeId !== existing.assigneeId
+  ) {
+    await notifyActionItemAssigned(actionItem)
+  }
 
   return { actionItem }
 }

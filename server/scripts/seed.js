@@ -197,6 +197,7 @@ const seedUsers = async () => {
 }
 
 const clearPreviousSeedMeetings = async () => {
+  await query('DELETE FROM notifications')
   await query('TRUNCATE TABLE meetings RESTART IDENTITY CASCADE')
 }
 
@@ -402,6 +403,78 @@ const seedActionItems = async (meetingsByTitle, usersByEmail) => {
   }
 }
 
+const seedNotifications = async () => {
+  await query(`
+    INSERT INTO notifications (
+      recipient_user_id,
+      type,
+      entity_type,
+      entity_id,
+      title,
+      detail,
+      event_at,
+      idempotency_key
+    )
+    SELECT DISTINCT
+      participant_user_id,
+      'meeting_created',
+      'meeting',
+      id,
+      title,
+      'A new meeting has been created.',
+      created_at,
+      'meeting_created:' || id::text
+    FROM (
+      SELECT
+        m.id,
+        m.title,
+        m.created_at,
+        m.created_by AS participant_user_id
+      FROM meetings m
+
+      UNION
+
+      SELECT
+        m.id,
+        m.title,
+        m.created_at,
+        mp.user_id AS participant_user_id
+      FROM meetings m
+      JOIN meeting_participants mp ON mp.meeting_id = m.id
+    ) meeting_notifications
+    ON CONFLICT (recipient_user_id, idempotency_key)
+      WHERE idempotency_key IS NOT NULL
+      DO NOTHING
+  `)
+
+  await query(`
+    INSERT INTO notifications (
+      recipient_user_id,
+      type,
+      entity_type,
+      entity_id,
+      title,
+      detail,
+      event_at,
+      idempotency_key
+    )
+    SELECT
+      assignee_id,
+      'task_assigned',
+      'action_item',
+      id,
+      title,
+      'A task has been assigned to you.',
+      updated_at,
+      'task_assigned:' || id::text
+    FROM action_items
+    WHERE assignee_id IS NOT NULL
+    ON CONFLICT (recipient_user_id, idempotency_key)
+      WHERE idempotency_key IS NOT NULL
+      DO NOTHING
+  `)
+}
+
 const main = async () => {
   const usersByEmail = await seedUsers()
 
@@ -414,6 +487,7 @@ const main = async () => {
   }
 
   await seedActionItems(meetingsByTitle, usersByEmail)
+  await seedNotifications()
 
   console.log('Seed complete:')
   console.log(`- users: ${usersSeed.length}`)

@@ -4,6 +4,7 @@ export const BUCKET_FILES = process.env.MINIO_BUCKET_FILES || 'meeting-files'
 export const BUCKET_AUDIO = process.env.MINIO_BUCKET_AUDIO || 'meeting-audio'
 
 let _client = null
+const ensuredBuckets = new Set()
 
 const getClient = () => {
   if (!_client) {
@@ -19,8 +20,35 @@ const getClient = () => {
   return _client
 }
 
-export const putObject = (bucket, key, stream, size, metadata) =>
-  getClient().putObject(bucket, key, stream, size, metadata)
+const isBucketAlreadyExistsError = (error) =>
+  ['BucketAlreadyExists', 'BucketAlreadyOwnedByYou'].includes(error?.code)
+
+export const ensureBucketExists = async (bucket) => {
+  if (ensuredBuckets.has(bucket)) {
+    return
+  }
+
+  const client = getClient()
+  const exists = await client.bucketExists(bucket)
+
+  if (!exists) {
+    try {
+      await client.makeBucket(bucket)
+    } catch (error) {
+      if (!isBucketAlreadyExistsError(error)) {
+        throw error
+      }
+    }
+  }
+
+  ensuredBuckets.add(bucket)
+}
+
+export const putObject = async (bucket, key, stream, size, metadata) => {
+  await ensureBucketExists(bucket)
+
+  return getClient().putObject(bucket, key, stream, size, metadata)
+}
 
 export const presignedGetObject = (bucket, key, ttlSeconds, reqParams) =>
   getClient().presignedGetObject(bucket, key, ttlSeconds, reqParams)
@@ -28,11 +56,8 @@ export const presignedGetObject = (bucket, key, ttlSeconds, reqParams) =>
 export const presignedPutObject = (bucket, key, ttlSeconds) =>
   getClient().presignedPutObject(bucket, key, ttlSeconds)
 
-export const statObject = (bucket, key) =>
-  getClient().statObject(bucket, key)
+export const statObject = (bucket, key) => getClient().statObject(bucket, key)
 
-export const getObject = (bucket, key) =>
-  getClient().getObject(bucket, key)
+export const getObject = (bucket, key) => getClient().getObject(bucket, key)
 
-export const removeObject = (bucket, key) =>
-  getClient().removeObject(bucket, key)
+export const removeObject = (bucket, key) => getClient().removeObject(bucket, key)

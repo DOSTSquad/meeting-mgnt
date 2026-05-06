@@ -48,24 +48,19 @@ export const DashboardView = ({
 
   return (
     <section className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Overview
-        </p>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-800 lg:text-5xl">
-              Dashboard
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">
+      <div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+            Dashboard
+          </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <p className="text-sm text-slate-500">
               Welcome back! Here&apos;s what&apos;s happening today.
             </p>
-          </div>
-          <div className="flex gap-2">
             <button
               type="button"
               onClick={onOpenCreateModal}
-              className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             >
               + New Meeting
             </button>

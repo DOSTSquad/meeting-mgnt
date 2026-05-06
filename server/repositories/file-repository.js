@@ -7,6 +7,7 @@ const FILE_COLUMNS = `
   file_name,
   mime_type,
   size_bytes,
+  bucket_name,
   object_key,
   description,
   created_at
@@ -24,31 +25,51 @@ const mapFile = (row) => {
     fileName: row.file_name,
     mimeType: row.mime_type,
     sizeBytes: Number(row.size_bytes),
+    bucketName: row.bucket_name,
     objectKey: row.object_key,
     description: row.description ?? null,
     createdAt: row.created_at.toISOString(),
   }
 }
 
-export const createFile = async ({ id, meetingId, uploadedBy, fileName, mimeType, sizeBytes, objectKey, description }) => {
+export const createFile = async ({
+  id,
+  meetingId,
+  uploadedBy,
+  fileName,
+  mimeType,
+  sizeBytes,
+  bucketName,
+  objectKey,
+  description,
+}) => {
   const result = await query(
     `
       INSERT INTO meeting_files
-        (id, meeting_id, uploaded_by, file_name, mime_type, size_bytes, object_key, description)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        (id, meeting_id, uploaded_by, file_name, mime_type, size_bytes, bucket_name, object_key, description)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING ${FILE_COLUMNS}
     `,
-    [id, meetingId, uploadedBy, fileName, mimeType, sizeBytes, objectKey, description ?? null]
+    [
+      id,
+      meetingId,
+      uploadedBy,
+      fileName,
+      mimeType,
+      sizeBytes,
+      bucketName,
+      objectKey,
+      description ?? null,
+    ]
   )
 
   return mapFile(result.rows[0])
 }
 
 export const findFileById = async (id) => {
-  const result = await query(
-    `SELECT ${FILE_COLUMNS} FROM meeting_files WHERE id = $1 LIMIT 1`,
-    [id]
-  )
+  const result = await query(`SELECT ${FILE_COLUMNS} FROM meeting_files WHERE id = $1 LIMIT 1`, [
+    id,
+  ])
 
   return mapFile(result.rows[0] ?? null)
 }
@@ -68,10 +89,7 @@ export const listFilesByMeeting = async (meetingId) => {
 }
 
 export const deleteFile = async (id) => {
-  const result = await query(
-    `DELETE FROM meeting_files WHERE id = $1 RETURNING id`,
-    [id]
-  )
+  const result = await query(`DELETE FROM meeting_files WHERE id = $1 RETURNING id`, [id])
 
   return result.rowCount > 0
 }

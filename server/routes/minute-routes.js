@@ -17,6 +17,10 @@ const updateValidators = [
     .isUUID()
     .withMessage('facilitatorId must be a UUID'),
   body('recorderId').optional({ nullable: true }).isUUID().withMessage('recorderId must be a UUID'),
+  body('generatedFromTranscriptId')
+    .optional({ nullable: true })
+    .isUUID()
+    .withMessage('generatedFromTranscriptId must be a UUID'),
   body('status').optional().isIn(ALLOWED_MINUTE_STATUSES).withMessage('Invalid status'),
 ]
 

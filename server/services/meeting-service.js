@@ -8,6 +8,7 @@ import {
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
 import { createTag, findTagByName } from '../repositories/tag-repository.js'
+import { notifyMeetingCreated } from './notification-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -58,6 +59,21 @@ const validateTimeRange = (startsAt, endsAt) => {
 
   if (!(end > start)) {
     throw createHttpError('endsAt must be after startsAt', 400)
+  }
+}
+
+const assertCanAccessMeeting = (meeting, callerId, participants) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  if (callerId === meeting.createdBy) {
+    return
+  }
+
+  const isParticipant = participants.some((participant) => participant.userId === callerId)
+  if (!isParticipant) {
+    throw createHttpError('Only meeting participants can access this meeting', 403)
   }
 }
 
@@ -117,10 +133,12 @@ export const createMeetingForUser = async (input, userId) => {
     addedBy: userId,
   })
 
+  await notifyMeetingCreated(meeting, [userId])
+
   return meeting
 }
 
-export const getMeetingById = async (id) => {
+export const getMeetingById = async (id, callerId) => {
   const meeting = await findMeetingById(id)
 
   if (!meeting) {
@@ -128,6 +146,7 @@ export const getMeetingById = async (id) => {
   }
 
   const participants = await listByMeeting(id)
+  assertCanAccessMeeting(meeting, callerId, participants)
 
   return { ...meeting, participants }
 }

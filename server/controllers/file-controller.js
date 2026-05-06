@@ -16,7 +16,8 @@ export const upload = async (req, res, next) => {
       req.params.meetingId,
       req.user?.id,
       req.file,
-      req.body?.description
+      req.body?.description,
+      req.body?.storageKind
     )
 
     res.status(201).json({ file })

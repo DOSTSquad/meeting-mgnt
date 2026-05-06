@@ -80,6 +80,7 @@ const runHandler = async (handler, req) => {
 }
 
 let testUser
+let outsiderUser
 
 beforeAll(async () => {
   process.env.JWT_SECRET = TEST_SECRET
@@ -104,6 +105,14 @@ beforeEach(async () => {
   testUser = await createUser({
     name: 'Test Organizer',
     email: 'organizer@example.com',
+    passwordHash: 'fake-hash-not-used',
+    role: 'staff',
+    department: 'engineering',
+  })
+
+  outsiderUser = await createUser({
+    name: 'Meeting Outsider',
+    email: 'meeting-outsider@example.com',
     passwordHash: 'fake-hash-not-used',
     role: 'staff',
     department: 'engineering',
@@ -209,6 +218,19 @@ dbDescribe('Meeting controller (DB-backed)', () => {
 
     expect(missing.nextError).toBeDefined()
     expect(missing.nextError.statusCode).toBe(404)
+  })
+
+  it('rejects meeting detail access when caller is not a participant', async () => {
+    const created = await createMeetingViaController()
+
+    const result = await runHandler(
+      getOne,
+      buildRequest({ params: { id: created.id }, user: { id: outsiderUser.id } })
+    )
+
+    expect(result.nextError).toBeDefined()
+    expect(result.nextError.statusCode).toBe(403)
+    expect(result.nextError.message).toMatch(/Only meeting participants/)
   })
 
   it('includes meeting file counts in list and detail responses', async () => {

@@ -43,7 +43,7 @@ export const list = async (req, res, next) => {
 
 export const getOne = async (req, res, next) => {
   try {
-    const meeting = await getMeetingById(req.params.id)
+    const meeting = await getMeetingById(req.params.id, req.user?.id)
 
     res.json({ meeting })
   } catch (error) {

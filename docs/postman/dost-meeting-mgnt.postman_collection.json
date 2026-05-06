@@ -37,6 +37,11 @@
       "type": "string"
     },
     {
+      "key": "recordingId",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "participantUserId",
       "value": "",
       "type": "string"
@@ -48,6 +53,11 @@
     },
     {
       "key": "actionItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
       "value": "",
       "type": "string"
     },
@@ -600,12 +610,77 @@
             },
             "description": "Cursor-paginated notification feed. Returns `{ notifications, nextCursor }`; pass `nextCursor` as `cursor` to fetch the next page."
           }
+        },
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "read"]
+            },
+            "description": "Marks one notification owned by the signed-in user as read. Returns `{ notification }`."
+          }
+        },
+        {
+          "name": "Archive notification",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "archive"]
+            },
+            "description": "Archives one notification owned by the signed-in user. Archived notifications are marked read and hidden from summary/feed responses. Returns `{ notification }`."
+          }
+        },
+        {
+          "name": "Mark notifications read",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{notificationId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read"]
+            },
+            "description": "Marks selected notifications owned by the signed-in user as read. Returns `{ updatedCount }`."
+          }
+        },
+        {
+          "name": "Mark all notifications read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            },
+            "description": "Marks every unread notification owned by the signed-in user as read. Returns `{ updatedCount }`."
+          }
+        },
+        {
+          "name": "Archive read notifications",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/archive-read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "archive-read"]
+            },
+            "description": "Archives all read notifications owned by the signed-in user. Unread notifications are preserved. Returns `{ archivedCount }`."
+          }
         }
       ]
     },
     {
       "name": "Minutes",
-      "description": "Manage minutes for a meeting. `content`, `keyDiscussions`, `decisions`, `facilitatorId`, and `recorderId` live on `/meetings/{{meetingId}}/minutes`, not on the meeting record.",
+      "description": "Manage minutes for a meeting. `content`, `keyDiscussions`, `decisions`, `facilitatorId`, `recorderId`, and optional `generatedFromTranscriptId` live on `/meetings/{{meetingId}}/minutes`, not on the meeting record.",
       "item": [
         {
           "name": "Get meeting minutes",
@@ -650,7 +725,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Reviewed delivery risk and agreed follow-up owners.\",\n  \"keyDiscussions\": \"Timeline risk\\nResourcing\",\n  \"decisions\": \"Keep current milestone scope.\",\n  \"facilitatorId\": null,\n  \"recorderId\": null\n}"
+              "raw": "{\n  \"content\": \"Reviewed delivery risk and agreed follow-up owners.\",\n  \"keyDiscussions\": \"Timeline risk\\nResourcing\",\n  \"decisions\": \"Keep current milestone scope.\",\n  \"facilitatorId\": null,\n  \"recorderId\": null,\n  \"generatedFromTranscriptId\": null\n}"
             },
             "description": "Updates moved minutes fields. Only the meeting creator or an organizer can update minutes."
           },
@@ -755,6 +830,105 @@
       ]
     },
     {
+      "name": "Recordings",
+      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio.",
+      "item": [
+        {
+          "name": "Get active recording",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording"]
+            },
+            "description": "Returns `{ recording, transcript }`. Both are null when no active recording exists."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.recording && data.recording.id) pm.collectionVariables.set('recordingId', data.recording.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload or replace recording",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select an MP3/WAV/M4A audio file ≤ 50 MB"
+                },
+                {
+                  "key": "replace",
+                  "value": "true",
+                  "type": "text",
+                  "description": "Set true to replace the current active recording"
+                }
+              ]
+            },
+            "description": "Uploads the one active recording used for minutes generation. Without `replace=true`, a second active recording returns 409."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.recording && data.recording.id) pm.collectionVariables.set('recordingId', data.recording.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate minutes from recording scaffold",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording/generate-minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording", "generate-minutes"]
+            },
+            "description": "Scaffold endpoint. Until speech-to-text/LLM providers are configured, returns 202 with `generationStatus='not_configured'` and a failed transcript row."
+          }
+        },
+        {
+          "name": "Remove active recording",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording"]
+            },
+            "description": "Archives the active recording and removes its MinIO object. Returns 204."
+          }
+        }
+      ]
+    },
+    {
       "name": "Participants",
       "description": "Manage participants on a meeting. All requests target `/meetings/{{meetingId}}/participants`. Only the meeting creator or a participant with `role='organizer'` can add / update / remove participants. The last organizer cannot be demoted or removed.",
       "item": [
@@ -846,7 +1020,7 @@
     },
     {
       "name": "Files",
-      "description": "Upload, list, download, and delete files attached to a meeting. Upload/delete requires creator or organizer role; list/download requires any participant role. Max 50 MB; allowed types: PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP.",
+      "description": "Upload, list, download, and delete files attached to a meeting. These materials may include audio, but they are separate from the dedicated Meeting Recording workflow used for minutes generation. Max 50 MB; allowed types: PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, Markdown, and audio.",
       "item": [
         {
           "name": "Upload file",
@@ -864,7 +1038,7 @@
                   "key": "file",
                   "type": "file",
                   "src": "",
-                  "description": "Select a PDF/DOCX/XLSX/PPTX/image ≤ 50 MB"
+                  "description": "Select a PDF/DOCX/XLSX/PPTX/image/audio ≤ 50 MB"
                 },
                 {
                   "key": "description",
