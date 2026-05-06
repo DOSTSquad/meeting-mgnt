@@ -62,6 +62,21 @@ const validateTimeRange = (startsAt, endsAt) => {
   }
 }
 
+const assertCanAccessMeeting = (meeting, callerId, participants) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  if (callerId === meeting.createdBy) {
+    return
+  }
+
+  const isParticipant = participants.some((participant) => participant.userId === callerId)
+  if (!isParticipant) {
+    throw createHttpError('Only meeting participants can access this meeting', 403)
+  }
+}
+
 export const createMeetingForUser = async (input, userId) => {
   if (!userId) {
     throw createHttpError('Authentication required', 401)
@@ -123,7 +138,7 @@ export const createMeetingForUser = async (input, userId) => {
   return meeting
 }
 
-export const getMeetingById = async (id) => {
+export const getMeetingById = async (id, callerId) => {
   const meeting = await findMeetingById(id)
 
   if (!meeting) {
@@ -131,6 +146,7 @@ export const getMeetingById = async (id) => {
   }
 
   const participants = await listByMeeting(id)
+  assertCanAccessMeeting(meeting, callerId, participants)
 
   return { ...meeting, participants }
 }

@@ -46,7 +46,6 @@ const AppShell = ({ token, user, onLogout }) => {
   const [activeMeetingRequestId, setActiveMeetingRequestId] = useState(null)
   const [activeAvailabilityRequest, setActiveAvailabilityRequest] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
-  const [successModalMessage, setSuccessModalMessage] = useState('')
   const activePage = getActivePage(location.pathname)
   const activeMeetingId = location.pathname.match(/^\/meetings\/([^/]+)$/)?.[1] ?? null
   const selectedActionItemIdFromQuery =
@@ -309,16 +308,10 @@ const AppShell = ({ token, user, onLogout }) => {
     }
   }
 
-  const handleMeetingDetailSaved = useCallback(() => {
-    navigate('/dashboard')
-    setSuccessModalMessage('Saved and finalized successfully')
-  }, [navigate])
-
   const meetingDetail = useMeetingDetailController({
     token,
     activeMeetingId,
     onError: setErrorMessage,
-    onSaved: handleMeetingDetailSaved,
   })
   const {
     selectedMeetingDetail,
@@ -327,7 +320,7 @@ const AppShell = ({ token, user, onLogout }) => {
     isPreviewOpen,
     setIsPreviewOpen,
     updateMeetingDetailField,
-    saveMeetingDetail,
+    saveMeetingField,
     addActionItemInDetail,
     updateActionItemStatusInDetail,
     editActionItemTitle,
@@ -336,9 +329,7 @@ const AppShell = ({ token, user, onLogout }) => {
     removeActionItem,
     openUploadedFile,
     addPendingMeetingMaterialFiles,
-    removePendingMeetingMaterialFile,
     addPendingMeetingAudioFiles,
-    removePendingMeetingAudioFile,
   } = meetingDetail
 
   const moveActionItemStatus = async (actionItemId, nextStatus) => {
@@ -359,105 +350,105 @@ const AppShell = ({ token, user, onLogout }) => {
 
   return (
     <main className="min-h-screen bg-slate-100 lg:flex">
-      <Sidebar activePage={activePage} onSelect={(item) => navigate(item.path)} />
+      <div className={isPreviewOpen ? 'contents print:hidden' : 'contents'}>
+        <Sidebar activePage={activePage} onSelect={(item) => navigate(item.path)} />
 
-      <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
-        <Topbar
-          currentUser={user}
-          notifications={notifications}
-          notificationCount={notificationCount}
-          notificationNextCursor={notificationNextCursor}
-          isLoadingMoreNotifications={isLoadingMoreNotifications}
-          onLoadMoreNotifications={loadMoreNotifications}
-          onArchiveReadNotifications={archiveReadNotificationsInMenu}
-          onMarkAllNotificationsRead={markAllNotificationsReadInMenu}
-          onOpenNotification={openNotificationTarget}
-          onLogout={onLogout}
-        />
-
-        {errorMessage ? (
-          <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {errorMessage}
-          </p>
-        ) : null}
-
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route
-            path="/dashboard"
-            element={
-              <DashboardView
-                data={dashboardData}
-                currentUser={user}
-                users={users}
-                onOpenCreateModal={openNewMeetingModal}
-                onOpenMeeting={openMeetingDetail}
-                onOpenMeetingRequest={openMeetingRequestModal}
-                onOpenAvailabilityRequest={openAvailabilityRequestModal}
-                onViewAllMeetings={() => navigate('/meetings')}
-                onViewAllActionItems={() => navigate('/action-items')}
-                onLoadActionItemDetail={fetchActionItemDetail}
-              />
-            }
+        <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
+          <Topbar
+            currentUser={user}
+            notifications={notifications}
+            notificationCount={notificationCount}
+            notificationNextCursor={notificationNextCursor}
+            isLoadingMoreNotifications={isLoadingMoreNotifications}
+            onLoadMoreNotifications={loadMoreNotifications}
+            onArchiveReadNotifications={archiveReadNotificationsInMenu}
+            onMarkAllNotificationsRead={markAllNotificationsReadInMenu}
+            onOpenNotification={openNotificationTarget}
+            onLogout={onLogout}
           />
-          <Route
-            path="/meetings"
-            element={
-              <RepositoryView
-                meetings={meetings}
-                search={repositorySearch}
-                onSearch={setRepositorySearch}
-                onOpenMeeting={openMeetingDetail}
-              />
-            }
-          />
-          <Route
-            path="/meetings/:meetingId"
-            element={
-              selectedMeetingDetail?.meeting?.id === activeMeetingId ? (
-                <MeetingDetailView
-                  detail={selectedMeetingDetail}
-                  onBack={() => navigate('/meetings')}
-                  onChange={updateMeetingDetailField}
-                  onSave={saveMeetingDetail}
-                  onAddActionItem={addActionItemInDetail}
-                  onActionItemChange={editActionItemTitle}
-                  onActionItemSave={saveActionItemTitle}
-                  onActionItemStatusChange={updateActionItemStatusInDetail}
-                  onActionItemPatch={updateActionItemFieldsInDetail}
-                  onActionItemRemove={removeActionItem}
-                  pendingMaterialFiles={pendingMeetingMaterialFiles}
-                  pendingAudioFiles={pendingMeetingAudioFiles}
-                  onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
-                  onRemovePendingMaterialFile={removePendingMeetingMaterialFile}
-                  onAddPendingAudioFiles={addPendingMeetingAudioFiles}
-                  onRemovePendingAudioFile={removePendingMeetingAudioFile}
-                  onDownloadMeetingFile={openUploadedFile}
-                  onPreview={() => setIsPreviewOpen(true)}
+
+          {errorMessage ? (
+            <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {errorMessage}
+            </p>
+          ) : null}
+
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/dashboard"
+              element={
+                <DashboardView
+                  data={dashboardData}
+                  currentUser={user}
+                  users={users}
+                  onOpenCreateModal={openNewMeetingModal}
+                  onOpenMeeting={openMeetingDetail}
+                  onOpenMeetingRequest={openMeetingRequestModal}
+                  onOpenAvailabilityRequest={openAvailabilityRequestModal}
+                  onViewAllMeetings={() => navigate('/meetings')}
+                  onViewAllActionItems={() => navigate('/action-items')}
+                  onLoadActionItemDetail={fetchActionItemDetail}
                 />
-              ) : (
-                <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
-                  Loading meeting details...
-                </p>
-              )
-            }
-          />
-          <Route
-            path="/action-items"
-            element={
-              <ActionItemsView
-                actionItems={actionItems}
-                meetings={meetings}
-                users={users}
-                selectedActionItemId={selectedActionItemIdFromQuery}
-                onSelectedActionItemHandled={() => navigate('/action-items', { replace: true })}
-                onMoveActionItem={moveActionItemStatus}
-                onOpenMeeting={openMeetingDetail}
-              />
-            }
-          />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+              }
+            />
+            <Route
+              path="/meetings"
+              element={
+                <RepositoryView
+                  meetings={meetings}
+                  search={repositorySearch}
+                  onSearch={setRepositorySearch}
+                  onOpenMeeting={openMeetingDetail}
+                />
+              }
+            />
+            <Route
+              path="/meetings/:meetingId"
+              element={
+                selectedMeetingDetail?.meeting?.id === activeMeetingId ? (
+                  <MeetingDetailView
+                    detail={selectedMeetingDetail}
+                    onBack={() => navigate('/meetings')}
+                    onChange={updateMeetingDetailField}
+                    onSaveMeetingField={saveMeetingField}
+                    onAddActionItem={addActionItemInDetail}
+                    onActionItemChange={editActionItemTitle}
+                    onActionItemSave={saveActionItemTitle}
+                    onActionItemStatusChange={updateActionItemStatusInDetail}
+                    onActionItemPatch={updateActionItemFieldsInDetail}
+                    onActionItemRemove={removeActionItem}
+                    pendingMaterialFiles={pendingMeetingMaterialFiles}
+                    pendingAudioFiles={pendingMeetingAudioFiles}
+                    onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
+                    onAddPendingAudioFiles={addPendingMeetingAudioFiles}
+                    onDownloadMeetingFile={openUploadedFile}
+                    onPreview={() => setIsPreviewOpen(true)}
+                  />
+                ) : (
+                  <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
+                    Loading meeting details...
+                  </p>
+                )
+              }
+            />
+            <Route
+              path="/action-items"
+              element={
+                <ActionItemsView
+                  actionItems={actionItems}
+                  meetings={meetings}
+                  users={users}
+                  selectedActionItemId={selectedActionItemIdFromQuery}
+                  onSelectedActionItemHandled={() => navigate('/action-items', { replace: true })}
+                  onMoveActionItem={moveActionItemStatus}
+                  onOpenMeeting={openMeetingDetail}
+                />
+              }
+            />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
       </div>
 
       <AppModals
@@ -470,8 +461,6 @@ const AppShell = ({ token, user, onLogout }) => {
         meetings={meetings}
         meetingRequestId={activeMeetingRequestId}
         currentUserId={user.id}
-        successModalMessage={successModalMessage}
-        onCloseSuccessModal={() => setSuccessModalMessage('')}
         activeAvailabilityRequest={activeAvailabilityRequest}
         onCloseAvailabilityRequest={() => setActiveAvailabilityRequest(null)}
         onSubmittedAvailability={reloadDashboardData}

@@ -9,11 +9,12 @@ import {
 import { downloadFileContent, uploadMeetingFile } from '../../services/fileService.js'
 import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
 
-export const useMeetingDetailController = ({ token, activeMeetingId, onError, onSaved }) => {
+export const useMeetingDetailController = ({ token, activeMeetingId, onError }) => {
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
   const [pendingMeetingAudioFiles, setPendingMeetingAudioFiles] = useState([])
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const selectedMeetingId = selectedMeetingDetail?.meeting?.id
 
   const fetchMeetingDetail = useCallback(
     async (meetingId) => {
@@ -56,15 +57,6 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
     }
   }, [activeMeetingId, fetchMeetingDetail, onError])
 
-  const reloadSelectedMeetingDetail = useCallback(async () => {
-    if (!selectedMeetingDetail?.meeting?.id) {
-      return
-    }
-
-    const detail = await fetchMeetingDetail(selectedMeetingDetail.meeting.id)
-    setSelectedMeetingDetail(detail)
-  }, [fetchMeetingDetail, selectedMeetingDetail])
-
   const updateMeetingDetailField = useCallback((field, value) => {
     setSelectedMeetingDetail((prev) => {
       if (!prev) {
@@ -101,72 +93,41 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
     })
   }, [])
 
-  const saveMeetingDetail = useCallback(async () => {
-    if (!selectedMeetingDetail) {
-      return
-    }
-
-    try {
-      const client = getApiClient(token)
-      const payload = {
-        title: selectedMeetingDetail.meeting.title,
-        description: selectedMeetingDetail.meeting.description,
-        startsAt: selectedMeetingDetail.meeting.startsAt,
-        endsAt: selectedMeetingDetail.meeting.endsAt,
-        timezoneName: selectedMeetingDetail.meeting.timezoneName || 'UTC',
-        location: selectedMeetingDetail.meeting.location,
-        tag: selectedMeetingDetail.meeting.tag,
+  const patchMeetingFields = useCallback(
+    async (updates) => {
+      if (!selectedMeetingDetail) {
+        return
       }
 
-      await updateMeeting(client, selectedMeetingDetail.meeting.id, payload)
-      await Promise.all(
-        selectedMeetingDetail.actionItems.map((item) => {
-          const updatePayload = {
-            title: item.title?.trim() || 'Untitled action item',
-            assigneeId: item.assigneeId || null,
-            dueDate: item.dueDate || null,
-          }
+      try {
+        const client = getApiClient(token)
+        const meeting = await updateMeeting(client, selectedMeetingDetail.meeting.id, updates)
+        setSelectedMeetingDetail((prev) => (prev ? { ...prev, meeting } : prev))
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to save meeting details')
+      }
+    },
+    [onError, selectedMeetingDetail, token]
+  )
 
-          if (item.assigneeId && !['completed', 'cancelled'].includes(item.status)) {
-            updatePayload.status = 'todo'
-          }
-
-          return updateActionItem(client, item.id, updatePayload)
-        })
-      )
-
-      for (const file of pendingMeetingMaterialFiles) {
-        await uploadMeetingFile(
-          client,
-          selectedMeetingDetail.meeting.id,
-          file,
-          'Meeting material upload from detail view'
-        )
+  const saveMeetingField = useCallback(
+    async (field) => {
+      if (!selectedMeetingDetail) {
+        return
       }
 
-      for (const file of pendingMeetingAudioFiles) {
-        await uploadMeetingFile(
-          client,
-          selectedMeetingDetail.meeting.id,
-          file,
-          'Meeting audio upload from detail view'
-        )
+      const value = selectedMeetingDetail.meeting[field]
+      const normalizedValue = typeof value === 'string' ? value.trim() : value
+
+      if (field === 'title' && !normalizedValue) {
+        onError('Meeting title cannot be empty')
+        return
       }
 
-      setPendingMeetingMaterialFiles([])
-      setPendingMeetingAudioFiles([])
-      onSaved?.()
-    } catch (error) {
-      onError(error.response?.data?.error || 'Unable to save meeting details')
-    }
-  }, [
-    onError,
-    onSaved,
-    pendingMeetingAudioFiles,
-    pendingMeetingMaterialFiles,
-    selectedMeetingDetail,
-    token,
-  ])
+      await patchMeetingFields({ [field]: normalizedValue ?? null })
+    },
+    [onError, patchMeetingFields, selectedMeetingDetail]
+  )
 
   const addActionItemInDetail = useCallback(
     async (input = {}) => {
@@ -190,35 +151,33 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
               }
             : prev
         )
-        await reloadSelectedMeetingDetail()
       } catch (error) {
         onError(error.response?.data?.error || 'Unable to add action item')
       }
     },
-    [onError, reloadSelectedMeetingDetail, selectedMeetingDetail, token]
+    [onError, selectedMeetingDetail, token]
   )
 
   const updateActionItemStatusInDetail = useCallback(
     async (actionItemId, nextStatus) => {
       try {
         const client = getApiClient(token)
-        await updateActionItem(client, actionItemId, { status: nextStatus })
+        const actionItem = await updateActionItem(client, actionItemId, { status: nextStatus })
         setSelectedMeetingDetail((prev) =>
           prev
             ? {
                 ...prev,
                 actionItems: prev.actionItems.map((item) =>
-                  item.id === actionItemId ? { ...item, status: nextStatus } : item
+                  item.id === actionItemId ? actionItem : item
                 ),
               }
             : prev
         )
-        await reloadSelectedMeetingDetail()
       } catch (error) {
         onError(error.response?.data?.error || 'Unable to update action item status')
       }
     },
-    [onError, reloadSelectedMeetingDetail, token]
+    [onError, token]
   )
 
   const editActionItemTitle = useCallback((actionItemId, title) => {
@@ -236,27 +195,47 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
 
   const updateActionItemFieldsInDetail = useCallback(
     async (actionItemId, updates) => {
+      let previousActionItems = []
       setSelectedMeetingDetail((prev) =>
         prev
-          ? {
-              ...prev,
-              actionItems: prev.actionItems.map((item) =>
-                item.id === actionItemId ? { ...item, ...updates } : item
-              ),
-            }
+          ? (() => {
+              previousActionItems = prev.actionItems
+              return {
+                ...prev,
+                actionItems: prev.actionItems.map((item) =>
+                  item.id === actionItemId ? { ...item, ...updates } : item
+                ),
+              }
+            })()
           : prev
       )
 
       try {
         const client = getApiClient(token)
-        await updateActionItem(client, actionItemId, updates)
-        await reloadSelectedMeetingDetail()
+        const actionItem = await updateActionItem(client, actionItemId, updates)
+        setSelectedMeetingDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                actionItems: prev.actionItems.map((item) =>
+                  item.id === actionItemId ? actionItem : item
+                ),
+              }
+            : prev
+        )
       } catch (error) {
         onError(error.response?.data?.error || 'Unable to save action item')
-        await reloadSelectedMeetingDetail()
+        setSelectedMeetingDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                actionItems: previousActionItems,
+              }
+            : prev
+        )
       }
     },
-    [onError, reloadSelectedMeetingDetail, token]
+    [onError, token]
   )
 
   const saveActionItemTitle = useCallback(
@@ -272,18 +251,27 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
 
       try {
         const client = getApiClient(token)
-        await updateActionItem(client, actionItemId, {
+        const actionItem = await updateActionItem(client, actionItemId, {
           title: target.title.trim(),
           assigneeId: target.assigneeId || null,
           dueDate: target.dueDate || null,
           priority: target.priority || 'medium',
         })
-        await reloadSelectedMeetingDetail()
+        setSelectedMeetingDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                actionItems: prev.actionItems.map((item) =>
+                  item.id === actionItemId ? actionItem : item
+                ),
+              }
+            : prev
+        )
       } catch (error) {
         onError(error.response?.data?.error || 'Unable to save action item')
       }
     },
-    [onError, reloadSelectedMeetingDetail, selectedMeetingDetail, token]
+    [onError, selectedMeetingDetail, token]
   )
 
   const removeActionItem = useCallback(
@@ -299,12 +287,11 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
               }
             : prev
         )
-        await reloadSelectedMeetingDetail()
       } catch (error) {
         onError(error.response?.data?.error || 'Unable to remove action item')
       }
     },
-    [onError, reloadSelectedMeetingDetail, token]
+    [onError, token]
   )
 
   const openUploadedFile = useCallback(
@@ -328,31 +315,64 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
     [onError, token]
   )
 
-  const addPendingMeetingMaterialFiles = useCallback((incomingFiles) => {
-    const nextFiles = Array.from(incomingFiles || [])
-    if (nextFiles.length === 0) {
-      return
-    }
+  const uploadFilesImmediately = useCallback(
+    async ({ incomingFiles, storageKind, description, setUploadingFiles }) => {
+      const nextFiles = Array.from(incomingFiles || [])
+      if (nextFiles.length === 0 || !selectedMeetingId) {
+        return
+      }
 
-    setPendingMeetingMaterialFiles((prev) => [...prev, ...nextFiles])
-  }, [])
+      setUploadingFiles((prev) => [...prev, ...nextFiles])
 
-  const removePendingMeetingMaterialFile = useCallback((indexToRemove) => {
-    setPendingMeetingMaterialFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
-  }, [])
+      try {
+        const client = getApiClient(token)
+        for (const file of nextFiles) {
+          const uploadedFile = await uploadMeetingFile(
+            client,
+            selectedMeetingId,
+            file,
+            description,
+            storageKind
+          )
+          setSelectedMeetingDetail((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  files: [uploadedFile, ...prev.files],
+                }
+              : prev
+          )
+        }
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to upload file')
+      } finally {
+        setUploadingFiles((prev) => prev.filter((file) => !nextFiles.includes(file)))
+      }
+    },
+    [onError, selectedMeetingId, token]
+  )
 
-  const addPendingMeetingAudioFiles = useCallback((incomingFiles) => {
-    const nextFiles = Array.from(incomingFiles || [])
-    if (nextFiles.length === 0) {
-      return
-    }
+  const addPendingMeetingMaterialFiles = useCallback(
+    (incomingFiles) =>
+      uploadFilesImmediately({
+        incomingFiles,
+        storageKind: 'file',
+        description: 'Meeting material upload from detail view',
+        setUploadingFiles: setPendingMeetingMaterialFiles,
+      }),
+    [uploadFilesImmediately]
+  )
 
-    setPendingMeetingAudioFiles((prev) => [...prev, ...nextFiles])
-  }, [])
-
-  const removePendingMeetingAudioFile = useCallback((indexToRemove) => {
-    setPendingMeetingAudioFiles((prev) => prev.filter((_, index) => index !== indexToRemove))
-  }, [])
+  const addPendingMeetingAudioFiles = useCallback(
+    (incomingFiles) =>
+      uploadFilesImmediately({
+        incomingFiles,
+        storageKind: 'audio',
+        description: 'Meeting audio upload from detail view',
+        setUploadingFiles: setPendingMeetingAudioFiles,
+      }),
+    [uploadFilesImmediately]
+  )
 
   return {
     selectedMeetingDetail,
@@ -361,7 +381,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
     isPreviewOpen,
     setIsPreviewOpen,
     updateMeetingDetailField,
-    saveMeetingDetail,
+    saveMeetingField,
     addActionItemInDetail,
     updateActionItemStatusInDetail,
     editActionItemTitle,
@@ -370,8 +390,6 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError, on
     removeActionItem,
     openUploadedFile,
     addPendingMeetingMaterialFiles,
-    removePendingMeetingMaterialFile,
     addPendingMeetingAudioFiles,
-    removePendingMeetingAudioFile,
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileAudio, Trash2, UploadCloud } from 'lucide-react'
+import { Eye, FileAudio, Trash2, UploadCloud } from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
 
@@ -60,7 +60,7 @@ export const MeetingDetailView = ({
   detail,
   onBack,
   onChange,
-  onSave,
+  onSaveMeetingField,
   onAddActionItem,
   onActionItemChange,
   onActionItemSave,
@@ -70,9 +70,7 @@ export const MeetingDetailView = ({
   pendingMaterialFiles,
   pendingAudioFiles,
   onAddPendingMaterialFiles,
-  onRemovePendingMaterialFile,
   onAddPendingAudioFiles,
-  onRemovePendingAudioFile,
   onDownloadMeetingFile,
   onPreview,
 }) => {
@@ -105,10 +103,26 @@ export const MeetingDetailView = ({
     })
     setNewActionItem({ title: '', assigneeId: '', dueDate: '', priority: 'medium' })
   }
+  const audioFiles = detail.files.filter(
+    (file) => file.bucketName === 'meeting-audio' || file.mimeType?.startsWith('audio/')
+  )
+  const materialFiles = detail.files.filter((file) => !audioFiles.includes(file))
+  const saveOnEnter = (event, field) => {
+    if (event.key === 'Enter') {
+      event.currentTarget.blur()
+      onSaveMeetingField(field)
+    }
+  }
+  const saveTextareaOnShortcut = (event, field) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.currentTarget.blur()
+      onSaveMeetingField(field)
+    }
+  }
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4">
         <button
           type="button"
           onClick={onBack}
@@ -116,33 +130,29 @@ export const MeetingDetailView = ({
         >
           ← Back to repository
         </button>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onPreview}
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
-          >
-            Preview
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            Save & Finalize
-          </button>
-        </div>
       </div>
 
-      <h1 className="text-4xl font-semibold text-slate-800">{detail.meeting.title}</h1>
-      <p className="mt-1 text-slate-500">{formatDateTime(detail.meeting.startsAt)}</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-4xl font-semibold text-slate-800">{detail.meeting.title}</h1>
+          <p className="mt-1 text-slate-500">{formatDateTime(detail.meeting.startsAt)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onPreview}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+        >
+          <Eye className="h-4 w-4" aria-hidden="true" />
+          Preview & export
+        </button>
+      </header>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Core meeting metadata (title, schedule, and owner fields).
+              Title and location save when the field loses focus.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="block">
@@ -152,6 +162,8 @@ export const MeetingDetailView = ({
                 <input
                   value={detail.meeting.title || ''}
                   onChange={(event) => onChange('title', event.target.value)}
+                  onBlur={() => onSaveMeetingField('title')}
+                  onKeyDown={(event) => saveOnEnter(event, 'title')}
                   className="h-11 w-full rounded-xl border border-slate-200 px-3"
                   placeholder="Meeting title"
                 />
@@ -163,6 +175,8 @@ export const MeetingDetailView = ({
                 <input
                   value={detail.meeting.location || ''}
                   onChange={(event) => onChange('location', event.target.value)}
+                  onBlur={() => onSaveMeetingField('location')}
+                  onKeyDown={(event) => saveOnEnter(event, 'location')}
                   className="h-11 w-full rounded-xl border border-slate-200 px-3"
                   placeholder="Location"
                 />
@@ -194,11 +208,15 @@ export const MeetingDetailView = ({
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <h2 className="text-2xl font-semibold text-slate-700">Agenda</h2>
-            <p className="mt-1 text-sm text-slate-500">Meeting objective and discussion scope.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Planned objective and discussion scope. This is separate from meeting minutes.
+            </p>
             <textarea
               rows={4}
               value={detail.meeting.description || ''}
               onChange={(event) => onChange('description', event.target.value)}
+              onBlur={() => onSaveMeetingField('description')}
+              onKeyDown={(event) => saveTextareaOnShortcut(event, 'description')}
               className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2"
             />
           </div>
@@ -359,7 +377,9 @@ export const MeetingDetailView = ({
                         <span className="sr-only">Status</span>
                         <select
                           value={item.status}
-                          onChange={(event) => onActionItemStatusChange(item.id, event.target.value)}
+                          onChange={(event) =>
+                            onActionItemStatusChange(item.id, event.target.value)
+                          }
                           className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold ${
                             actionStatusStyles[item.status]?.className ||
                             actionStatusStyles.todo.className
@@ -435,7 +455,7 @@ export const MeetingDetailView = ({
               />
             </label>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
-              {detail.files.map((file) => (
+              {materialFiles.map((file) => (
                 <li
                   key={file.id}
                   className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
@@ -462,17 +482,10 @@ export const MeetingDetailView = ({
                   key={`${file.name}-${file.size}-${index}`}
                   className="flex items-center justify-between text-blue-700"
                 >
-                  <span>{file.name} (pending)</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemovePendingMaterialFile(index)}
-                    className="text-xs font-semibold text-rose-600"
-                  >
-                    Remove
-                  </button>
+                  <span>{file.name} (uploading...)</span>
                 </li>
               ))}
-              {detail.files.length === 0 && pendingMaterialFiles.length === 0 ? (
+              {materialFiles.length === 0 && pendingMaterialFiles.length === 0 ? (
                 <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">
                   No files uploaded
                 </li>
@@ -518,23 +531,38 @@ export const MeetingDetailView = ({
                 }}
               />
             </label>
-            <ul className="mt-3 space-y-1 text-sm text-slate-600">
+            <ul className="mt-3 space-y-2 text-sm text-slate-600">
+              {audioFiles.map((file) => (
+                <li
+                  key={file.id}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-700" title={file.fileName}>
+                      {file.fileName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {formatDateOnly(file.createdAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onDownloadMeetingFile(file.id)}
+                    className="ml-3 shrink-0 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Download
+                  </button>
+                </li>
+              ))}
               {pendingAudioFiles.map((file, index) => (
                 <li
                   key={`${file.name}-${file.size}-${index}`}
                   className="flex items-center justify-between text-blue-700"
                 >
-                  <span>{file.name} (pending audio)</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemovePendingAudioFile(index)}
-                    className="text-xs font-semibold text-rose-600"
-                  >
-                    Remove
-                  </button>
+                  <span>{file.name} (uploading...)</span>
                 </li>
               ))}
-              {pendingAudioFiles.length === 0 ? (
+              {audioFiles.length === 0 && pendingAudioFiles.length === 0 ? (
                 <li className="rounded-lg bg-slate-50 px-3 py-2 text-slate-500">No audio queued</li>
               ) : null}
             </ul>

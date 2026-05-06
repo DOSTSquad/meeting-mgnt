@@ -41,7 +41,12 @@ const { closePool, query } = await import('../db/postgres.js')
 const { createUser } = await import('../repositories/user-repository.js')
 const { create: createMeetingHandler } = await import('../controllers/meeting-controller.js')
 const { add: addParticipantsHandler } = await import('../controllers/participant-controller.js')
-const { upload: uploadHandler, list: listHandler, download: downloadHandler, remove: removeHandler } = await import('../controllers/file-controller.js')
+const {
+  upload: uploadHandler,
+  list: listHandler,
+  download: downloadHandler,
+  remove: removeHandler,
+} = await import('../controllers/file-controller.js')
 
 const TEST_SECRET = 'test-secret'
 
@@ -244,12 +249,53 @@ dbDescribe('File controller (DB-backed)', () => {
         fileName: 'agenda.pdf',
         mimeType: 'application/pdf',
         sizeBytes: 1024,
+        bucketName: 'meeting-files',
         description: 'Agenda doc',
       })
       expect(res.body.file.objectKey).toMatch(
-        new RegExp(`^meetings/${baseMeeting.id}/[0-9a-f-]{36}$`)
+        new RegExp(`^meetings/${baseMeeting.id}/files/[0-9a-f-]{36}$`)
       )
       expect(mockPutObject).toHaveBeenCalledTimes(1)
+      expect(mockPutObject).toHaveBeenCalledWith(
+        'meeting-files',
+        expect.stringMatching(new RegExp(`^meetings/${baseMeeting.id}/files/[0-9a-f-]{36}$`)),
+        expect.any(Buffer),
+        1024,
+        expect.objectContaining({ 'Content-Type': 'application/pdf' })
+      )
+    })
+
+    it('stores audio uploads in the audio bucket and prefix', async () => {
+      const { res, nextError } = await runHandler(
+        uploadHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'recording.mp3',
+            mimetype: 'audio/mpeg',
+          }),
+          body: { storageKind: 'audio' },
+        })
+      )
+
+      expect(nextError).toBeUndefined()
+      expect(res.statusCode).toBe(201)
+      expect(res.body.file).toMatchObject({
+        bucketName: 'meeting-audio',
+        fileName: 'recording.mp3',
+        mimeType: 'audio/mpeg',
+      })
+      expect(res.body.file.objectKey).toMatch(
+        new RegExp(`^meetings/${baseMeeting.id}/audio/[0-9a-f-]{36}$`)
+      )
+      expect(mockPutObject).toHaveBeenCalledWith(
+        'meeting-audio',
+        expect.stringMatching(new RegExp(`^meetings/${baseMeeting.id}/audio/[0-9a-f-]{36}$`)),
+        expect.any(Buffer),
+        1024,
+        expect.objectContaining({ 'Content-Type': 'audio/mpeg' })
+      )
     })
 
     it('plain attendee participant can upload a file', async () => {
@@ -409,7 +455,9 @@ dbDescribe('File controller (DB-backed)', () => {
         expect.any(String),
         60,
         expect.objectContaining({
-          'response-content-disposition': expect.stringMatching(/^attachment; filename="agenda\.pdf"/),
+          'response-content-disposition': expect.stringMatching(
+            /^attachment; filename="agenda\.pdf"/
+          ),
           'response-content-type': 'application/pdf',
         })
       )

@@ -31,22 +31,32 @@ export const MeetingPreviewModal = ({ detail, isOpen, onClose }) => {
           <article className="mx-auto w-full max-w-[794px] rounded bg-white p-8 shadow print:max-w-none print:rounded-none print:p-0 print:shadow-none">
             <header className="border-b border-slate-200 pb-4">
               <h1 className="text-3xl font-semibold text-slate-900">{detail.meeting.title}</h1>
-              <p className="mt-2 text-sm text-slate-600">{formatDateTime(detail.meeting.startsAt)}</p>
+              <p className="mt-2 text-sm text-slate-600">
+                {formatDateTime(detail.meeting.startsAt)}
+              </p>
             </header>
 
             <section className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-slate-200 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date & Time</p>
-                <p className="mt-1 text-sm text-slate-800">{formatDateTime(detail.meeting.startsAt)}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Date & Time
+                </p>
+                <p className="mt-1 text-sm text-slate-800">
+                  {formatDateTime(detail.meeting.startsAt)}
+                </p>
               </div>
               <div className="rounded-lg border border-slate-200 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Location</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Location
+                </p>
                 <p className="mt-1 text-sm text-slate-800">{detail.meeting.location || '-'}</p>
               </div>
             </section>
 
             <h2 className="mt-6 text-lg font-semibold">Agenda</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{detail.meeting.description || '-'}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+              {detail.meeting.description || '-'}
+            </p>
 
             <h2 className="mt-6 text-lg font-semibold">Attendees</h2>
             <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
@@ -62,8 +72,8 @@ export const MeetingPreviewModal = ({ detail, isOpen, onClose }) => {
                 <li key={item.id}>
                   {item.title}
                   {' - '}
-                  {detail.participants.find((participant) => participant.userId === item.assigneeId)?.name ||
-                    'Unassigned'}
+                  {detail.participants.find((participant) => participant.userId === item.assigneeId)
+                    ?.name || 'Unassigned'}
                   {' - '}
                   {item.dueDate ? formatDateOnly(item.dueDate) : 'No due date'}
                 </li>

@@ -9,6 +9,7 @@ import {
   listFilesByMeeting,
 } from '../repositories/file-repository.js'
 import {
+  BUCKET_AUDIO,
   BUCKET_FILES,
   getObject,
   presignedGetObject,
@@ -34,9 +35,7 @@ const assertManagePermission = (meeting, callerId, participants) => {
     return
   }
 
-  const isOrganizer = participants.some(
-    (p) => p.userId === callerId && p.role === 'organizer'
-  )
+  const isOrganizer = participants.some((p) => p.userId === callerId && p.role === 'organizer')
 
   if (!isOrganizer) {
     throw createHttpError('Only the meeting creator or an organizer can manage files', 403)
@@ -69,7 +68,21 @@ const loadMeetingOrThrow = async (meetingId) => {
   return meeting
 }
 
-export const uploadFile = async (meetingId, callerId, file, description) => {
+const getStorageTarget = (meetingId, fileId, file, storageKind) => {
+  const isAudio = storageKind === 'audio' || file.mimetype?.startsWith('audio/')
+
+  return isAudio
+    ? {
+        bucketName: BUCKET_AUDIO,
+        objectKey: `meetings/${meetingId}/audio/${fileId}`,
+      }
+    : {
+        bucketName: BUCKET_FILES,
+        objectKey: `meetings/${meetingId}/files/${fileId}`,
+      }
+}
+
+export const uploadFile = async (meetingId, callerId, file, description, storageKind = 'file') => {
   if (!file) {
     throw createHttpError('No file provided', 400)
   }
@@ -79,9 +92,9 @@ export const uploadFile = async (meetingId, callerId, file, description) => {
   assertIsParticipant(meeting, callerId, participants)
 
   const id = randomUUID()
-  const objectKey = `meetings/${meetingId}/${id}`
+  const { bucketName, objectKey } = getStorageTarget(meetingId, id, file, storageKind)
 
-  await putObject(BUCKET_FILES, objectKey, file.buffer, file.size, {
+  await putObject(bucketName, objectKey, file.buffer, file.size, {
     'Content-Type': file.mimetype,
   })
 
@@ -92,6 +105,7 @@ export const uploadFile = async (meetingId, callerId, file, description) => {
     fileName: file.originalname,
     mimeType: file.mimetype,
     sizeBytes: file.size,
+    bucketName,
     objectKey,
     description: description ?? null,
   })
@@ -128,7 +142,7 @@ export const getDownloadUrl = async (fileId, callerId) => {
   const participants = await listByMeeting(fileRow.meetingId)
   assertIsParticipant(meeting, callerId, participants)
 
-  const url = await presignedGetObject(BUCKET_FILES, fileRow.objectKey, TTL_SECONDS, {
+  const url = await presignedGetObject(fileRow.bucketName, fileRow.objectKey, TTL_SECONDS, {
     'response-content-disposition': buildContentDisposition(fileRow.fileName),
     'response-content-type': fileRow.mimeType,
   })
@@ -149,7 +163,7 @@ export const deleteFileById = async (fileId, callerId) => {
   assertManagePermission(meeting, callerId, participants)
 
   await deleteFile(fileId)
-  await removeObject(BUCKET_FILES, fileRow.objectKey)
+  await removeObject(fileRow.bucketName, fileRow.objectKey)
 }
 
 export const getDownloadStream = async (fileId, callerId) => {
@@ -163,7 +177,7 @@ export const getDownloadStream = async (fileId, callerId) => {
   const participants = await listByMeeting(fileRow.meetingId)
   assertIsParticipant(meeting, callerId, participants)
 
-  const stream = await getObject(BUCKET_FILES, fileRow.objectKey)
+  const stream = await getObject(fileRow.bucketName, fileRow.objectKey)
 
   return { stream, file: fileRow }
 }

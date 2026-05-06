@@ -48,6 +48,8 @@ Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g.
 
 Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
+`GET /api/meetings/:id` is available only to the meeting creator or meeting participants. Non-participants receive `403`, matching meeting file access rules.
+
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
 ```
@@ -140,7 +142,7 @@ Only the meeting creator or a participant with `role='organizer'` can add, updat
 | GET    | `/files/:id/download`        | —                                                           | `200 { url, expiresAt }` |
 | DELETE | `/files/:id`                 | —                                                           | `204`                    |
 
-Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, and Markdown files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`.
+Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, Markdown, and audio files up to **50 MB**. Larger files return `413`; unsupported MIME types return `415`. Regular files are stored in the `meeting-files` bucket with object keys shaped as `meetings/{meetingId}/files/{fileId}`. Audio uploads should send `storageKind=audio`; they are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/audio/{fileId}`.
 
 Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
 

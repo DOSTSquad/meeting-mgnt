@@ -1,4 +1,3 @@
-import { SuccessModal } from '../feedback/SuccessModal.jsx'
 import { VoteAvailabilityModal } from '../../features/dashboard/VoteAvailabilityModal.jsx'
 import { CreateMeetingModal } from '../../features/meetings/CreateMeetingModal.jsx'
 import { MeetingPreviewModal } from '../../features/meetings/MeetingPreviewModal.jsx'
@@ -13,8 +12,6 @@ export const AppModals = ({
   meetings,
   meetingRequestId,
   currentUserId,
-  successModalMessage,
-  onCloseSuccessModal,
   activeAvailabilityRequest,
   onCloseAvailabilityRequest,
   onSubmittedAvailability,
@@ -35,7 +32,6 @@ export const AppModals = ({
       currentUserId={currentUserId}
     />
 
-    <SuccessModal message={successModalMessage} onClose={onCloseSuccessModal} />
     <VoteAvailabilityModal
       request={activeAvailabilityRequest}
       token={token}

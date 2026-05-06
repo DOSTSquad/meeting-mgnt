@@ -52,7 +52,7 @@ const seedFiles = async () => {
     for (let index = 0; index < filesToCreate; index += 1) {
       const id = randomUUID()
       const fileName = `${meeting.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-notes-${index + 1}.txt`
-      const objectKey = `meetings/${meeting.id}/${id}`
+      const objectKey = `meetings/${meeting.id}/files/${id}`
       const content = createTextContent(meeting.title, index)
       const buffer = Buffer.from(content, 'utf8')
 
@@ -63,8 +63,8 @@ const seedFiles = async () => {
       await query(
         `
           INSERT INTO meeting_files
-            (id, meeting_id, uploaded_by, file_name, mime_type, size_bytes, object_key, description)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            (id, meeting_id, uploaded_by, file_name, mime_type, size_bytes, bucket_name, object_key, description)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           id,
@@ -73,6 +73,7 @@ const seedFiles = async () => {
           fileName,
           'text/plain',
           buffer.length,
+          BUCKET_FILES,
           objectKey,
           'Dummy seeded text file',
         ]
