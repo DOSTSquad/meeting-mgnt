@@ -174,8 +174,8 @@ export const MeetingDetailView = ({
                 <input
                   type="date"
                   value={getDateInputValue(detail.meeting.startsAt)}
-                  onChange={(event) => onChange('date', event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                  disabled
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 text-slate-500"
                 />
               </label>
               <label className="block">
@@ -185,8 +185,8 @@ export const MeetingDetailView = ({
                 <input
                   type="time"
                   value={getTimeInputValue(detail.meeting.startsAt)}
-                  onChange={(event) => onChange('time', event.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                  disabled
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 text-slate-500"
                 />
               </label>
             </div>

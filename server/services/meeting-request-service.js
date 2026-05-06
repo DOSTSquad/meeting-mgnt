@@ -15,6 +15,11 @@ import {
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { findUserByEmail } from '../repositories/user-repository.js'
 import { createMeetingForUser } from './meeting-service.js'
+import {
+  notifyMeetingCreated,
+  notifyMeetingRequestConfirmed,
+  notifyMeetingRequestInvited,
+} from './notification-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -243,6 +248,8 @@ export const replaceInviteesForRequest = async (requestId, input, callerId) => {
 
   const updatedInvitees = await replaceInvitees(requestId, normalized)
 
+  await notifyMeetingRequestInvited(meetingRequest, updatedInvitees)
+
   return { invitees: updatedInvitees }
 }
 
@@ -350,6 +357,8 @@ export const confirmRequestForUser = async (requestId, input, callerId) => {
       role: 'attendee',
       addedBy: callerId,
     })
+
+    await notifyMeetingCreated(meeting, participantIds)
   }
 
   const meetingRequestAfterConfirm = await confirmMeetingRequest({
@@ -357,6 +366,11 @@ export const confirmRequestForUser = async (requestId, input, callerId) => {
     timeOptionId,
     meetingId: meeting.id,
   })
+
+  await notifyMeetingRequestConfirmed(meetingRequestAfterConfirm, meeting, [
+    callerId,
+    ...participantIds,
+  ])
 
   return { meeting, meetingRequest: meetingRequestAfterConfirm }
 }

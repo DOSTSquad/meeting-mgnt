@@ -213,6 +213,8 @@ export const ActionItemsView = ({
   actionItems,
   meetings = [],
   users = [],
+  selectedActionItemId: selectedActionItemIdProp = null,
+  onSelectedActionItemHandled,
   onMoveActionItem,
   onOpenMeeting,
 }) => {
@@ -228,7 +230,8 @@ export const ActionItemsView = ({
   const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]))
   const usersById = new Map(users.map((user) => [user.id, user]))
   const draggingItem = actionItems.find((item) => item.id === draggingItemId)
-  const selectedActionItem = actionItems.find((item) => item.id === selectedActionItemId)
+  const activeSelectedActionItemId = selectedActionItemIdProp || selectedActionItemId
+  const selectedActionItem = actionItems.find((item) => item.id === activeSelectedActionItemId)
   const selectedAssignee = selectedActionItem ? usersById.get(selectedActionItem.assigneeId) : null
   const selectedMeeting = selectedActionItem ? meetingsById.get(selectedActionItem.meetingId) : null
 
@@ -402,7 +405,10 @@ export const ActionItemsView = ({
         assigneeName={selectedAssignee?.name || 'Unassigned'}
         tagLabel={toTitleCase(selectedMeeting?.tag)}
         meetingTitle={selectedMeeting?.title}
-        onClose={() => setSelectedActionItemId(null)}
+        onClose={() => {
+          setSelectedActionItemId(null)
+          onSelectedActionItemHandled?.()
+        }}
         onOpenMeeting={onOpenMeeting}
       />
     </section>

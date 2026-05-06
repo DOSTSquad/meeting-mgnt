@@ -52,6 +52,11 @@
       "type": "string"
     },
     {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "email",
       "value": "smoke@test.local",
       "type": "string"
@@ -599,6 +604,71 @@
               ]
             },
             "description": "Cursor-paginated notification feed. Returns `{ notifications, nextCursor }`; pass `nextCursor` as `cursor` to fetch the next page."
+          }
+        },
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "read"]
+            },
+            "description": "Marks one notification owned by the signed-in user as read. Returns `{ notification }`."
+          }
+        },
+        {
+          "name": "Archive notification",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "archive"]
+            },
+            "description": "Archives one notification owned by the signed-in user. Archived notifications are marked read and hidden from summary/feed responses. Returns `{ notification }`."
+          }
+        },
+        {
+          "name": "Mark notifications read",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{notificationId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read"]
+            },
+            "description": "Marks selected notifications owned by the signed-in user as read. Returns `{ updatedCount }`."
+          }
+        },
+        {
+          "name": "Mark all notifications read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            },
+            "description": "Marks every unread notification owned by the signed-in user as read. Returns `{ updatedCount }`."
+          }
+        },
+        {
+          "name": "Archive read notifications",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/archive-read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "archive-read"]
+            },
+            "description": "Archives all read notifications owned by the signed-in user. Unread notifications are preserved. Returns `{ archivedCount }`."
           }
         }
       ]

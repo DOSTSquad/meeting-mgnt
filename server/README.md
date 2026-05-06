@@ -82,11 +82,16 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 ### Dashboard (`/api/dashboard`)
 
-| Method | Path                     | Body / Query       | Returns                                                                                      |
-| ------ | ------------------------ | ------------------ | -------------------------------------------------------------------------------------------- |
-| GET    | `/`                      | —                  | `200 { recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }` |
-| GET    | `/notifications/summary` | —                  | `200 { unreadCount, notifications, nextCursor }`                                             |
-| GET    | `/notifications`         | `?limit=&cursor=`  | `200 { notifications, nextCursor }`                                                          |
+| Method | Path                          | Body / Query      | Returns                                                                                      |
+| ------ | ----------------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
+| GET    | `/`                           | —                 | `200 { recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }` |
+| GET    | `/notifications/summary`      | —                 | `200 { unreadCount, notifications, nextCursor }`                                             |
+| GET    | `/notifications`              | `?limit=&cursor=` | `200 { notifications, nextCursor }`                                                          |
+| POST   | `/notifications/:id/read`     | —                 | `200 { notification }`                                                                       |
+| POST   | `/notifications/:id/archive`  | —                 | `200 { notification }`                                                                       |
+| POST   | `/notifications/read`         | `{ ids: uuid[] }` | `200 { updatedCount }`                                                                       |
+| POST   | `/notifications/read-all`     | —                 | `200 { updatedCount }`                                                                       |
+| POST   | `/notifications/archive-read` | —                 | `200 { archivedCount }`                                                                      |
 
 `recentMeetings` contains the next six accessible active meetings ordered by earliest `startsAt`. Cancelled, archived, and past meetings are excluded.
 
@@ -96,7 +101,7 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 `myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
 
-`/notifications/summary` is intended for the topbar. It returns a total count, the latest five notifications, and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
+Notifications are table-backed lifecycle records. New rows are created for meeting creation, action-item assignment, meeting-request invitations, and meeting-request confirmation. Each notification stores `entityType` and `entityId` for navigation plus snapshot `title` and `detail` for fast feed rendering. `unreadCount` counts rows where `readAt` is null. Archived notifications are hidden from summary and feed responses. `/notifications/summary` is intended for the topbar. It returns the latest five notifications and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
 
 ### Meeting Minutes (`/api/meetings/:meetingId/minutes`)
 

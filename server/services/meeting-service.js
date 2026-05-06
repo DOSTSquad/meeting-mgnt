@@ -8,6 +8,7 @@ import {
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
 import { createTag, findTagByName } from '../repositories/tag-repository.js'
+import { notifyMeetingCreated } from './notification-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -116,6 +117,8 @@ export const createMeetingForUser = async (input, userId) => {
     role: 'organizer',
     addedBy: userId,
   })
+
+  await notifyMeetingCreated(meeting, [userId])
 
   return meeting
 }

@@ -1,11 +1,10 @@
 import {
-  getNotificationSummaryForUser,
   listMyActionItems,
-  listNotificationItemsForUser,
   listPendingAvailabilityRequestsForUser,
   listPendingMeetingRequestsForUser,
   listRecentMeetingsForUser,
 } from '../repositories/dashboard-repository.js'
+import { getNotificationSummary, listNotifications } from './notification-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -36,35 +35,10 @@ export const getDashboardData = async (userId) => {
   }
 }
 
-const normalizeLimit = (value, fallback = 20, maximum = 50) => {
-  const parsed = Number(value)
-
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return fallback
-  }
-
-  return Math.min(parsed, maximum)
-}
-
 export const getNotificationsData = async (userId, { limit, cursor } = {}) => {
-  assertUser(userId)
-
-  const { notifications, nextCursor } = await listNotificationItemsForUser(userId, {
-    limit: normalizeLimit(limit),
-    cursor,
-  })
-
-  return { notifications, nextCursor }
+  return listNotifications(userId, { limit, cursor })
 }
 
 export const getNotificationSummaryData = async (userId) => {
-  assertUser(userId)
-
-  const summary = await getNotificationSummaryForUser(userId, 5)
-
-  return {
-    unreadCount: summary.unreadCount,
-    notifications: summary.latest,
-    nextCursor: summary.nextCursor,
-  }
+  return getNotificationSummary(userId)
 }

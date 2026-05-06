@@ -23,6 +23,12 @@ import {
   getNotificationSummaryData,
 } from '../services/dashboard-service.js'
 import { createMeetingForUser } from '../services/meeting-service.js'
+import {
+  archiveOneNotification,
+  archiveReadNotificationsForUser,
+  readAllNotifications,
+  readNotification,
+} from '../services/notification-service.js'
 
 const serverDir = fileURLToPath(new URL('../', import.meta.url))
 const repoRoot = path.resolve(serverDir, '..')
@@ -333,7 +339,7 @@ describe('meeting request flow', () => {
       },
       creator.id
     )
-    await query('UPDATE meetings SET created_at = NOW() - INTERVAL \'2 days\' WHERE id = ANY($1)', [
+    await query("UPDATE meetings SET created_at = NOW() - INTERVAL '2 days' WHERE id = ANY($1)", [
       [laterMeeting.id, earlierMeeting.id],
     ])
     await createMeetingForUser(
@@ -446,6 +452,11 @@ describe('meeting request flow', () => {
     const firstPage = await getNotificationsData(creator.id, { limit: 2 })
     expect(firstPage.notifications).toHaveLength(2)
     expect(firstPage.nextCursor).toBeTruthy()
+    expect(firstPage.notifications[0]).toMatchObject({
+      id: expect.any(String),
+      entityType: 'meeting',
+      isRead: false,
+    })
 
     const secondPage = await getNotificationsData(creator.id, {
       limit: 2,
@@ -453,6 +464,50 @@ describe('meeting request flow', () => {
     })
     expect(secondPage.notifications.length).toBeGreaterThanOrEqual(1)
     expect(secondPage.notifications[0].title).not.toBe(firstPage.notifications[0].title)
+
+    const readOne = await readNotification(creator.id, firstPage.notifications[0].id)
+    expect(readOne.notification.isRead).toBe(true)
+
+    const afterReadOne = await getNotificationSummaryData(creator.id)
+    expect(afterReadOne.unreadCount).toBe(summary.unreadCount - 1)
+    expect(afterReadOne.notifications[0].isRead).toBe(false)
+
+    await readAllNotifications(creator.id)
+
+    const afterReadAll = await getNotificationSummaryData(creator.id)
+    expect(afterReadAll.unreadCount).toBe(0)
+
+    const archivedRead = await archiveReadNotificationsForUser(creator.id)
+    expect(archivedRead.archivedCount).toBeGreaterThanOrEqual(3)
+
+    const afterArchiveRead = await getNotificationsData(creator.id, { limit: 10 })
+    expect(afterArchiveRead.notifications).toHaveLength(0)
+  })
+
+  it('archives a single notification and removes it from notification feeds', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    await createMeetingForUser(
+      {
+        title: 'Notification archive target',
+        startsAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000).toISOString(),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
+
+    const firstPage = await getNotificationsData(creator.id, { limit: 1 })
+    const notification = firstPage.notifications[0]
+
+    const archived = await archiveOneNotification(creator.id, notification.id)
+    expect(archived.notification.archivedAt).toEqual(expect.any(String))
+    expect(archived.notification.isRead).toBe(true)
+
+    const afterArchive = await getNotificationsData(creator.id, { limit: 10 })
+    expect(afterArchive.notifications.some((item) => item.id === notification.id)).toBe(false)
   })
 
   it('rejects time options that overlap with the creator existing meetings', async () => {
