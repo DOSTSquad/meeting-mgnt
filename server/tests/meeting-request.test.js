@@ -311,7 +311,7 @@ describe('meeting request flow', () => {
       },
       creator.id
     )
-    await createMeetingForUser(
+    const laterMeeting = await createMeetingForUser(
       {
         title: 'Later dashboard meeting',
         startsAt: dateFromNow(5),
@@ -320,7 +320,7 @@ describe('meeting request flow', () => {
       },
       creator.id
     )
-    await createMeetingForUser(
+    const earlierMeeting = await createMeetingForUser(
       {
         title: 'Earlier dashboard meeting',
         startsAt: dateFromNow(2),
@@ -329,10 +329,23 @@ describe('meeting request flow', () => {
       },
       creator.id
     )
+    await query('UPDATE meetings SET created_at = NOW() - INTERVAL \'2 days\' WHERE id = ANY($1)', [
+      [laterMeeting.id, earlierMeeting.id],
+    ])
+    await createMeetingForUser(
+      {
+        title: 'Newly created farther meeting',
+        startsAt: dateFromNow(9),
+        endsAt: dateFromNow(9, 1),
+        timezoneName: 'UTC',
+      },
+      creator.id
+    )
 
     const dashboard = await getDashboardData(creator.id)
 
     expect(dashboard.recentMeetings.map((meeting) => meeting.title)).toEqual([
+      'Newly created farther meeting',
       'Earlier dashboard meeting',
       'Later dashboard meeting',
     ])
@@ -384,5 +397,71 @@ describe('meeting request flow', () => {
 
     expect(optionsResult.nextError.statusCode).toBe(409)
     expect(optionsResult.nextError.message).toMatch(/overlaps with existing meeting/)
+  })
+
+  it('rejects candidate time options before today', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Past time request',
+          durationMinutes: 60,
+          timezoneName: 'UTC',
+        },
+      })
+    )
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    yesterday.setHours(9, 0, 0, 0)
+    const yesterdayEnd = new Date(yesterday.getTime() + 60 * 60 * 1000)
+
+    const optionsResult = await runHandler(
+      replaceTimeOptions,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId: createResult.res.body.meetingRequest.id },
+        body: {
+          timeOptions: [
+            {
+              startsAt: yesterday.toISOString(),
+              endsAt: yesterdayEnd.toISOString(),
+            },
+          ],
+        },
+      })
+    )
+
+    expect(optionsResult.nextError.statusCode).toBe(400)
+    expect(optionsResult.nextError.message).toBe('startsAt must be in the future')
+  })
+
+  it('rejects response deadlines in the past', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Past deadline request',
+          durationMinutes: 60,
+          timezoneName: 'UTC',
+          responseDeadline: yesterday.toISOString(),
+        },
+      })
+    )
+
+    expect(createResult.nextError.statusCode).toBe(400)
+    expect(createResult.nextError.message).toBe('responseDeadline must be in the future')
   })
 })

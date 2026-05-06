@@ -55,13 +55,29 @@ const mapPendingAvailabilityRequestRow = (row) => ({
 
 const baseMeetingAccessCte = `
   WITH accessible_meetings AS (
-    SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status
+    SELECT
+      m.id,
+      m.title,
+      m.starts_at,
+      m.ends_at,
+      m.timezone_name,
+      m.location,
+      m.status,
+      m.created_at
     FROM meetings m
     WHERE m.created_by = $1
 
     UNION
 
-    SELECT m.id, m.title, m.starts_at, m.ends_at, m.timezone_name, m.location, m.status
+    SELECT
+      m.id,
+      m.title,
+      m.starts_at,
+      m.ends_at,
+      m.timezone_name,
+      m.location,
+      m.status,
+      m.created_at
     FROM meetings m
     JOIN meeting_participants mp ON mp.meeting_id = m.id
     WHERE mp.user_id = $1
@@ -76,7 +92,10 @@ export const listRecentMeetingsForUser = async (userId, limit = 5) => {
       FROM accessible_meetings
       WHERE starts_at >= NOW()
         AND status NOT IN ('cancelled', 'archived')
-      ORDER BY starts_at ASC
+      ORDER BY
+        CASE WHEN created_at >= NOW() - INTERVAL '1 day' THEN 0 ELSE 1 END,
+        CASE WHEN created_at >= NOW() - INTERVAL '1 day' THEN created_at END DESC,
+        starts_at ASC
       LIMIT $2
     `,
     [userId, limit]

@@ -228,7 +228,7 @@
                 }
               ]
             },
-            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, and `fileCount`; repository clients should group by meeting tag while keeping files attached to their meeting."
+            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`; `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views."
           }
         },
         {
@@ -301,7 +301,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
             },
-            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, and `fileCount`."
+            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`; `participantNames` is a short preview of up to three names."
           }
         },
         {

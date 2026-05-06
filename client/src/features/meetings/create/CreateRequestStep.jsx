@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format } from 'date-fns'
+import { format, isBefore, startOfToday } from 'date-fns'
 import { CalendarDays, ChevronDown, Clock3 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
@@ -72,6 +72,9 @@ const getTimeOptions = (window = { start: 0, end: 24 * 60 }) => {
 
 const timeOptions = getTimeOptions()
 
+const isPastDateTime = (dateValue, timeValue) =>
+  new Date(`${dateValue}T${timeValue}:00`) < new Date()
+
 const RequiredLabel = ({ children }) => (
   <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-800">
     {children}
@@ -86,6 +89,7 @@ export const CreateRequestStep = ({ form, onChange }) => {
   const [activeTimeWindowId, setActiveTimeWindowId] = useState(TIME_WINDOWS[1].id)
   const deadline = getDeadlineParts(form.responseDeadline)
   const deadlineDate = toDateFromValue(deadline.date)
+  const today = startOfToday()
   const activeTimeWindow =
     TIME_WINDOWS.find((window) => window.id === activeTimeWindowId) ?? TIME_WINDOWS[1]
   const visibleTimeOptions = getTimeOptions(activeTimeWindow)
@@ -178,8 +182,9 @@ export const CreateRequestStep = ({ form, onChange }) => {
               <DayPicker
                 mode="single"
                 selected={deadlineDate}
+                disabled={{ before: today }}
                 onSelect={(date) => {
-                  if (!date) {
+                  if (!date || isBefore(date, today)) {
                     return
                   }
 
@@ -212,6 +217,8 @@ export const CreateRequestStep = ({ form, onChange }) => {
                     '[&>button]:bg-blue-600 [&>button]:text-white [&>button:hover]:bg-blue-600 [&>button:hover]:text-white',
                   today: 'font-extrabold text-blue-700',
                   outside: 'text-slate-300',
+                  disabled:
+                    '[&>button]:cursor-not-allowed [&>button]:text-slate-300 [&>button]:opacity-40 [&>button]:grayscale [&>button:hover]:bg-transparent [&>button:hover]:text-slate-300',
                 }}
               />
               {deadline.date ? (
@@ -236,28 +243,35 @@ export const CreateRequestStep = ({ form, onChange }) => {
                     ))}
                   </div>
                   <div className="grid max-h-44 gap-2 overflow-auto pr-1 sm:grid-cols-2">
-                    {visibleTimeOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => {
-                          onChange({
-                            responseDeadline: getDeadlineValue({
-                              date: deadline.date,
-                              time: option.value,
-                            }),
-                          })
-                          setIsDeadlineCalendarOpen(false)
-                        }}
-                        className={`h-9 rounded-lg border text-sm font-bold ${
-                          deadline.time === option.value
-                            ? 'border-blue-600 bg-blue-600 text-white'
-                            : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+                    {visibleTimeOptions.map((option) => {
+                      const isPast = isPastDateTime(deadline.date, option.value)
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          disabled={isPast}
+                          onClick={() => {
+                            onChange({
+                              responseDeadline: getDeadlineValue({
+                                date: deadline.date,
+                                time: option.value,
+                              }),
+                            })
+                            setIsDeadlineCalendarOpen(false)
+                          }}
+                          className={`h-9 rounded-lg border text-sm font-bold ${
+                            isPast
+                              ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-50 grayscale'
+                              : deadline.time === option.value
+                                ? 'border-blue-600 bg-blue-600 text-white'
+                                : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50'
+                          }`}
+                        >
+                          {isPast ? `${option.label} passed` : option.label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ) : (

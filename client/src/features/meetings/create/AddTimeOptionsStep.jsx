@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addMinutes, format, isSameDay } from 'date-fns'
+import { addMinutes, format, isBefore, isSameDay, startOfToday } from 'date-fns'
 import { CalendarDays, Check, Clock3, Globe2 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
@@ -51,6 +51,8 @@ const getSlotIso = (dateValue, timeValue) => new Date(`${dateValue}T${timeValue}
 
 const isActiveMeeting = (meeting) => !['cancelled', 'archived'].includes(meeting.status)
 
+const isPastSlot = (dateValue, timeValue) => new Date(`${dateValue}T${timeValue}:00`) < new Date()
+
 const findBlockedMeeting = ({ date, time, durationMinutes, blockedMeetings }) => {
   const startsAt = new Date(`${date}T${time}:00`)
   const endsAt = addMinutes(startsAt, durationMinutes)
@@ -79,6 +81,7 @@ export const AddTimeOptionsStep = ({
 }) => {
   const [activeWindowId, setActiveWindowId] = useState(TIME_WINDOWS[0].id)
   const activeWindow = TIME_WINDOWS.find((window) => window.id === activeWindowId) ?? TIME_WINDOWS[0]
+  const today = startOfToday()
   const selectedDate = toDateFromValue(draft.date)
   const slots = getTimeSlots(durationMinutes, activeWindow)
   const selectedDateOptions = selectedDate
@@ -138,8 +141,9 @@ export const AddTimeOptionsStep = ({
               <DayPicker
                 mode="single"
                 selected={selectedDate}
+                disabled={{ before: today }}
                 onSelect={(date) => {
-                  if (date) {
+                  if (date && !isBefore(date, today)) {
                     onDraftChange({ date: toDateValue(date), time: '' })
                   }
                 }}
@@ -166,7 +170,8 @@ export const AddTimeOptionsStep = ({
                     '[&>button]:bg-blue-600 [&>button]:text-white [&>button:hover]:bg-blue-600 [&>button:hover]:text-white',
                   today: 'font-extrabold text-blue-700',
                   outside: 'text-slate-300',
-                  disabled: 'text-slate-300',
+                  disabled:
+                    '[&>button]:cursor-not-allowed [&>button]:text-slate-300 [&>button]:opacity-40 [&>button]:grayscale [&>button:hover]:bg-transparent [&>button:hover]:text-slate-300',
                 }}
               />
           </div>
@@ -198,6 +203,7 @@ export const AddTimeOptionsStep = ({
                     const isSelected = options.some(
                       (option) => option.startsAt === getSlotIso(draft.date, slot.value)
                     )
+                    const isPast = isPastSlot(draft.date, slot.value)
                     const blockedMeeting = findBlockedMeeting({
                       date: draft.date,
                       time: slot.value,
@@ -210,25 +216,27 @@ export const AddTimeOptionsStep = ({
                         key={slot.value}
                         type="button"
                         onClick={() => toggleSlot(slot.value)}
-                        disabled={Boolean(blockedMeeting)}
+                        disabled={isPast || Boolean(blockedMeeting)}
                         aria-pressed={isSelected}
                         title={
-                          blockedMeeting
-                            ? `Blocked by ${blockedMeeting.title}`
-                            : isSelected
-                              ? 'Click to remove this time option'
-                              : 'Click to add this time option'
+                          isPast
+                            ? 'This time has already passed'
+                            : blockedMeeting
+                              ? `Blocked by ${blockedMeeting.title}`
+                              : isSelected
+                                ? 'Click to remove this time option'
+                                : 'Click to add this time option'
                         }
                         className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border text-sm font-bold ${
-                          blockedMeeting
+                          isPast || blockedMeeting
                             ? 'border-slate-200 bg-slate-100 text-slate-400'
                             : isSelected
                               ? 'border-blue-600 bg-blue-600 text-white'
                               : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50'
-                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                        } disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50`}
                       >
                         {isSelected ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
-                        {blockedMeeting ? `${slot.label} blocked` : slot.label}
+                        {isPast ? `${slot.label} passed` : blockedMeeting ? `${slot.label} blocked` : slot.label}
                       </button>
                     )
                   })}

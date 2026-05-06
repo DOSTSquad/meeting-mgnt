@@ -42,7 +42,6 @@ const statusStyles = {
 
 export const RepositoryView = ({
   meetings,
-  meetingParticipantsByMeeting,
   search,
   onSearch,
   onOpenMeeting,
@@ -108,7 +107,7 @@ export const RepositoryView = ({
       return true
     }
 
-    const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+    const participantNames = meeting.participantNames || []
     const searchable = [meeting.title, meeting.tag || '', ...participantNames]
       .join(' ')
       .toLowerCase()
@@ -175,13 +174,6 @@ export const RepositoryView = ({
             Clear tag
           </button>
         ) : null}
-      </div>
-
-      <div className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-6 text-center">
-        <p className="text-sm font-bold text-slate-700">Drag and drop files here or browse</p>
-        <p className="mt-1 text-xs text-slate-500">
-          Upload files from a meeting detail page so every document stays tied to its meeting
-        </p>
       </div>
 
       <div>
@@ -254,8 +246,12 @@ export const RepositoryView = ({
           </div>
           <div className="divide-y divide-slate-100">
             {shownMeetings.map((meeting) => {
-              const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+              const participantNames = meeting.participantNames || []
               const fileCount = getFileCount(meeting)
+              const participantOverflow = Math.max(
+                Number(meeting.participantCount || 0) - participantNames.slice(0, 3).length,
+                0
+              )
               const statusClass = statusStyles[meeting.status] || statusStyles.archived
 
               return (
@@ -276,7 +272,8 @@ export const RepositoryView = ({
                       <span className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
                         <Users className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                         <span className="truncate">
-                          {participantNames.slice(0, 3).join(', ') || 'No participants listed'}
+                          {participantNames.slice(0, 3).join(', ') || 'No attendees listed'}
+                          {participantOverflow > 0 ? ` +${participantOverflow}` : ''}
                         </span>
                       </span>
                     </span>

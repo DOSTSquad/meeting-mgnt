@@ -46,7 +46,7 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 
 Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`, `archived`.
 
-Meeting responses include `tagId`, `tag`, and `fileCount`. `fileCount` is the number of uploaded files attached to that meeting, so repository views can group by meeting tag while keeping files tied to their source meeting.
+Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 

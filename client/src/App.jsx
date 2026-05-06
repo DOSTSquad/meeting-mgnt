@@ -362,37 +362,27 @@ const AppShell = ({ token, user, onLogout }) => {
     )
   }
 
-  const editActionItemAssignee = (actionItemId, assigneeId) => {
+  const updateActionItemFieldsInDetail = async (actionItemId, updates) => {
     setSelectedMeetingDetail((prev) =>
       prev
         ? {
             ...prev,
             actionItems: prev.actionItems.map((item) =>
-              item.id === actionItemId ? { ...item, assigneeId } : item
+              item.id === actionItemId ? { ...item, ...updates } : item
             ),
           }
         : prev
     )
-  }
 
-  const editActionItemDueDate = (actionItemId, dueDateValue) => {
-    setSelectedMeetingDetail((prev) =>
-      prev
-        ? {
-            ...prev,
-            actionItems: prev.actionItems.map((item) =>
-              item.id === actionItemId
-                ? {
-                    ...item,
-                    dueDate: dueDateValue
-                      ? new Date(`${dueDateValue}T00:00:00Z`).toISOString()
-                      : null,
-                  }
-                : item
-            ),
-          }
-        : prev
-    )
+    try {
+      const client = getApiClient(token)
+      await updateActionItem(client, actionItemId, updates)
+      await reloadData()
+      await reloadSelectedMeetingDetail()
+    } catch (error) {
+      setErrorMessage(error.response?.data?.error || 'Unable to save action item')
+      await reloadSelectedMeetingDetail()
+    }
   }
 
   const saveActionItemTitle = async (actionItemId) => {
@@ -411,6 +401,7 @@ const AppShell = ({ token, user, onLogout }) => {
         title: target.title.trim(),
         assigneeId: target.assigneeId || null,
         dueDate: target.dueDate || null,
+        priority: target.priority || 'medium',
       })
       await reloadData()
       await reloadSelectedMeetingDetail()
@@ -528,6 +519,7 @@ const AppShell = ({ token, user, onLogout }) => {
                 onOpenMeetingRequest={openMeetingRequestModal}
                 onOpenAvailabilityRequest={openAvailabilityRequestModal}
                 onViewAllMeetings={() => navigate('/meetings')}
+                onViewAllActionItems={() => navigate('/action-items')}
               />
             }
           />
@@ -536,7 +528,6 @@ const AppShell = ({ token, user, onLogout }) => {
             element={
               <RepositoryView
                 meetings={meetings}
-                meetingParticipantsByMeeting={{}}
                 search={repositorySearch}
                 onSearch={setRepositorySearch}
                 onOpenMeeting={openMeetingDetail}
@@ -555,9 +546,8 @@ const AppShell = ({ token, user, onLogout }) => {
                   onAddActionItem={addActionItemInDetail}
                   onActionItemChange={editActionItemTitle}
                   onActionItemSave={saveActionItemTitle}
-                  onActionItemAssigneeChange={editActionItemAssignee}
-                  onActionItemDueDateChange={editActionItemDueDate}
                   onActionItemStatusChange={updateActionItemStatusInDetail}
+                  onActionItemPatch={updateActionItemFieldsInDetail}
                   onActionItemRemove={removeActionItem}
                   pendingMaterialFiles={pendingMeetingMaterialFiles}
                   pendingAudioFiles={pendingMeetingAudioFiles}
