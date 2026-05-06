@@ -1,23 +1,18 @@
-import { listActionItems } from './actionItemService.js'
-import { getDashboard } from './dashboardService.js'
-import { listMeetings } from './meetingService.js'
-import { listNotifications } from './notificationService.js'
+import { getNotificationSummary } from './notificationService.js'
 import { listTags } from './tagService.js'
 import { listUsers } from './userService.js'
 
 export const loadAppData = async (client) => {
-  const dashboard = await getDashboard(client)
-  const meetings = await listMeetings(client, { limit: 100 })
-  const actionItems = await listActionItems(client)
-  const notifications = await listNotifications(client)
-  const users = await listUsers(client)
-  const tags = await listTags(client)
+  const [notificationSummary, users, tags] = await Promise.all([
+    getNotificationSummary(client),
+    listUsers(client),
+    listTags(client),
+  ])
 
   return {
-    dashboard,
-    meetings,
-    actionItems,
-    notifications,
+    notifications: notificationSummary.notifications,
+    notificationCount: notificationSummary.unreadCount,
+    notificationNextCursor: notificationSummary.nextCursor,
     users,
     tags,
   }

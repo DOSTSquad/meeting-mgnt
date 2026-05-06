@@ -1,6 +1,7 @@
 import {
   createActionItem,
   deleteActionItem,
+  getActionItem,
   listMyActionItems,
   listActionItems,
   updateActionItem,
@@ -28,6 +29,16 @@ export const list = async (req, res, next) => {
     )
 
     res.json({ actionItems })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getOne = async (req, res, next) => {
+  try {
+    const { actionItem } = await getActionItem(req.params.id, req.user?.id)
+
+    res.json({ actionItem })
   } catch (error) {
     next(error)
   }

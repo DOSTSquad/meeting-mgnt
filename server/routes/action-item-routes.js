@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator'
 
 import {
   create,
+  getOne,
   list,
   listMine,
   remove,
@@ -61,6 +62,13 @@ actionItemRouter.get(
   ],
   handleValidationErrors,
   listMine
+)
+
+actionItemRouter.get(
+  '/:id',
+  [param('id').isUUID().withMessage('id must be a UUID')],
+  handleValidationErrors,
+  getOne
 )
 
 actionItemRouter.put(

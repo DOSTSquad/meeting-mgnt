@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { isBefore, startOfToday } from 'date-fns'
 import { ArrowLeft, ArrowRight, Check, CheckCircle, X } from 'lucide-react'
 
 import { getApiClient } from '../../../lib/apiClient.js'
@@ -254,6 +255,11 @@ export const CreateMeetingWizard = ({
       return
     }
 
+    if (isBefore(new Date(`${candidate.date}T00:00:00`), startOfToday())) {
+      setErrorMessage('Choose today or a future date')
+      return
+    }
+
     if (!isThirtyMinuteIncrement(candidate.time)) {
       setErrorMessage('Choose a start time in 30-minute increments')
       return
@@ -262,6 +268,11 @@ export const CreateMeetingWizard = ({
     const startsAt = new Date(`${candidate.date}T${candidate.time}:00`)
     const endsAt = new Date(startsAt.getTime() + requestForm.durationMinutes * 60 * 1000)
     const startsAtIso = startsAt.toISOString()
+
+    if (startsAt < new Date()) {
+      setErrorMessage('Choose a future start time')
+      return
+    }
 
     if (timeOptions.some((option) => option.startsAt === startsAtIso)) {
       setErrorMessage('This time option is already selected')

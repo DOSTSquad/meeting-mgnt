@@ -11,6 +11,7 @@ import { create as createMeetingHandler } from '../controllers/meeting-controlle
 import { add as addParticipantsHandler } from '../controllers/participant-controller.js'
 import {
   create as createActionItemHandler,
+  getOne as getActionItemHandler,
   list as listActionItemsHandler,
   remove as removeActionItemHandler,
   update as updateActionItemHandler,
@@ -226,6 +227,79 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(res.body.actionItems[0].title).toBe('Write proposal')
   })
 
+  it('returns one action item detail for meeting participants', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Inspect details', description: 'Full detail body' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    const { res, nextError } = await runHandler(
+      getActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    expect(nextError).toBeUndefined()
+    expect(res.body.actionItem).toMatchObject({
+      id: created.res.body.actionItem.id,
+      title: 'Inspect details',
+      description: 'Full detail body',
+    })
+  })
+
+  it('allows the assignee to view detail even when not a meeting participant', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Assigned detail view' },
+        user: { id: organizerUser.id },
+      })
+    )
+    await query('UPDATE action_items SET assignee_id = $1 WHERE id = $2', [
+      bobUser.id,
+      created.res.body.actionItem.id,
+    ])
+
+    const { res, nextError } = await runHandler(
+      getActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(nextError).toBeUndefined()
+    expect(res.body.actionItem.assigneeId).toBe(bobUser.id)
+  })
+
+  it('prevents outsiders from viewing action item detail', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Private task' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    const { nextError } = await runHandler(
+      getActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(nextError?.statusCode).toBe(403)
+  })
+
   it('filters list results by status', async () => {
     const created = await runHandler(
       createActionItemHandler,
@@ -398,6 +472,61 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(nextError).toBeUndefined()
     expect(res.body.actionItem.status).toBe('in_progress')
     expect(res.body.actionItem.completedAt).toBeNull()
+  })
+
+  it('allows the assignee to update status even when not a meeting participant', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Assigned outside participant list' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    await query('UPDATE action_items SET assignee_id = $1 WHERE id = $2', [
+      bobUser.id,
+      created.res.body.actionItem.id,
+    ])
+
+    const { res, nextError } = await runHandler(
+      updateActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        body: { status: 'in_progress' },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(nextError).toBeUndefined()
+    expect(res.body.actionItem.status).toBe('in_progress')
+  })
+
+  it('prevents a non-participant assignee from editing fields other than status', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Status only for assignee' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    await query('UPDATE action_items SET assignee_id = $1 WHERE id = $2', [
+      bobUser.id,
+      created.res.body.actionItem.id,
+    ])
+
+    const { nextError } = await runHandler(
+      updateActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        body: { title: 'Should not update' },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(nextError?.statusCode).toBe(403)
   })
 
   it('returns 400 when update supplies no fields', async () => {

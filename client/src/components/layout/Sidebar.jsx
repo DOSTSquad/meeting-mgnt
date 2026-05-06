@@ -1,9 +1,11 @@
+import { FolderKanban, KanbanSquare, LayoutDashboard } from 'lucide-react'
+
 import { menuItems } from '../../constants/navigation.js'
 
-const navMarks = {
-  dashboard: 'D',
-  repository: 'R',
-  'action-items': 'A',
+const navIcons = {
+  dashboard: LayoutDashboard,
+  repository: FolderKanban,
+  'action-items': KanbanSquare,
 }
 
 export const Sidebar = ({ activePage, onSelect }) => (
@@ -15,23 +17,25 @@ export const Sidebar = ({ activePage, onSelect }) => (
       </div>
       <div className="mb-4 h-px bg-slate-700" />
       <nav className="space-y-2">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(item)}
-            className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition ${
-              activePage === item.id
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-300 hover:bg-slate-800/70'
-            }`}
-          >
-            <span className="flex h-4 w-4 items-center justify-center text-[10px]">
-              {navMarks[item.id]}
-            </span>
-            <span>{item.label}</span>
-          </button>
-        ))}
+        {menuItems.map((item) => {
+          const Icon = navIcons[item.id]
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item)}
+              className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold transition ${
+                activePage === item.id
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-300 hover:bg-slate-800/70'
+              }`}
+            >
+              {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
+              <span>{item.label}</span>
+            </button>
+          )
+        })}
       </nav>
     </div>
   </aside>

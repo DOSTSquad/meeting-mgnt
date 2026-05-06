@@ -46,7 +46,7 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 
 Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`, `archived`.
 
-Meeting responses include `tagId`, `tag`, and `fileCount`. `fileCount` is the number of uploaded files attached to that meeting, so repository views can group by meeting tag while keeping files tied to their source meeting.
+Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
@@ -82,15 +82,21 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 ### Dashboard (`/api/dashboard`)
 
-| Method | Path | Body / Query | Returns                                                                                      |
-| ------ | ---- | ------------ | -------------------------------------------------------------------------------------------- |
-| GET    | `/`  | —            | `200 { recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }` |
+| Method | Path                     | Body / Query       | Returns                                                                                      |
+| ------ | ------------------------ | ------------------ | -------------------------------------------------------------------------------------------- |
+| GET    | `/`                      | —                  | `200 { recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }` |
+| GET    | `/notifications/summary` | —                  | `200 { unreadCount, notifications, nextCursor }`                                             |
+| GET    | `/notifications`         | `?limit=&cursor=`  | `200 { notifications, nextCursor }`                                                          |
 
 `recentMeetings` contains the next six accessible active meetings ordered by earliest `startsAt`. Cancelled, archived, and past meetings are excluded.
 
 `pendingMeetingRequests` contains unconfirmed, uncancelled meeting requests created by the current user. Each item includes `inviteeCounts`, `timeOptionCount`, `durationMinutes`, `timezoneName`, `responseDeadline`, and `status` so the dashboard can show in-progress meeting polls before a real meeting exists.
 
 `pendingAvailabilityRequests` contains unconfirmed, uncancelled meeting requests where the current user is an invitee and has not submitted availability yet. Each item includes the `inviteeId`, creator summary, invitee counts, time option count, duration, timezone, deadline, and status so the dashboard can open the voting modal.
+
+`myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
+
+`/notifications/summary` is intended for the topbar. It returns a total count, the latest five notifications, and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
 
 ### Meeting Minutes (`/api/meetings/:meetingId/minutes`)
 
@@ -141,12 +147,13 @@ Any meeting participant (creator or any role) can upload, list, and request down
 | ------ | ----------------------------------- | --------------------------------------------------------------------------------------------- | --------------------- |
 | POST   | `/meetings/:meetingId/action-items` | `{ title, description?, assigneeId?, dueDate?, priority? }`                                   | `201 { actionItem }`  |
 | GET    | `/meetings/:meetingId/action-items` | `?status=...&assigneeId=...` (both optional)                                                  | `200 { actionItems }` |
+| GET    | `/action-items/:id`                 | —                                                                                             | `200 { actionItem }`  |
 | PUT    | `/action-items/:id`                 | partial: `{ title?, description?, assigneeId?, dueDate?, status?, priority? }` (at least one) | `200 { actionItem }`  |
 | DELETE | `/action-items/:id`                 | —                                                                                             | `204`                 |
 
 - `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
 - `priority` — one of `low`, `medium` (default), `high`.
-- Any meeting participant (including the creator) can create, read, update, or delete action items. Non-participants receive `403`.
+- Any meeting participant (including the creator) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
 
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).

@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { FileAudio, UploadCloud } from 'lucide-react'
+import { FileAudio, Trash2, UploadCloud } from 'lucide-react'
 
-import { isOverdueActionItem } from '../../utils/actionItems.js'
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
 
 const actionStatusStyles = {
@@ -27,25 +26,6 @@ const priorityStyles = {
   high: 'bg-rose-100 text-rose-700',
   medium: 'bg-amber-100 text-amber-700',
   low: 'bg-sky-100 text-sky-700',
-}
-
-const getActionStatus = (item) => {
-  if (isOverdueActionItem(item)) {
-    return {
-      label: 'Overdue',
-      className: 'bg-rose-50 text-rose-700 ring-rose-200',
-    }
-  }
-
-  return actionStatusStyles[item.status] || actionStatusStyles.todo
-}
-
-const getDueText = (item) => {
-  if (item.status === 'completed') {
-    return item.completedAt ? `Completed ${formatDateOnly(item.completedAt)}` : 'Completed'
-  }
-
-  return item.dueDate ? `Due ${formatDateOnly(item.dueDate)}` : 'No due date'
 }
 
 const padDatePart = (value) => String(value).padStart(2, '0')
@@ -84,9 +64,8 @@ export const MeetingDetailView = ({
   onAddActionItem,
   onActionItemChange,
   onActionItemSave,
-  onActionItemAssigneeChange,
-  onActionItemDueDateChange,
   onActionItemStatusChange,
+  onActionItemPatch,
   onActionItemRemove,
   pendingMaterialFiles,
   pendingAudioFiles,
@@ -103,10 +82,8 @@ export const MeetingDetailView = ({
     title: '',
     assigneeId: '',
     dueDate: '',
+    priority: 'medium',
   })
-  const participantsById = Object.fromEntries(
-    (detail?.participants || []).map((participant) => [participant.userId, participant.name])
-  )
 
   if (!detail) {
     return null
@@ -124,8 +101,9 @@ export const MeetingDetailView = ({
       dueDate: newActionItem.dueDate
         ? new Date(`${newActionItem.dueDate}T00:00:00Z`).toISOString()
         : null,
+      priority: newActionItem.priority,
     })
-    setNewActionItem({ title: '', assigneeId: '', dueDate: '' })
+    setNewActionItem({ title: '', assigneeId: '', dueDate: '', priority: 'medium' })
   }
 
   return (
@@ -237,7 +215,7 @@ export const MeetingDetailView = ({
 
             <form
               onSubmit={submitNewActionItem}
-              className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_auto]"
+              className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_8rem_auto]"
             >
               <label className="block">
                 <span className="sr-only">New action item task</span>
@@ -278,6 +256,20 @@ export const MeetingDetailView = ({
                   className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
                 />
               </label>
+              <label className="block">
+                <span className="sr-only">New action item priority</span>
+                <select
+                  value={newActionItem.priority}
+                  onChange={(event) =>
+                    setNewActionItem((prev) => ({ ...prev, priority: event.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium capitalize text-slate-700"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
               <button
                 type="submit"
                 disabled={!newActionItem.title.trim()}
@@ -289,76 +281,55 @@ export const MeetingDetailView = ({
 
             <div className="mt-3 space-y-3">
               {detail.actionItems.map((item) => {
-                const status = getActionStatus(item)
-                const priorityClass = priorityStyles[item.priority] || priorityStyles.medium
                 const isCompleted = item.status === 'completed'
 
                 return (
                   <article
                     key={item.id}
-                    className={`rounded-xl border p-3 ${
+                    className={`rounded-xl border p-3 shadow-sm transition ${
                       isCompleted
-                        ? 'border-emerald-100 bg-emerald-50/50'
-                        : 'border-slate-200 bg-slate-50/80'
+                        ? 'border-emerald-100 bg-emerald-50/50 opacity-95'
+                        : 'border-slate-200 bg-white hover:border-blue-100 hover:shadow-md'
                     }`}
                   >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex min-w-0 flex-1 gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onActionItemStatusChange(item.id, isCompleted ? 'todo' : 'completed')
-                          }
-                          aria-label={
-                            isCompleted ? 'Mark action item open' : 'Mark action item done'
-                          }
-                          className={`mt-6 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition ${
+                    <div className="flex items-start gap-2">
+                      <label className="block min-w-0 flex-1">
+                        <span className="sr-only">Task</span>
+                        <input
+                          value={item.title}
+                          onChange={(event) => onActionItemChange(item.id, event.target.value)}
+                          onBlur={() => onActionItemSave(item.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.currentTarget.blur()
+                            }
+                          }}
+                          className={`h-8 w-full rounded-md border border-transparent bg-transparent px-0 text-base font-extrabold text-slate-900 outline-none transition focus:border-blue-300 focus:px-2 focus:ring-2 focus:ring-blue-100 ${
                             isCompleted
-                              ? 'border-emerald-500 bg-emerald-500 text-white'
-                              : 'border-slate-300 bg-white text-transparent hover:border-blue-400 hover:text-blue-600'
+                              ? 'text-slate-500 line-through focus:bg-emerald-50'
+                              : 'focus:bg-blue-50/40'
                           }`}
-                        >
-                          ✓
-                        </button>
-                        <label className="min-w-0 flex-1">
-                          <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                            Task
-                          </span>
-                          <input
-                            value={item.title}
-                            onChange={(event) => onActionItemChange(item.id, event.target.value)}
-                            onBlur={() => onActionItemSave(item.id)}
-                            className={`h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100 ${
-                              isCompleted ? 'text-slate-500 line-through' : ''
-                            }`}
-                          />
-                        </label>
-                      </div>
-                      <div className="flex shrink-0 flex-wrap gap-2">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${status.className}`}
-                        >
-                          {status.label}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${priorityClass}`}
-                        >
-                          {item.priority || 'medium'}
-                        </span>
-                      </div>
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => onActionItemRemove(item.id)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Remove action item"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
                     </div>
 
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       <label className="block">
-                        <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                          Owner
-                        </span>
+                        <span className="sr-only">Owner</span>
                         <select
                           value={item.assigneeId || ''}
                           onChange={(event) =>
-                            onActionItemAssigneeChange(item.id, event.target.value || null)
+                            onActionItemPatch(item.id, { assigneeId: event.target.value || null })
                           }
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+                          className="h-8 max-w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
                         >
                           <option value="">Unassigned</option>
                           {detail.participants.map((participant) => (
@@ -368,32 +339,55 @@ export const MeetingDetailView = ({
                           ))}
                         </select>
                       </label>
+
                       <label className="block">
-                        <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                          Deadline
-                        </span>
+                        <span className="sr-only">Deadline</span>
                         <input
                           type="date"
                           value={item.dueDate ? item.dueDate.slice(0, 10) : ''}
-                          onChange={(event) =>
-                            onActionItemDueDateChange(item.id, event.target.value)
-                          }
-                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700"
+                          onChange={(event) => {
+                            const dueDate = event.target.value
+                              ? new Date(`${event.target.value}T00:00:00Z`).toISOString()
+                              : null
+                            onActionItemPatch(item.id, { dueDate })
+                          }}
+                          className="h-8 w-36 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
                         />
                       </label>
-                    </div>
 
-                    <div className="mt-3 flex flex-col gap-2 border-t border-slate-200 pt-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                      <span>
-                        {participantsById[item.assigneeId] || 'Unassigned'} · {getDueText(item)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onActionItemRemove(item.id)}
-                        className="self-start font-semibold text-rose-600 hover:text-rose-700 sm:self-auto"
-                      >
-                        Remove
-                      </button>
+                      <label className="block">
+                        <span className="sr-only">Status</span>
+                        <select
+                          value={item.status}
+                          onChange={(event) => onActionItemStatusChange(item.id, event.target.value)}
+                          className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold ${
+                            actionStatusStyles[item.status]?.className ||
+                            actionStatusStyles.todo.className
+                          }`}
+                        >
+                          <option value="todo">To do</option>
+                          <option value="in_progress">In progress</option>
+                          <option value="blocked">Blocked</option>
+                          <option value="completed">Done</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="sr-only">Priority</span>
+                        <select
+                          value={item.priority || 'medium'}
+                          onChange={(event) =>
+                            onActionItemPatch(item.id, { priority: event.target.value })
+                          }
+                          className={`h-8 w-28 rounded-md border border-transparent px-2 text-xs font-extrabold capitalize ${
+                            priorityStyles[item.priority] || priorityStyles.medium
+                          }`}
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </label>
                     </div>
                   </article>
                 )

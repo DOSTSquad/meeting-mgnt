@@ -39,10 +39,12 @@ export const listMeetingFiles = async (client, meetingId) => {
 }
 
 export const getMeetingDetail = async (client, meetingId) => {
-  const meeting = await getMeeting(client, meetingId)
-  const participants = await listMeetingParticipants(client, meetingId)
-  const actionItems = await listMeetingActionItems(client, meetingId)
-  const files = await listMeetingFiles(client, meetingId)
+  const [meeting, participants, actionItems, files] = await Promise.all([
+    getMeeting(client, meetingId),
+    listMeetingParticipants(client, meetingId),
+    listMeetingActionItems(client, meetingId),
+    listMeetingFiles(client, meetingId),
+  ])
 
   return {
     meeting,

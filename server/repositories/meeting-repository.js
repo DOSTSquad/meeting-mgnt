@@ -16,7 +16,14 @@ const MEETING_COLUMNS = `
   m.updated_at
 `
 
-const MEETING_FILE_COUNT_COLUMN = 'COUNT(mf.id)::int AS file_count'
+const MEETING_FILE_COUNT_COLUMN = 'COUNT(DISTINCT mf.id)::int AS file_count'
+const MEETING_PARTICIPANT_COLUMNS = `
+  COUNT(DISTINCT mp.user_id)::int AS participant_count,
+  COALESCE(
+    (ARRAY_AGG(DISTINCT u.name ORDER BY u.name) FILTER (WHERE u.name IS NOT NULL))[1:3],
+    ARRAY[]::text[]
+  ) AS participant_names
+`
 
 const mapMeeting = (row) => {
   if (!row) {
@@ -35,6 +42,8 @@ const mapMeeting = (row) => {
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
     fileCount: Number(row.file_count ?? 0),
+    participantCount: Number(row.participant_count ?? 0),
+    participantNames: row.participant_names ?? [],
     createdBy: row.created_by,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -70,10 +79,12 @@ export const createMeeting = async ({
 export const findMeetingById = async (id) => {
   const result = await query(
     `
-      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
       LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
+      LEFT JOIN meeting_participants mp ON mp.meeting_id = m.id
+      LEFT JOIN users u ON u.id = mp.user_id
       WHERE m.id = $1
       GROUP BY m.id, t.id
       LIMIT 1
@@ -215,10 +226,12 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
 
   const rowsResult = await query(
     `
-      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
       LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
+      LEFT JOIN meeting_participants mp ON mp.meeting_id = m.id
+      LEFT JOIN users u ON u.id = mp.user_id
       ${whereSql}
       GROUP BY m.id, t.id
       ORDER BY m.starts_at ASC, m.id ASC

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarDays, ChevronRight, FileText, Users } from 'lucide-react'
+import { CalendarDays, ChevronRight, FileText, Search, Users } from 'lucide-react'
 
 import { formatDateOnly } from '../../utils/date.js'
 
@@ -42,7 +42,6 @@ const statusStyles = {
 
 export const RepositoryView = ({
   meetings,
-  meetingParticipantsByMeeting,
   search,
   onSearch,
   onOpenMeeting,
@@ -108,7 +107,7 @@ export const RepositoryView = ({
       return true
     }
 
-    const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+    const participantNames = meeting.participantNames || []
     const searchable = [meeting.title, meeting.tag || '', ...participantNames]
       .join(' ')
       .toLowerCase()
@@ -141,7 +140,7 @@ export const RepositoryView = ({
 
       <div className="flex flex-col gap-3 rounded-lg border border-slate-100 bg-slate-50 p-2 sm:flex-row sm:items-center">
         <label className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500">
-          <span className="text-xs font-bold text-slate-400">S</span>
+          <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <input
             type="search"
             value={search}
@@ -163,7 +162,7 @@ export const RepositoryView = ({
           <option value="archived">Archived</option>
         </select>
         <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">
-          <span className="text-slate-400">D</span>
+          <CalendarDays className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <span>{upcomingCount} upcoming</span>
         </div>
         {selectedTagKey !== 'all' ? (
@@ -175,13 +174,6 @@ export const RepositoryView = ({
             Clear tag
           </button>
         ) : null}
-      </div>
-
-      <div className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 py-6 text-center">
-        <p className="text-sm font-bold text-slate-700">Drag and drop files here or browse</p>
-        <p className="mt-1 text-xs text-slate-500">
-          Upload files from a meeting detail page so every document stays tied to its meeting
-        </p>
       </div>
 
       <div>
@@ -254,8 +246,12 @@ export const RepositoryView = ({
           </div>
           <div className="divide-y divide-slate-100">
             {shownMeetings.map((meeting) => {
-              const participantNames = meetingParticipantsByMeeting[meeting.id] || []
+              const participantNames = meeting.participantNames || []
               const fileCount = getFileCount(meeting)
+              const participantOverflow = Math.max(
+                Number(meeting.participantCount || 0) - participantNames.slice(0, 3).length,
+                0
+              )
               const statusClass = statusStyles[meeting.status] || statusStyles.archived
 
               return (
@@ -267,7 +263,7 @@ export const RepositoryView = ({
                 >
                   <span className="flex min-w-0 gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-xs font-bold text-blue-600">
-                      M
+                      <CalendarDays className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-bold text-slate-800">
@@ -276,7 +272,8 @@ export const RepositoryView = ({
                       <span className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
                         <Users className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                         <span className="truncate">
-                          {participantNames.slice(0, 3).join(', ') || 'No participants listed'}
+                          {participantNames.slice(0, 3).join(', ') || 'No attendees listed'}
+                          {participantOverflow > 0 ? ` +${participantOverflow}` : ''}
                         </span>
                       </span>
                     </span>

@@ -357,9 +357,17 @@ const seedParticipants = async (meetingId, usersByEmail) => {
 
 const seedActionItems = async (meetingsByTitle, usersByEmail) => {
   const createdBy = usersByEmail.get('paveen.anuntakulnatee@seed.local')
-  const userIds = Array.from(usersByEmail.values())
 
   for (const [meetingTitle, meetingId] of meetingsByTitle.entries()) {
+    const participants = await query(
+      `
+        SELECT user_id
+        FROM meeting_participants
+        WHERE meeting_id = $1
+      `,
+      [meetingId]
+    )
+    const participantIds = participants.rows.map((row) => row.user_id)
     const dueDate = new Date()
     dueDate.setUTCDate(dueDate.getUTCDate() + Math.floor(Math.random() * 14) + 1)
 
@@ -383,7 +391,7 @@ const seedActionItems = async (meetingsByTitle, usersByEmail) => {
           meetingId,
           `${randomPick(actionTitlePool)} (${meetingTitle})`,
           randomPick(minutesPool),
-          randomPick(userIds),
+          randomPick(participantIds),
           dueDate.toISOString(),
           randomPick(actionStatuses),
           randomPick(actionPriorities),

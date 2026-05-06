@@ -242,6 +242,53 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(listed.res.body.meetings[0].fileCount).toBe(2)
   })
 
+  it('includes participant summaries in list and detail responses', async () => {
+    const created = await createMeetingViaController()
+    const attendeeNames = ['Attendee Alpha', 'Attendee Beta', 'Attendee Gamma', 'Attendee Omega']
+    const attendees = []
+
+    for (const [index, name] of attendeeNames.entries()) {
+      attendees.push(
+        await createUser({
+          name,
+          email: `attendee-${index}@example.com`,
+          passwordHash: 'fake-hash-not-used',
+          role: 'staff',
+          department: 'engineering',
+        })
+      )
+    }
+
+    await query(
+      `
+        INSERT INTO meeting_participants (meeting_id, user_id, role, added_by)
+        SELECT $1, UNNEST($2::uuid[]), 'attendee', $3
+      `,
+      [created.id, attendees.map((attendee) => attendee.id), testUser.id]
+    )
+
+    const found = await runHandler(
+      getOne,
+      buildRequest({ params: { id: created.id }, user: { id: testUser.id } })
+    )
+    expect(found.nextError).toBeUndefined()
+    expect(found.res.body.meeting.participantCount).toBe(5)
+    expect(found.res.body.meeting.participantNames).toEqual([
+      'Attendee Alpha',
+      'Attendee Beta',
+      'Attendee Gamma',
+    ])
+
+    const listed = await runHandler(list, buildRequest({ user: { id: testUser.id } }))
+    expect(listed.nextError).toBeUndefined()
+    expect(listed.res.body.meetings[0].participantCount).toBe(5)
+    expect(listed.res.body.meetings[0].participantNames).toEqual([
+      'Attendee Alpha',
+      'Attendee Beta',
+      'Attendee Gamma',
+    ])
+  })
+
   it('lists meetings filtered by status, from, and to', async () => {
     await createMeetingViaController({
       title: 'Past completed',

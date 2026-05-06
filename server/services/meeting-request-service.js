@@ -51,8 +51,18 @@ const validateTimeRange = (startsAt, endsAt) => {
   const start = toDate(startsAt)
   const end = toDate(endsAt)
 
+  if (start < new Date()) {
+    throw createHttpError('startsAt must be in the future', 400)
+  }
+
   if (!(end > start)) {
     throw createHttpError('endsAt must be after startsAt', 400)
+  }
+}
+
+const validateFutureDateTime = (value, fieldName) => {
+  if (value && toDate(value) < new Date()) {
+    throw createHttpError(`${fieldName} must be in the future`, 400)
   }
 }
 
@@ -107,6 +117,7 @@ export const createRequestForUser = async (input, callerId) => {
   }
 
   validateTimezone(timezoneName)
+  validateFutureDateTime(responseDeadline, 'responseDeadline')
 
   const meetingRequest = await createMeetingRequest({
     title,
