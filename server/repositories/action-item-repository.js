@@ -1,4 +1,5 @@
 import { query } from '../db/postgres.js'
+import { getActionItemDueState, isOverdueActionItem } from '../utils/action-items.js'
 
 const ACTION_ITEM_COLUMNS = `
   id,
@@ -22,14 +23,19 @@ const mapActionItem = (row) => {
     return null
   }
 
+  const dueDate = row.due_date ? row.due_date.toISOString() : null
+  const isOverdue = isOverdueActionItem({ dueDate: row.due_date, status: row.status })
+
   return {
     id: row.id,
     meetingId: row.meeting_id,
     title: row.title,
     description: row.description ?? null,
     assigneeId: row.assignee_id ?? null,
-    dueDate: row.due_date ? row.due_date.toISOString() : null,
+    dueDate,
     status: row.status,
+    isOverdue,
+    dueState: getActionItemDueState({ dueDate: row.due_date, status: row.status }),
     priority: row.priority,
     source: row.source,
     sourceRef: row.source_ref ?? null,
@@ -134,17 +140,7 @@ export const insert = async ({
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING ${ACTION_ITEM_COLUMNS}
     `,
-    [
-      meetingId,
-      title,
-      description,
-      assigneeId,
-      dueDate,
-      priority,
-      source,
-      sourceRef,
-      createdBy,
-    ]
+    [meetingId, title, description, assigneeId, dueDate, priority, source, sourceRef, createdBy]
   )
 
   return mapActionItem(result.rows[0])

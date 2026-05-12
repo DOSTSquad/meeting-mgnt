@@ -1,4 +1,5 @@
 import { query } from '../db/postgres.js'
+import { getActionItemDueState, isOverdueActionItem } from '../utils/action-items.js'
 
 const mapMeetingRow = (row) => ({
   id: row.id,
@@ -127,17 +128,23 @@ export const listMyActionItems = async (userId, limit = 10) => {
     [userId, limit]
   )
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    meetingId: row.meeting_id,
-    meetingTitle: row.meeting_title,
-    title: row.title,
-    assigneeId: row.assignee_id,
-    status: row.status,
-    priority: row.priority,
-    dueDate: row.due_date ? row.due_date.toISOString() : null,
-    createdAt: row.created_at.toISOString(),
-  }))
+  return result.rows.map((row) => {
+    const dueDate = row.due_date ? row.due_date.toISOString() : null
+
+    return {
+      id: row.id,
+      meetingId: row.meeting_id,
+      meetingTitle: row.meeting_title,
+      title: row.title,
+      assigneeId: row.assignee_id,
+      status: row.status,
+      isOverdue: isOverdueActionItem({ dueDate: row.due_date, status: row.status }),
+      dueState: getActionItemDueState({ dueDate: row.due_date, status: row.status }),
+      priority: row.priority,
+      dueDate,
+      createdAt: row.created_at.toISOString(),
+    }
+  })
 }
 
 export const listPendingMeetingRequestsForUser = async (userId, limit = 5) => {

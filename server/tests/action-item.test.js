@@ -198,6 +198,8 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(res.statusCode).toBe(201)
     expect(res.body.actionItem.title).toBe('Write proposal')
     expect(res.body.actionItem.status).toBe('todo')
+    expect(res.body.actionItem.isOverdue).toBe(false)
+    expect(res.body.actionItem.dueState).toBe('none')
     expect(res.body.actionItem.priority).toBe('medium')
     expect(res.body.actionItem.source).toBe('manual')
     expect(res.body.actionItem.completedAt).toBeNull()
@@ -341,6 +343,66 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(res.body.actionItems).toHaveLength(1)
     expect(res.body.actionItems[0].title).toBe('To complete')
     expect(res.body.actionItems[0].status).toBe('completed')
+  })
+
+  it('derives overdue state from due date and open workflow status', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: {
+          title: 'Past due task',
+          dueDate: '2000-01-01T00:00:00.000Z',
+        },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    expect(created.nextError).toBeUndefined()
+    expect(created.res.body.actionItem.status).toBe('todo')
+    expect(created.res.body.actionItem.isOverdue).toBe(true)
+    expect(created.res.body.actionItem.dueState).toBe('overdue')
+
+    const completed = await runHandler(
+      updateActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        body: { status: 'completed' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    expect(completed.nextError).toBeUndefined()
+    expect(completed.res.body.actionItem.isOverdue).toBe(false)
+    expect(completed.res.body.actionItem.dueState).toBe('closed')
+  })
+
+  it('treats blocked past-due action items as overdue', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: {
+          title: 'Blocked and past due',
+          dueDate: '2000-01-01T00:00:00.000Z',
+        },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    const { res, nextError } = await runHandler(
+      updateActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        body: { status: 'blocked' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    expect(nextError).toBeUndefined()
+    expect(res.body.actionItem.status).toBe('blocked')
+    expect(res.body.actionItem.isOverdue).toBe(true)
+    expect(res.body.actionItem.dueState).toBe('overdue')
   })
 
   it('returns 403 when a non-participant tries to create', async () => {
