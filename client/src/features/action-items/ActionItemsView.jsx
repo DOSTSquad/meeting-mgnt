@@ -39,8 +39,10 @@ const avatarColors = [
   'bg-emerald-500',
 ]
 
+const toDisplayString = (value) => (value == null ? '' : String(value))
+
 const getInitials = (name = '') =>
-  name
+  toDisplayString(name)
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -48,7 +50,7 @@ const getInitials = (name = '') =>
     .join('') || 'NA'
 
 const toTitleCase = (value = '') =>
-  value
+  toDisplayString(value)
     .split(' ')
     .filter(Boolean)
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1).toLowerCase()}`)
