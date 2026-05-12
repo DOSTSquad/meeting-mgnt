@@ -101,7 +101,7 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 `pendingAvailabilityRequests` contains unconfirmed, uncancelled meeting requests where the current user is an invitee and has not submitted availability yet. Each item includes the `inviteeId`, creator summary, invitee counts, time option count, duration, timezone, deadline, and status so the dashboard can open the voting modal.
 
-`myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
+`myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `isOverdue`, `dueState`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
 
 Notifications are table-backed lifecycle records. New rows are created for meeting creation, action-item assignment, meeting-request invitations, and meeting-request confirmation. Each notification stores `entityType` and `entityId` for navigation plus snapshot `title` and `detail` for fast feed rendering. `unreadCount` counts rows where `readAt` is null. Archived notifications are hidden from summary and feed responses. `/notifications/summary` is intended for the topbar. It returns the latest five notifications and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
 
@@ -121,14 +121,14 @@ Any meeting participant can read minutes. Only the meeting creator or a particip
 
 Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
 
-| Method | Path                | Body / Query                                             | Returns                                      |
-| ------ | ------------------- | -------------------------------------------------------- | -------------------------------------------- |
-| GET    | `/`                 | —                                                        | `200 { recording, transcript }`              |
-| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`              |
-| DELETE | `/`                 | —                                                        | `204`                                        |
-| POST   | `/generate-minutes` | —                                                        | `202 { recording, transcript, generationStatus }` |
+| Method | Path                | Body / Query                                            | Returns                                           |
+| ------ | ------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| GET    | `/`                 | —                                                       | `200 { recording, transcript }`                   |
+| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`                   |
+| DELETE | `/`                 | —                                                       | `204`                                             |
+| POST   | `/generate-minutes` | —                                                       | `202 { recording, transcript, generationStatus }` |
 
-Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+Any meeting participant can read recording metadata and transcript status. Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
 `POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
@@ -174,6 +174,7 @@ Any meeting participant (creator or any role) can upload, list, and request down
 | DELETE | `/action-items/:id`                 | —                                                                                             | `204`                 |
 
 - `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
+- `isOverdue` and `dueState` are derived from `dueDate` and workflow `status`; they are not persisted statuses. `dueState` is one of `none`, `upcoming`, `overdue`, or `closed`.
 - `priority` — one of `low`, `medium` (default), `high`.
 - Any meeting participant (including the creator) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowRight, CalendarCheck } from 'lucide-react'
 
 import { ActionItemDetailModal } from '../action-items/ActionItemsView.jsx'
+import { isOverdueActionItem } from '../../utils/actionItems.js'
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
 
 const toTitleCase = (value = '') =>
@@ -146,10 +147,21 @@ export const DashboardView = ({
                 key={item.id}
                 type="button"
                 onClick={() => openActionItemDetail(item)}
-                className="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-white"
+                className={`block w-full rounded-2xl border p-4 text-left transition hover:bg-white ${
+                  isOverdueActionItem(item)
+                    ? 'border-rose-200 bg-rose-50/70 hover:border-rose-300'
+                    : 'border-slate-200 bg-slate-50 hover:border-blue-300'
+                }`}
               >
                 <p className="truncate font-semibold text-slate-700">{item.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Due: {formatDateOnly(item.dueDate)}</p>
+                <p
+                  className={`mt-1 text-sm ${
+                    isOverdueActionItem(item) ? 'font-semibold text-rose-600' : 'text-slate-500'
+                  }`}
+                >
+                  {isOverdueActionItem(item) ? 'Overdue: ' : 'Due: '}
+                  {formatDateOnly(item.dueDate)}
+                </p>
               </button>
             ))}
             {actionItems.length === 0 ? (
