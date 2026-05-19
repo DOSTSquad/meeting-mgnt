@@ -184,10 +184,10 @@ export const NotificationMenu = ({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 z-20 mt-3 flex h-[min(42rem,calc(100vh-5rem))] w-[calc(100vw-2rem)] max-w-[30rem] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-          <div className="flex shrink-0 items-center justify-between gap-3 p-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">Notifications</h2>
+        <div className="fixed left-4 right-4 top-16 z-50 flex h-[min(34rem,calc(100vh-5rem))] w-auto flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:z-20 sm:mt-3 sm:h-[min(42rem,calc(100vh-5rem))] sm:w-[calc(100vw-2rem)] sm:max-w-[30rem]">
+          <div className="flex shrink-0 items-center justify-between gap-2 p-2.5 sm:gap-3 sm:p-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="hidden text-lg font-bold text-slate-900 sm:block">Notifications</h2>
               {unreadCount > 0 ? (
                 <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-2 text-xs font-bold text-white">
                   {unreadCount > 99 ? '99+' : unreadCount}
@@ -199,7 +199,7 @@ export const NotificationMenu = ({
                 <button
                   type="button"
                   onClick={onArchiveReadNotifications}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                  className="hidden h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 sm:inline-flex"
                 >
                   <Archive className="h-4 w-4" />
                   Archive read
@@ -213,7 +213,7 @@ export const NotificationMenu = ({
                   )
                   await onMarkAllNotificationsRead?.()
                 }}
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 sm:h-9 sm:gap-2 sm:px-3"
               >
                 <CheckCheck className="h-4 w-4" />
                 Mark read
@@ -221,13 +221,13 @@ export const NotificationMenu = ({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 border-t border-slate-200 p-4">
+          <div className="min-h-0 flex-1 border-t border-slate-200 p-2.5 sm:p-4">
             <div
               ref={scrollContainerRef}
               onScroll={loadMoreIfNearBottom}
               className="h-full overflow-y-auto overflow-x-hidden pr-1"
             >
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 {sortedNotifications.map((item, index) => {
                   const config = notificationCopy[item.type] || {
                     title: 'Notification',
@@ -247,18 +247,18 @@ export const NotificationMenu = ({
                         await onOpenNotification?.(item)
                         setIsOpen(false)
                       }}
-                      className={`relative min-w-0 overflow-hidden rounded-lg border px-3 py-2.5 pl-7 transition ${
+                      className={`relative min-w-0 overflow-hidden rounded-lg border px-2.5 py-2 pl-5 transition sm:px-3 sm:py-2.5 sm:pl-7 ${
                         isRead ? styles.readCard : styles.unreadCard
                       } w-full cursor-pointer text-left hover:border-blue-200 hover:shadow-sm`}
                     >
                       {!isRead ? (
                         <span
-                          className={`absolute left-3 top-4 h-2 w-2 rounded-full ${styles.dot}`}
+                          className={`absolute left-2 top-3.5 h-2 w-2 rounded-full sm:left-3 sm:top-4 ${styles.dot}`}
                           aria-hidden="true"
                         />
                       ) : null}
                       <p
-                        className={`truncate text-sm ${
+                        className={`truncate text-xs sm:text-sm ${
                           isRead ? 'font-semibold text-slate-800' : 'font-bold text-slate-900'
                         }`}
                       >
@@ -271,9 +271,11 @@ export const NotificationMenu = ({
                       >
                         {item.detail || config.title}
                       </p>
-                      <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="mt-2 flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                         <p
-                          className={`text-xs font-bold ${isRead ? 'text-slate-400' : styles.time}`}
+                          className={`hidden text-xs font-bold sm:block ${
+                            isRead ? 'text-slate-400' : styles.time
+                          }`}
                         >
                           {formatRelativeTime(item.eventAt)}
                         </p>

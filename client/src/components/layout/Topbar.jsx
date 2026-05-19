@@ -54,7 +54,7 @@ export const Topbar = ({
 
   return (
     <header className="flex min-h-14 items-center justify-end">
-      <div className="flex h-11 items-center rounded-xl border border-slate-200/80 bg-white/80 px-2 shadow-sm shadow-slate-200/60 ring-1 ring-white/60 backdrop-blur">
+      <div className="flex h-11 items-center rounded-xl border border-slate-200/80 bg-white/80 px-2 shadow-sm shadow-slate-200/60 ring-1 ring-white/60">
         <NotificationMenu
           notifications={notifications}
           notificationCount={notificationCount}

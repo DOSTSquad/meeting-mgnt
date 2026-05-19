@@ -98,6 +98,15 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
     },
     ...tagGroups.slice(0, 3),
   ]
+  const tagFilterOptions = [
+    {
+      key: 'all',
+      label: 'All Meetings',
+      meetings,
+      fileCount: totalFileCount,
+    },
+    ...tagGroups,
+  ]
   const filteredMeetings = meetings.filter((meeting) => {
     if (statusFilter !== 'all' && meeting.status !== statusFilter) {
       return false
@@ -137,7 +146,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
     'Meeting Tag'
 
   return (
-    <section className="space-y-6">
+    <section className="min-w-0 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
           Meeting Repository
@@ -194,7 +203,21 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
           </div>
           <span className="text-xs font-semibold text-slate-400">{totalFileCount} files total</span>
         </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <label className="mt-3 block sm:hidden">
+          <span className="sr-only">Filter by meeting tag</span>
+          <select
+            value={selectedTagKey}
+            onChange={(event) => setSelectedTagKey(event.target.value)}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-300"
+          >
+            {tagFilterOptions.map((tag) => (
+              <option key={tag.key} value={tag.key}>
+                {tag.label} ({tag.meetings.length} meetings / {tag.fileCount} files)
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="mt-3 hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4">
           {tagCards.map((tag, index) => {
             const palette = tagPalette[index % tagPalette.length]
             const isSelected = selectedTagKey === tag.key
@@ -243,7 +266,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
           </div>
           <span className="text-xs font-semibold text-slate-400">{shownMeetings.length} shown</span>
         </div>
-        <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="hidden grid-cols-[minmax(0,1.7fr)_10rem_8rem_6rem_7rem_2rem] items-center gap-4 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-400 lg:grid">
             <span>Meeting</span>
             <span>Date</span>
@@ -268,7 +291,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                   key={meeting.id}
                   type="button"
                   onClick={() => onOpenMeeting(meeting.id)}
-                  className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-blue-50/40 lg:grid-cols-[minmax(0,1.7fr)_10rem_8rem_6rem_7rem_2rem] lg:items-center lg:gap-4"
+                  className="grid min-w-0 w-full gap-3 px-4 py-4 text-left transition hover:bg-blue-50/40 lg:grid-cols-[minmax(0,1.7fr)_10rem_8rem_6rem_7rem_2rem] lg:items-center lg:gap-4"
                 >
                   <span className="flex min-w-0 gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-xs font-bold text-blue-600">
@@ -316,18 +339,33 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                     </span>
                   </span>
 
-                  <span>
+                  <span className="flex min-w-0 flex-wrap items-center gap-2 lg:hidden">
+                    <span className="inline-flex max-w-full items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+                      <span className="truncate">{meeting.tag || 'Untagged'}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                      <FileText className="h-4 w-4 text-slate-400" />
+                      {fileCount}
+                    </span>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${statusClass}`}
+                    >
+                      {formatStatus(meeting.status)}
+                    </span>
+                  </span>
+
+                  <span className="hidden lg:block">
                     <span className="inline-flex max-w-full items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
                       <span className="truncate">{meeting.tag || 'Untagged'}</span>
                     </span>
                   </span>
 
-                  <span className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <span className="hidden items-center gap-2 text-xs font-bold text-slate-600 lg:flex">
                     <FileText className="h-4 w-4 text-slate-400" />
                     {fileCount}
                   </span>
 
-                  <span>
+                  <span className="hidden lg:block">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${statusClass}`}
                     >
