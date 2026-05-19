@@ -233,7 +233,7 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(result.nextError.message).toMatch(/Only meeting participants/)
   })
 
-  it('includes meeting file counts in list and detail responses', async () => {
+  it('includes meeting file summaries in list and detail responses', async () => {
     const created = await createMeetingViaController()
     await query(
       `
@@ -257,11 +257,13 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     )
     expect(found.nextError).toBeUndefined()
     expect(found.res.body.meeting.fileCount).toBe(2)
+    expect(found.res.body.meeting.fileNames).toEqual(['agenda.pdf', 'minutes.md'])
 
     const listed = await runHandler(list, buildRequest({ user: { id: testUser.id } }))
     expect(listed.nextError).toBeUndefined()
     expect(listed.res.body.meetings).toHaveLength(1)
     expect(listed.res.body.meetings[0].fileCount).toBe(2)
+    expect(listed.res.body.meetings[0].fileNames).toEqual(['agenda.pdf', 'minutes.md'])
   })
 
   it('includes participant summaries in list and detail responses', async () => {
@@ -415,14 +417,14 @@ dbDescribe('Meeting controller (DB-backed)', () => {
       update,
       buildRequest({
         params: { id: created.id },
-        body: { title: 'Renamed planning', status: 'in_progress' },
+        body: { title: 'Renamed planning', status: 'completed' },
         user: { id: testUser.id },
       })
     )
 
     expect(result.nextError).toBeUndefined()
     expect(result.res.body.meeting.title).toBe('Renamed planning')
-    expect(result.res.body.meeting.status).toBe('in_progress')
+    expect(result.res.body.meeting.status).toBe('completed')
     expect(result.res.body.meeting.description).toBe(created.description)
     expect(new Date(result.res.body.meeting.updatedAt).getTime()).toBeGreaterThanOrEqual(
       new Date(created.updatedAt).getTime()
@@ -467,6 +469,37 @@ dbDescribe('Meeting controller (DB-backed)', () => {
 
     expect(noMatch.nextError).toBeUndefined()
     expect(noMatch.res.body.meetings).toEqual([])
+  })
+
+  it('filters q against uploaded file names', async () => {
+    const matchingMeeting = await createMeetingViaController({
+      title: 'Policy working group',
+      description: 'Department process updates',
+    })
+    await createMeetingViaController({
+      title: 'Finance handover',
+      description: 'Quarterly reports',
+    })
+
+    await query(
+      `
+        INSERT INTO meeting_files
+          (meeting_id, uploaded_by, file_name, mime_type, size_bytes, object_key)
+        VALUES
+          ($1, $2, 'cabinet-brief-final.pdf', 'application/pdf', 1024, $3)
+      `,
+      [matchingMeeting.id, testUser.id, `meetings/${matchingMeeting.id}/cabinet-brief-final.pdf`]
+    )
+
+    const result = await runHandler(
+      list,
+      buildRequest({ query: { q: 'brief-final' }, user: { id: testUser.id } })
+    )
+
+    expect(result.nextError).toBeUndefined()
+    expect(result.res.body.meetings).toHaveLength(1)
+    expect(result.res.body.meetings[0].title).toBe('Policy working group')
+    expect(result.res.body.meetings[0].fileNames).toEqual(['cabinet-brief-final.pdf'])
   })
 
   it('applies english-language stemming for q (plan matches planning)', async () => {
@@ -514,10 +547,10 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(result.nextError.statusCode).toBe(400)
   })
 
-  it('walks the full status workflow: scheduled → in_progress → completed → archived', async () => {
+  it('walks the full status workflow: scheduled → completed → archived', async () => {
     const created = await createMeetingViaController()
 
-    const steps = ['in_progress', 'completed', 'archived']
+    const steps = ['completed', 'archived']
 
     for (const target of steps) {
       const result = await runHandler(
@@ -566,7 +599,6 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     const created = await createMeetingViaController()
 
     const cases = [
-      { from: 'scheduled', to: 'completed' },
       { from: 'scheduled', to: 'archived' },
       { from: 'completed', to: 'scheduled' },
     ]
@@ -616,7 +648,7 @@ dbDescribe('Meeting controller (DB-backed)', () => {
       update,
       buildRequest({
         params: { id: created.id },
-        body: { status: 'in_progress' },
+        body: { status: 'scheduled' },
         user: { id: testUser.id },
       })
     )

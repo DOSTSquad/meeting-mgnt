@@ -17,6 +17,13 @@ const MEETING_COLUMNS = `
 `
 
 const MEETING_FILE_COUNT_COLUMN = 'COUNT(DISTINCT mf.id)::int AS file_count'
+const MEETING_FILE_NAMES_COLUMN = `
+  COALESCE(
+    ARRAY_AGG(DISTINCT mf.file_name ORDER BY mf.file_name)
+      FILTER (WHERE mf.file_name IS NOT NULL),
+    ARRAY[]::text[]
+  ) AS file_names
+`
 const MEETING_PARTICIPANT_COLUMNS = `
   COUNT(DISTINCT mp.user_id)::int AS participant_count,
   COALESCE(
@@ -42,6 +49,7 @@ const mapMeeting = (row) => {
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
     fileCount: Number(row.file_count ?? 0),
+    fileNames: row.file_names ?? [],
     participantCount: Number(row.participant_count ?? 0),
     participantNames: row.participant_names ?? [],
     createdBy: row.created_by,
@@ -79,7 +87,7 @@ export const createMeeting = async ({
 export const findMeetingById = async (id) => {
   const result = await query(
     `
-      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_FILE_NAMES_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
       LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
@@ -167,7 +175,7 @@ const buildWhereClause = (filters) => {
     const placeholder = `$${params.length}`
 
     if (filter.sql) {
-      return filter.sql.replace('$?', placeholder)
+      return filter.sql.replaceAll('$?', placeholder)
     }
 
     return `${filter.column} ${filter.op} ${placeholder}`
@@ -203,7 +211,18 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
 
   if (q) {
     filters.push({
-      sql: `to_tsvector('english', m.title || ' ' || COALESCE(m.description, '')) @@ plainto_tsquery('english', $?)`,
+      sql: `
+        (
+          to_tsvector('english', m.title || ' ' || COALESCE(m.description, ''))
+            @@ plainto_tsquery('english', $?)
+          OR EXISTS (
+            SELECT 1
+            FROM meeting_files search_mf
+            WHERE search_mf.meeting_id = m.id
+              AND search_mf.file_name ILIKE '%' || $? || '%'
+          )
+        )
+      `,
       value: q,
     })
   }
@@ -226,7 +245,7 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
 
   const rowsResult = await query(
     `
-      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_FILE_NAMES_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
       LEFT JOIN meeting_files mf ON mf.meeting_id = m.id

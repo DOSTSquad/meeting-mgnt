@@ -18,6 +18,8 @@ const getMeetingTime = (value) =>
 
 const getFileCount = (meeting) => Number(meeting.fileCount ?? 0)
 
+const getFileNames = (meeting) => (Array.isArray(meeting.fileNames) ? meeting.fileNames : [])
+
 const getTagLabel = (meeting) => meeting.tag || 'Untagged'
 
 const getTagKey = (meeting) => meeting.tagId || `tag:${getTagLabel(meeting)}`
@@ -32,20 +34,22 @@ const formatLatestMeeting = (timestamp) => {
 
 const formatStatus = (status) => status.replaceAll('_', ' ')
 
+const getMatchingFileNames = (meeting, keyword) => {
+  if (!keyword) {
+    return []
+  }
+
+  return getFileNames(meeting).filter((fileName) => fileName.toLowerCase().includes(keyword))
+}
+
 const statusStyles = {
   scheduled: 'bg-blue-50 text-blue-700',
-  in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-emerald-50 text-emerald-700',
   cancelled: 'bg-rose-50 text-rose-700',
   archived: 'bg-slate-100 text-slate-600',
 }
 
-export const RepositoryView = ({
-  meetings,
-  search,
-  onSearch,
-  onOpenMeeting,
-}) => {
+export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) => {
   const keyword = search.trim().toLowerCase()
   const [currentTimestamp] = useState(() => Date.now())
   const [statusFilter, setStatusFilter] = useState('all')
@@ -108,7 +112,12 @@ export const RepositoryView = ({
     }
 
     const participantNames = meeting.participantNames || []
-    const searchable = [meeting.title, meeting.tag || '', ...participantNames]
+    const searchable = [
+      meeting.title,
+      meeting.tag || '',
+      ...participantNames,
+      ...getFileNames(meeting),
+    ]
       .join(' ')
       .toLowerCase()
     return searchable.includes(keyword)
@@ -145,7 +154,7 @@ export const RepositoryView = ({
             type="search"
             value={search}
             onChange={(event) => onSearch(event.target.value)}
-            placeholder="Search meetings..."
+            placeholder="Search meetings or file names..."
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
           />
         </label>
@@ -156,7 +165,6 @@ export const RepositoryView = ({
         >
           <option value="all">All Meetings</option>
           <option value="scheduled">Scheduled</option>
-          <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
           <option value="archived">Archived</option>
@@ -248,6 +256,7 @@ export const RepositoryView = ({
             {shownMeetings.map((meeting) => {
               const participantNames = meeting.participantNames || []
               const fileCount = getFileCount(meeting)
+              const matchingFileNames = getMatchingFileNames(meeting, keyword)
               const participantOverflow = Math.max(
                 Number(meeting.participantCount || 0) - participantNames.slice(0, 3).length,
                 0
@@ -276,6 +285,25 @@ export const RepositoryView = ({
                           {participantOverflow > 0 ? ` +${participantOverflow}` : ''}
                         </span>
                       </span>
+                      {matchingFileNames.length > 0 ? (
+                        <span className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+                          {matchingFileNames.slice(0, 2).map((fileName) => (
+                            <span
+                              key={fileName}
+                              className="inline-flex max-w-full items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                              title={fileName}
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                              <span className="truncate">{fileName}</span>
+                            </span>
+                          ))}
+                          {matchingFileNames.length > 2 ? (
+                            <span className="text-xs font-semibold text-slate-400">
+                              +{matchingFileNames.length - 2} more
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : null}
                     </span>
                   </span>
 

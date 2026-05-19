@@ -39,12 +39,13 @@ export const listMeetingFiles = async (client, meetingId) => {
 }
 
 export const getMeetingDetail = async (client, meetingId) => {
-  const [meeting, participants, actionItems, files, recordingDetail] = await Promise.all([
+  const [meeting, participants, actionItems, files, recordingDetail, minutes] = await Promise.all([
     getMeeting(client, meetingId),
     listMeetingParticipants(client, meetingId),
     listMeetingActionItems(client, meetingId),
     listMeetingFiles(client, meetingId),
     client.get(`/api/meetings/${meetingId}/recording`).then((response) => response.data),
+    getMeetingMinutes(client, meetingId),
   ])
 
   return {
@@ -52,7 +53,9 @@ export const getMeetingDetail = async (client, meetingId) => {
     participants,
     actionItems,
     files,
+    minutes,
     recording: recordingDetail.recording,
     transcript: recordingDetail.transcript,
   }
 }
+import { getMeetingMinutes } from './minuteService.js'

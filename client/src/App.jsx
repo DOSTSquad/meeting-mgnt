@@ -321,6 +321,8 @@ const AppShell = ({ token, user, onLogout }) => {
     setIsPreviewOpen,
     updateMeetingDetailField,
     saveMeetingField,
+    updateMeetingMinutesField,
+    saveMeetingMinutesFields,
     addActionItemInDetail,
     updateActionItemStatusInDetail,
     editActionItemTitle,
@@ -414,6 +416,8 @@ const AppShell = ({ token, user, onLogout }) => {
                     onBack={() => navigate('/meetings')}
                     onChange={updateMeetingDetailField}
                     onSaveMeetingField={saveMeetingField}
+                    onMinutesChange={updateMeetingMinutesField}
+                    onSaveMinutes={saveMeetingMinutesFields}
                     onAddActionItem={addActionItemInDetail}
                     onActionItemChange={editActionItemTitle}
                     onActionItemSave={saveActionItemTitle}

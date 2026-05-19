@@ -44,25 +44,25 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 | PUT    | `/:id` | partial subset of POST body fields                                             | `200 { meeting }` or `404`                            |
 | DELETE | `/:id` | —                                                                              | `204` or `404`                                        |
 
-Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`, `archived`.
+Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `completed`, `cancelled`, `archived`.
 
-Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
+Meeting responses include `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
 `GET /api/meetings/:id` is available only to the meeting creator or meeting participants. Non-participants receive `403`, matching meeting file access rules.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
 ```
-scheduled ──▶ in_progress ──▶ completed ──▶ archived
-    │               │                           ▲
-    └──────────────▶└───▶ cancelled ────────────┘
+scheduled ──▶ completed ──▶ archived
+    │                         ▲
+    └──────▶ cancelled ───────┘
 ```
 
 Updating `status` to the same value is a no-op. `archived` is terminal. Any other transition returns `400` with `Invalid status transition: <from> → <to>`.
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
 
-**Full-text search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`. Stemming applies (e.g., `q=plan` matches "planning"); multi-word queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
+**Search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`, and a case-insensitive filename match against uploaded meeting files. Stemming applies to meeting text (e.g., `q=plan` matches "planning"); multi-word text queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
 
 ### Meeting Requests (`/api/meeting-requests`)
 

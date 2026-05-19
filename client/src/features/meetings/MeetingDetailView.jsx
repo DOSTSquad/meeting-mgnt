@@ -74,6 +74,8 @@ export const MeetingDetailView = ({
   onBack,
   onChange,
   onSaveMeetingField,
+  onMinutesChange,
+  onSaveMinutes,
   onAddActionItem,
   onActionItemChange,
   onActionItemSave,
@@ -136,6 +138,16 @@ export const MeetingDetailView = ({
   const transcriptMessage =
     detail.transcript?.errorMessage ||
     (detail.transcript?.status === 'completed' ? 'Transcript is ready.' : null)
+  const minuteStatusClass =
+    {
+      draft: 'bg-amber-50 text-amber-700 border-amber-100',
+      approved: 'bg-blue-50 text-blue-700 border-blue-100',
+      published: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    }[detail.minutes?.status] || 'bg-slate-100 text-slate-600 border-slate-200'
+  const participantOptions = detail.participants.map((participant) => ({
+    id: participant.userId,
+    name: participant.name,
+  }))
   const saveOnEnter = (event, field) => {
     if (event.key === 'Enter') {
       event.currentTarget.blur()
@@ -146,6 +158,12 @@ export const MeetingDetailView = ({
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.currentTarget.blur()
       onSaveMeetingField(field)
+    }
+  }
+  const saveMinutesTextareaOnShortcut = (event, field) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.currentTarget.blur()
+      onSaveMinutes({ [field]: detail.minutes?.[field] || '' })
     }
   }
 
@@ -275,118 +293,244 @@ export const MeetingDetailView = ({
             <div>
               <h2 className="text-2xl font-semibold text-slate-700">Meeting Minutes</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Upload one recording to prepare a transcript and generate a minutes draft.
+                Record outcomes, discussion notes, and decisions.
               </p>
             </div>
             <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
-                recordingStatus === 'failed'
-                  ? 'bg-amber-100 text-amber-700'
-                  : detail.recording
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'bg-slate-100 text-slate-500'
-              }`}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${minuteStatusClass}`}
             >
-              {recordingStatusLabel}
+              {detail.minutes?.status || 'draft'}
             </span>
           </div>
 
-          {detail.recording ? (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500">
-                  <FileAudio className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="truncate text-sm font-bold text-slate-800"
-                    title={detail.recording.fileName}
-                  >
-                    {detail.recording.fileName}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Uploaded {formatDateOnly(detail.recording.createdAt)}
-                  </p>
-                  {transcriptMessage ? (
-                    <p
-                      className={`mt-2 text-xs font-semibold ${
-                        detail.transcript?.status === 'failed' ? 'text-amber-700' : 'text-slate-600'
-                      }`}
-                    >
-                      {transcriptMessage}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onGenerateMinutesFromRecording}
-                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700"
-                  >
-                    Generate minutes
-                  </button>
-                  <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
-                    Replace
-                    <input
-                      type="file"
-                      accept=".mp3,.wav,.m4a,audio/*"
-                      className="sr-only"
-                      onChange={(event) => {
-                        onUploadRecording(event.target.files, { replace: true })
-                        event.target.value = ''
-                      }}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={onRemoveRecording}
-                    className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <label
-              className={`mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
-                isDragOverRecording
-                  ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
-              }`}
-              onDragOver={(event) => {
-                event.preventDefault()
-                setIsDragOverRecording(true)
-              }}
-              onDragLeave={() => setIsDragOverRecording(false)}
-              onDrop={(event) => {
-                event.preventDefault()
-                setIsDragOverRecording(false)
-                onUploadRecording(event.dataTransfer?.files)
-              }}
-            >
-              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
-                <FileAudio className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <span className="font-semibold">Upload recording to generate minutes</span>
-              <span className="mt-1 text-xs text-slate-400">One active MP3, WAV, or M4A</span>
-              <input
-                type="file"
-                accept=".mp3,.wav,.m4a,audio/*"
-                className="sr-only"
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Status
+              </span>
+              <select
+                value={detail.minutes?.status || 'draft'}
                 onChange={(event) => {
-                  onUploadRecording(event.target.files)
-                  event.target.value = ''
+                  onMinutesChange('status', event.target.value)
+                  onSaveMinutes({ status: event.target.value })
                 }}
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold capitalize text-slate-700"
+              >
+                <option value="draft">Draft</option>
+                <option value="approved">Approved</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Facilitator
+              </span>
+              <select
+                value={detail.minutes?.facilitatorId || ''}
+                onChange={(event) => {
+                  const facilitatorId = event.target.value || null
+                  onMinutesChange('facilitatorId', facilitatorId)
+                  onSaveMinutes({ facilitatorId })
+                }}
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700"
+              >
+                <option value="">Not assigned</option>
+                {participantOptions.map((participant) => (
+                  <option key={participant.id} value={participant.id}>
+                    {participant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Recorder
+              </span>
+              <select
+                value={detail.minutes?.recorderId || ''}
+                onChange={(event) => {
+                  const recorderId = event.target.value || null
+                  onMinutesChange('recorderId', recorderId)
+                  onSaveMinutes({ recorderId })
+                }}
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700"
+              >
+                <option value="">Not assigned</option>
+                {participantOptions.map((participant) => (
+                  <option key={participant.id} value={participant.id}>
+                    {participant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="mt-4 block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Minutes
+            </span>
+            <textarea
+              rows={7}
+              value={detail.minutes?.content || ''}
+              onChange={(event) => onMinutesChange('content', event.target.value)}
+              onBlur={() => onSaveMinutes({ content: detail.minutes?.content || '' })}
+              onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'content')}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              placeholder="Capture meeting notes, updates, and outcomes..."
+            />
+          </label>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Key Discussions
+              </span>
+              <textarea
+                rows={5}
+                value={detail.minutes?.keyDiscussions || ''}
+                onChange={(event) => onMinutesChange('keyDiscussions', event.target.value)}
+                onBlur={() =>
+                  onSaveMinutes({ keyDiscussions: detail.minutes?.keyDiscussions || '' })
+                }
+                onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'keyDiscussions')}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                placeholder="List important topics discussed..."
               />
             </label>
-          )}
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Decisions
+              </span>
+              <textarea
+                rows={5}
+                value={detail.minutes?.decisions || ''}
+                onChange={(event) => onMinutesChange('decisions', event.target.value)}
+                onBlur={() => onSaveMinutes({ decisions: detail.minutes?.decisions || '' })}
+                onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'decisions')}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                placeholder="Record decisions and approvals..."
+              />
+            </label>
+          </div>
 
-          {pendingRecordingFile ? (
-            <p className="mt-3 text-sm font-semibold text-blue-700">
-              {pendingRecordingFile.name} uploading...
-            </p>
-          ) : null}
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-700">Recording source</h3>
+                <p className="mt-1 text-xs text-slate-500">Source audio for this meeting record.</p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                  recordingStatus === 'failed'
+                    ? 'bg-amber-100 text-amber-700'
+                    : detail.recording
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {recordingStatusLabel}
+              </span>
+            </div>
+
+            {detail.recording ? (
+              <div className="mt-4 bg-slate-50 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500">
+                    <FileAudio className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-sm font-bold text-slate-800"
+                      title={detail.recording.fileName}
+                    >
+                      {detail.recording.fileName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Uploaded {formatDateOnly(detail.recording.createdAt)}
+                    </p>
+                    {transcriptMessage ? (
+                      <p
+                        className={`mt-2 text-xs font-semibold ${
+                          detail.transcript?.status === 'failed'
+                            ? 'text-amber-700'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {transcriptMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onGenerateMinutesFromRecording}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+                    >
+                      Test generation
+                    </button>
+                    <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                      Replace
+                      <input
+                        type="file"
+                        accept=".mp3,.wav,.m4a,audio/*"
+                        className="sr-only"
+                        onChange={(event) => {
+                          onUploadRecording(event.target.files, { replace: true })
+                          event.target.value = ''
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={onRemoveRecording}
+                      className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <label
+                className={`mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
+                  isDragOverRecording
+                    ? 'border-blue-400 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
+                }`}
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  setIsDragOverRecording(true)
+                }}
+                onDragLeave={() => setIsDragOverRecording(false)}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  setIsDragOverRecording(false)
+                  onUploadRecording(event.dataTransfer?.files)
+                }}
+              >
+                <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
+                  <FileAudio className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <span className="font-semibold">Upload optional recording</span>
+                <span className="mt-1 text-xs text-slate-400">One active MP3, WAV, or M4A</span>
+                <input
+                  type="file"
+                  accept=".mp3,.wav,.m4a,audio/*"
+                  className="sr-only"
+                  onChange={(event) => {
+                    onUploadRecording(event.target.files)
+                    event.target.value = ''
+                  }}
+                />
+              </label>
+            )}
+
+            {pendingRecordingFile ? (
+              <p className="mt-3 text-sm font-semibold text-blue-700">
+                {pendingRecordingFile.name} uploading...
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
