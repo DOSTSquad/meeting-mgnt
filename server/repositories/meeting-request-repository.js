@@ -423,18 +423,34 @@ export const optionBelongsToRequest = async (requestId, timeOptionId) => {
   return result.rowCount > 0
 }
 
-export const confirmMeetingRequest = async ({ requestId, timeOptionId, meetingId }) => {
-  await query(
-    `
-      UPDATE meeting_time_options
-      SET is_selected = (id = $2)
-      WHERE meeting_request_id = $1
-    `,
-    [requestId, timeOptionId]
-  )
+export const confirmMeetingRequest = async ({
+  requestId,
+  timeOptionId,
+  meetingId,
+  status = 'confirmed',
+}) => {
+  if (timeOptionId) {
+    await query(
+      `
+        UPDATE meeting_time_options
+        SET is_selected = (id = $2)
+        WHERE meeting_request_id = $1
+      `,
+      [requestId, timeOptionId]
+    )
+  } else {
+    await query(
+      `
+        UPDATE meeting_time_options
+        SET is_selected = false
+        WHERE meeting_request_id = $1
+      `,
+      [requestId]
+    )
+  }
 
   return updateMeetingRequest(requestId, {
-    status: 'confirmed',
+    status,
     confirmedMeetingId: meetingId,
   })
 }

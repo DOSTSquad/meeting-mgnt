@@ -7,6 +7,7 @@ import { Topbar } from './components/layout/Topbar.jsx'
 import { getApiClient } from './lib/apiClient.js'
 import { ActionItemsView } from './features/action-items/ActionItemsView.jsx'
 import { LoginView } from './features/auth/LoginView.jsx'
+import { RegisterView } from './features/auth/RegisterView.jsx'
 import { DashboardView } from './features/dashboard/DashboardView.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
@@ -477,6 +478,7 @@ const AppShell = ({ token, user, onLogout }) => {
 }
 
 function App() {
+  const [authMode, setAuthMode] = useState('login')
   const [authState, setAuthState] = useState(() => {
     const token = localStorage.getItem('authToken')
     const userRaw = localStorage.getItem('authUser')
@@ -496,6 +498,7 @@ function App() {
     localStorage.setItem('authToken', token)
     localStorage.setItem('authUser', JSON.stringify(user))
     setAuthState({ token, user })
+    setAuthMode('login')
   }
 
   const handleLogout = () => {
@@ -505,7 +508,11 @@ function App() {
   }
 
   if (!authState) {
-    return <LoginView onLogin={handleLogin} />
+    if (authMode === 'register') {
+      return <RegisterView onRegister={handleLogin} onShowLogin={() => setAuthMode('login')} />
+    }
+
+    return <LoginView onLogin={handleLogin} onShowRegister={() => setAuthMode('register')} />
   }
 
   return <AppShell token={authState.token} user={authState.user} onLogout={handleLogout} />

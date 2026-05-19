@@ -77,6 +77,7 @@ Meeting requests support the 5-step scheduling flow before a confirmed meeting e
 | PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                            | `200 { invitees }`                                        |
 | PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                              | `200 { responses }`                                       |
 | POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                           | `201 { meeting, meetingRequest }`                         |
+| DELETE | `/:requestId`                                  | —                                                                             | `200 { meetingRequest }`                                  |
 
 Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
 

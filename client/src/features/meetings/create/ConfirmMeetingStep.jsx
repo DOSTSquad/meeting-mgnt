@@ -19,12 +19,14 @@ export const ConfirmMeetingStep = ({
     </div>
 
     <label>
-      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Location</span>
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+        Location / Meeting Link
+      </span>
       <input
         value={location}
         onChange={(event) => onChange({ location: event.target.value })}
         className="mt-1 h-11 w-full rounded-lg border border-slate-200 px-3 text-sm"
-        placeholder="Room 4.1 or Teams link"
+        placeholder="Room 4.1 or https://teams.microsoft.com/..."
       />
     </label>
 

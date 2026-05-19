@@ -9,6 +9,7 @@ import {
   replaceInvitees,
   replaceTimeOptions,
   submitAvailability,
+  terminate,
 } from '../controllers/meeting-request-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 
@@ -136,6 +137,13 @@ meetingRequestRouter.post(
   ],
   handleValidationErrors,
   confirm
+)
+
+meetingRequestRouter.delete(
+  '/:requestId',
+  [param('requestId').isUUID().withMessage('requestId must be a UUID')],
+  handleValidationErrors,
+  terminate
 )
 
 export default meetingRequestRouter

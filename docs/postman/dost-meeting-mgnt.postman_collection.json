@@ -555,6 +555,17 @@
               }
             }
           ]
+        },
+        {
+          "name": "Terminate meeting request",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
+            }
+          }
         }
       ]
     },

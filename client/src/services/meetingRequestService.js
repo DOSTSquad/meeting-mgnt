@@ -40,4 +40,9 @@ export const createMeetingRequestService = (client) => ({
     const response = await client.post(`/api/meeting-requests/${requestId}/confirm`, payload)
     return response.data
   },
+
+  terminateRequest: async (requestId) => {
+    const response = await client.delete(`/api/meeting-requests/${requestId}`)
+    return response.data
+  },
 })

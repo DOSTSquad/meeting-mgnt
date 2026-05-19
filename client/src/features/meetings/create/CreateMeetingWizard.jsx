@@ -51,10 +51,6 @@ const getResumeStepIndex = ({ meetingRequest, timeOptions, invitees }) => {
     return 2
   }
 
-  if (meetingRequest.status === 'ready_to_confirm') {
-    return 4
-  }
-
   return 3
 }
 
@@ -84,8 +80,12 @@ export const CreateMeetingWizard = ({
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingRequest, setIsLoadingRequest] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isTerminateConfirmOpen, setIsTerminateConfirmOpen] = useState(false)
+  const [isInviteSentOpen, setIsInviteSentOpen] = useState(false)
 
   const service = useMemo(() => createMeetingRequestService(getApiClient(token)), [token])
+  const isResumeMode = Boolean(meetingRequestId)
   const availableUsers = users.filter((user) => user.id !== currentUserId)
   const selectedOption = savedTimeOptions.find((option) => option.id === selectedTimeOptionId)
   const isReadyToConfirm = meetingRequest?.status === 'ready_to_confirm'
@@ -106,6 +106,9 @@ export const CreateMeetingWizard = ({
     setConfirmForm({ location: '', tag: '' })
     setIsLoadingRequest(false)
     setErrorMessage('')
+    setSuccessMessage('')
+    setIsTerminateConfirmOpen(false)
+    setIsInviteSentOpen(false)
   }
 
   useEffect(() => {
@@ -198,6 +201,14 @@ export const CreateMeetingWizard = ({
           throw new Error('Create the request before inviting participants')
         }
         await service.updateInvitees(meetingRequest.id, invitees)
+
+        if (!isResumeMode) {
+          await onCreated()
+          setSuccessMessage('The invitations have been sent')
+          setIsInviteSentOpen(true)
+          return
+        }
+
         const detail = await service.getRequest(meetingRequest.id)
         setMeetingRequest(detail.meetingRequest)
         setSavedTimeOptions(detail.timeOptions)
@@ -317,6 +328,27 @@ export const CreateMeetingWizard = ({
     setManualEmail('')
   }
 
+  const terminateRequest = async () => {
+    if (!meetingRequest?.id) {
+      return
+    }
+
+    setIsSaving(true)
+    setErrorMessage('')
+
+    try {
+      await service.terminateRequest(meetingRequest.id)
+      await onCreated()
+      setSuccessMessage('Meeting request has been terminated')
+      reset()
+      onClose()
+    } catch (error) {
+      setErrorMessage(error.response?.data?.error || 'Unable to terminate meeting request')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const canContinue =
     (stepIndex === 0 && requestForm.title.trim()) ||
     (stepIndex === 1 && timeOptions.length > 0) ||
@@ -325,9 +357,11 @@ export const CreateMeetingWizard = ({
     (stepIndex === 4 && selectedTimeOptionId)
   const primaryActionLabel = isSaving
     ? 'Saving...'
+    : !isResumeMode && stepIndex === 2
+      ? 'Send Invitations'
     : stepIndex === 3
       ? isReadyToConfirm
-        ? 'Continue to Confirm'
+        ? 'Continue'
         : 'Done'
       : stepIndex === 4
         ? 'Confirm Meeting'
@@ -458,18 +492,35 @@ export const CreateMeetingWizard = ({
             {errorMessage}
           </p>
         ) : null}
+        {successMessage ? (
+          <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+            {successMessage}
+          </p>
+        ) : null}
 
         <div className="sticky bottom-0 -mx-4 -mb-5 mt-6 border-t border-slate-100 bg-white px-4 py-4 shadow-[0_-10px_24px_rgba(15,23,42,0.08)] sm:-mx-5 sm:px-5">
           <div className="mx-auto flex w-full max-w-xl justify-between">
-            <button
-              type="button"
-              onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
-              disabled={stepIndex === 0 || isSaving}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Back
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStepIndex((prev) => Math.max(prev - 1, 0))}
+                disabled={stepIndex === 0 || isSaving || isResumeMode}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back
+              </button>
+              {isResumeMode ? (
+                <button
+                  type="button"
+                  onClick={() => setIsTerminateConfirmOpen(true)}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                >
+                  Terminate
+                </button>
+              ) : null}
+            </div>
             <button
               type="button"
               onClick={runStep}
@@ -486,6 +537,57 @@ export const CreateMeetingWizard = ({
           </div>
         </div>
       </section>
+      {isTerminateConfirmOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h4 className="text-lg font-bold text-slate-900">Terminate Meeting Request</h4>
+            <p className="mt-2 text-sm text-slate-600">
+              This will cancel the meeting request and any confirmed meeting linked to it.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsTerminateConfirmOpen(false)}
+                disabled={isSaving}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsTerminateConfirmOpen(false)
+                  await terminateRequest()
+                }}
+                disabled={isSaving}
+                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:bg-rose-300"
+              >
+                Terminate
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isInviteSentOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h4 className="text-lg font-bold text-slate-900">Invitations Sent</h4>
+            <p className="mt-2 text-sm text-slate-600">{successMessage}</p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  reset()
+                  onClose()
+                }}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
