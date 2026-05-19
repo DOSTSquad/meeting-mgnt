@@ -56,6 +56,71 @@ Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migra
 | Seed local demo data       | `npm run seed --workspace=server`    |
 | Build client               | `npm run build --workspace=client`   |
 
+## Caddy Deployment
+
+[`deploy/Caddyfile`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/deploy/Caddyfile) serves the built React app and proxies API traffic to the Express server.
+
+Run the Express API as a private service on the VPS:
+
+```bash
+sudo useradd --system --home /srv/meeting-mgnt --shell /usr/sbin/nologin meeting-mgnt
+sudo chown -R meeting-mgnt:meeting-mgnt /srv/meeting-mgnt
+sudo cp deploy/meeting-mgnt-server.service /etc/systemd/system/meeting-mgnt-server.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now meeting-mgnt-server
+```
+
+The service assumes the app is deployed at `/srv/meeting-mgnt`, `.env` exists there, and Node is available at `/usr/bin/node`; edit the service file if your VPS differs.
+
+For the current IP-only deployment at `194.195.127.196`:
+
+```bash
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+For a domain with automatic HTTPS, set Caddy environment variables with a systemd override before reloading:
+
+```bash
+sudo systemctl edit caddy
+```
+
+Add:
+
+```ini
+[Service]
+Environment=APP_SITE=meeting.example.com
+Environment=CLIENT_DIST=/srv/meeting-mgnt/client/dist
+```
+
+Then run:
+
+```bash
+sudo systemctl reload caddy
+```
+
+Build the client with same-origin API calls for Caddy:
+
+```bash
+VITE_API_BASE_URL=/ npm run build --workspace=client
+```
+
+Production client builds also fall back to same-origin `/` if `VITE_API_BASE_URL` is omitted. Local development still defaults to `http://localhost:3001`.
+
+Keep the Express server listening on `127.0.0.1:3001`/`3001`, then Caddy handles public `80`/`443`.
+
+If `http://194.195.127.196/health` returns `502 Bad Gateway`, Caddy is reachable but the upstream API is not answering. Check the private API first:
+
+```bash
+curl -i http://127.0.0.1:3001/health/live
+sudo systemctl status meeting-mgnt-server --no-pager
+sudo journalctl -u meeting-mgnt-server -n 100 --no-pager
+sudo journalctl -u caddy -n 100 --no-pager
+```
+
+`/health/live` should return `200`. If it does, check `/health` next; a `503` from `/health` means the API process is up but PostgreSQL, Redis, or MinIO is unavailable or misconfigured.
+
 ## Current Product Surface
 
 ### Client
@@ -72,7 +137,7 @@ The React client currently includes:
   5. Confirm the final meeting.
 - Invitee availability voting modal from the dashboard.
 - Meeting Repository route at `/meetings`, organized by meeting tags with a scannable meetings/files list.
-- Meeting Detail route at `/meetings/:meetingId`, including editable meeting metadata, agenda, meeting materials, meeting audio upload, attendees, and action items.
+- Meeting Detail route at `/meetings/:meetingId`, including editable meeting metadata, agenda, manual minutes, meeting materials, meeting recording upload, attendees, and action items.
 - Action Items Tracker route at `/action-items`.
 - Topbar notification dropdown. Read/unread state is currently UI-local; persisted notification read state is planned in [GitHub issue #25](https://github.com/DOSTSquad/meeting-mgnt/issues/25).
 
@@ -81,7 +146,7 @@ The React client currently includes:
 The Express API currently supports:
 
 - JWT auth with email-only login.
-- Meeting CRUD, status transitions, pagination, full-text search, tags, and meeting file counts.
+- Meeting CRUD, simple status transitions, pagination, full-text search, tags, and meeting file counts.
 - Meeting request scheduling flow before a real meeting exists.
 - Invitee-safe availability response endpoints.
 - Meeting participant role management. RSVP has been removed as a product/API concept.
@@ -125,7 +190,7 @@ When dependencies are unavailable, `/health` and `/health/ready` return `503` wi
 The server exposes JWT-protected REST endpoints under `/api`:
 
 - `/api/auth` — register, login, current user
-- `/api/meetings` — full CRUD with RFC 5988 `Link`-header pagination, filters by status / date range, full-text search on title + description via `?q=`, tags, and file counts; `status` transitions are forward-only (scheduled → in_progress → completed → archived, with cancelled as a side-branch)
+- `/api/meetings` — full CRUD with RFC 5988 `Link`-header pagination, filters by status / date range, full-text search on title + description via `?q=`, tags, and file counts; `status` transitions are forward-only (scheduled → completed → archived, with cancelled as a side branch)
 - `/api/meeting-requests` — scheduling request flow with time options, invitees, binary availability responses, and confirmation into a real meeting
 - `/api/meetings/:id/participants` — add, list, update role, and remove meeting participants
 - `/api/meetings/:id/files` + `/api/files/:id` — upload (PDF/DOCX/XLSX/PPTX/images, 50 MB cap), list, presigned download (60 s URL), and delete meeting files
@@ -152,5 +217,5 @@ Current notable frames include:
 ## Known Gaps / Planned Work
 
 - Persisted notifications with read/unread API state are planned in [issue #25](https://github.com/DOSTSquad/meeting-mgnt/issues/25).
-- The client minutes generation/editing UI is designed in Pencil but not fully implemented in React yet.
+- AI-generated minutes are scaffolded but not configured yet; the client currently supports manual minutes editing for demos.
 - Notification delivery channels such as email, push, Slack, and Teams are out of scope for the current local app.

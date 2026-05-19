@@ -397,6 +397,36 @@ dbDescribe('File controller (DB-backed)', () => {
       )
     })
 
+    it('allows an attendee participant to view recording metadata', async () => {
+      const uploaded = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'participant-visible.mp3',
+            mimetype: 'audio/mpeg',
+          }),
+        })
+      )
+
+      const { res, nextError } = await runHandler(
+        getRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: participantUser.id },
+        })
+      )
+
+      expect(uploaded.nextError).toBeUndefined()
+      expect(nextError).toBeUndefined()
+      expect(res.body.recording).toMatchObject({
+        id: uploaded.res.body.recording.id,
+        meetingId: baseMeeting.id,
+        fileName: 'participant-visible.mp3',
+      })
+    })
+
     it('rejects a second active recording unless replace is true', async () => {
       await runHandler(
         uploadRecordingHandler,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, Flag, Tag, User, X } from 'lucide-react'
+import { AlertTriangle, Calendar, Flag, Tag, User, X } from 'lucide-react'
 
 import { isOverdueActionItem } from '../../utils/actionItems.js'
 import { formatDateOnly } from '../../utils/date.js'
@@ -39,8 +39,10 @@ const avatarColors = [
   'bg-emerald-500',
 ]
 
+const toDisplayString = (value) => (value == null ? '' : String(value))
+
 const getInitials = (name = '') =>
-  name
+  toDisplayString(name)
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -48,7 +50,7 @@ const getInitials = (name = '') =>
     .join('') || 'NA'
 
 const toTitleCase = (value = '') =>
-  value
+  toDisplayString(value)
     .split(' ')
     .filter(Boolean)
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1).toLowerCase()}`)
@@ -90,6 +92,10 @@ const getFooterStatus = (item) => {
     return { label: 'Closed', className: 'bg-emerald-100 text-emerald-700' }
   }
 
+  if (isOverdueActionItem(item)) {
+    return { label: 'Overdue', className: 'bg-rose-100 text-rose-700' }
+  }
+
   if (item.status === 'blocked') {
     return { label: 'Blocked', className: 'bg-slate-100 text-slate-700' }
   }
@@ -114,6 +120,25 @@ const statusLabel = {
   cancelled: 'Cancelled',
 }
 
+const sortActionItemsForColumn = (items) =>
+  [...items].sort((left, right) => {
+    const leftOverdue = isOverdueActionItem(left)
+    const rightOverdue = isOverdueActionItem(right)
+
+    if (leftOverdue !== rightOverdue) {
+      return leftOverdue ? -1 : 1
+    }
+
+    const leftDue = left.dueDate ? new Date(left.dueDate).getTime() : Number.POSITIVE_INFINITY
+    const rightDue = right.dueDate ? new Date(right.dueDate).getTime() : Number.POSITIVE_INFINITY
+
+    if (leftDue !== rightDue) {
+      return leftDue - rightDue
+    }
+
+    return new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()
+  })
+
 const DetailField = ({ icon, label, value, onClick }) => (
   <button
     type="button"
@@ -126,7 +151,9 @@ const DetailField = ({ icon, label, value, onClick }) => (
     {icon}
     <div className="min-w-0">
       <p className="text-[11px] font-bold uppercase text-slate-400">{label}</p>
-      <p className={`mt-0.5 truncate text-sm font-bold ${onClick ? 'text-blue-700' : 'text-slate-700'}`}>
+      <p
+        className={`mt-0.5 truncate text-sm font-bold ${onClick ? 'text-blue-700' : 'text-slate-700'}`}
+      >
         {value}
       </p>
     </div>
@@ -188,10 +215,7 @@ export const ActionItemDetailModal = ({
             />
             <DetailField
               icon={
-                <Calendar
-                  className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
-                  aria-hidden="true"
-                />
+                <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
               }
               label="Timeline"
               value={getDueLabel(item)}
@@ -242,8 +266,12 @@ export const ActionItemsView = ({
   const [selectedActionItemId, setSelectedActionItemId] = useState(null)
 
   const grouped = {
-    todo: actionItems.filter((item) => item.status === 'todo' || item.status === 'blocked'),
-    in_progress: actionItems.filter((item) => item.status === 'in_progress'),
+    todo: sortActionItemsForColumn(
+      actionItems.filter((item) => item.status === 'todo' || item.status === 'blocked')
+    ),
+    in_progress: sortActionItemsForColumn(
+      actionItems.filter((item) => item.status === 'in_progress')
+    ),
     done: actionItems.filter((item) => item.status === 'completed'),
   }
   const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]))
@@ -294,129 +322,152 @@ export const ActionItemsView = ({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        {columnConfig.map((column) => (
-          <div key={column.id} className="space-y-3 p-2">
-            <div
-              className={`flex h-10 items-center justify-between rounded-lg px-3 ${column.headerClass}`}
-            >
-              <h2 className="text-sm font-bold">{column.label}</h2>
-              <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${column.countClass}`}>
-                {grouped[column.id].length}
-              </span>
-            </div>
-            <div
-              className={`min-h-56 space-y-3 rounded-xl border border-dashed transition duration-200 ${
-                draggingItemId && dragOverColumnId === column.id
-                  ? 'scale-[1.01] border-blue-300 bg-blue-50/70 shadow-inner'
-                  : draggingItemId
-                    ? 'border-slate-200 bg-slate-50/70'
-                    : 'border-transparent'
-              }`}
-              onDragOver={(event) => {
-                event.preventDefault()
-                event.dataTransfer.dropEffect = 'move'
-                setDragOverColumnId(column.id)
-              }}
-              onDragLeave={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) {
-                  setDragOverColumnId(null)
-                }
-              }}
-              onDrop={(event) => handleDrop(event, column.id)}
-            >
-              {draggingItemId && dragOverColumnId === column.id ? (
-                <div className="flex h-12 items-center justify-center rounded-lg border border-blue-200 bg-white/80 text-xs font-bold text-blue-700 shadow-sm transition">
-                  Drop to move
-                  {draggingItem && columnStatus[column.id] !== draggingItem.status
-                    ? ` to ${column.label}`
-                    : ''}
-                </div>
-              ) : null}
-              {grouped[column.id].map((item, index) => {
-                const assignee = usersById.get(item.assigneeId)
-                const ownerName = assignee?.name || 'Unassigned'
-                const tagLabel = toTitleCase(meetingsById.get(item.meetingId)?.tag)
-                const footerStatus = getFooterStatus(item)
-                const isDone = item.status === 'completed'
+        {columnConfig.map((column) => {
+          const acceptsDrop = Boolean(columnStatus[column.id])
 
-                return (
-                  <article
-                    key={item.id}
-                    draggable
-                    tabIndex={0}
-                    role="button"
-                    onClick={() => setSelectedActionItemId(item.id)}
-                    onDragEnd={finishDrag}
-                    onDragStart={(event) => handleDragStart(event, item)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        setSelectedActionItemId(item.id)
-                      }
-                    }}
-                    className={`min-h-36 cursor-grab rounded-lg border bg-white p-3.5 shadow-sm transition duration-200 active:cursor-grabbing ${
-                      draggingItemId === item.id
-                        ? 'rotate-1 scale-[0.98] opacity-40 shadow-xl'
-                        : `${isDone ? 'opacity-95' : ''} hover:-translate-y-0.5 hover:shadow-md`
-                    } ${isDone ? 'border-emerald-100' : 'border-slate-200'}`}
-                  >
-                    <div className="flex h-full flex-col gap-2.5">
-                      <p className="min-h-10 text-sm font-extrabold leading-tight text-slate-900">
-                        {item.title}
-                      </p>
+          return (
+            <div key={column.id} className="space-y-3 p-2">
+              <div
+                className={`flex h-10 items-center justify-between rounded-lg px-3 ${column.headerClass}`}
+              >
+                <h2 className="text-sm font-bold">{column.label}</h2>
+                <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${column.countClass}`}>
+                  {grouped[column.id].length}
+                </span>
+              </div>
+              <div
+                className={`min-h-56 space-y-3 rounded-xl border border-dashed transition duration-200 ${
+                  acceptsDrop && draggingItemId && dragOverColumnId === column.id
+                    ? 'scale-[1.01] border-blue-300 bg-blue-50/70 shadow-inner'
+                    : acceptsDrop && draggingItemId
+                      ? 'border-slate-200 bg-slate-50/70'
+                      : 'border-transparent'
+                }`}
+                onDragOver={(event) => {
+                  if (!acceptsDrop) {
+                    return
+                  }
 
-                      <div className="flex h-6 min-w-0 items-center gap-2">
-                        <span
-                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white ${
-                            avatarColors[index % avatarColors.length]
-                          }`}
-                        >
-                          {getInitials(ownerName)}
-                        </span>
-                        {!isDone && assignee ? (
-                          <span className="truncate text-xs font-bold text-slate-600">
-                            {ownerName}
+                  event.preventDefault()
+                  event.dataTransfer.dropEffect = 'move'
+                  setDragOverColumnId(column.id)
+                }}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setDragOverColumnId(null)
+                  }
+                }}
+                onDrop={acceptsDrop ? (event) => handleDrop(event, column.id) : undefined}
+              >
+                {acceptsDrop && draggingItemId && dragOverColumnId === column.id ? (
+                  <div className="flex h-12 items-center justify-center rounded-lg border border-blue-200 bg-white/80 text-xs font-bold text-blue-700 shadow-sm transition">
+                    Drop to move
+                    {draggingItem && columnStatus[column.id] !== draggingItem.status
+                      ? ` to ${column.label}`
+                      : ''}
+                  </div>
+                ) : null}
+                {grouped[column.id].map((item, index) => {
+                  const assignee = usersById.get(item.assigneeId)
+                  const ownerName = assignee?.name || 'Unassigned'
+                  const tagLabel = toTitleCase(meetingsById.get(item.meetingId)?.tag)
+                  const footerStatus = getFooterStatus(item)
+                  const isDone = item.status === 'completed'
+                  const isOverdue = isOverdueActionItem(item)
+
+                  return (
+                    <article
+                      key={item.id}
+                      draggable
+                      tabIndex={0}
+                      role="button"
+                      onClick={() => setSelectedActionItemId(item.id)}
+                      onDragEnd={finishDrag}
+                      onDragStart={(event) => handleDragStart(event, item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setSelectedActionItemId(item.id)
+                        }
+                      }}
+                      className={`min-h-36 cursor-grab rounded-lg border bg-white p-3.5 shadow-sm transition duration-200 active:cursor-grabbing ${
+                        draggingItemId === item.id
+                          ? 'rotate-1 scale-[0.98] opacity-40 shadow-xl'
+                          : `${isDone ? 'opacity-95' : ''} hover:-translate-y-0.5 hover:shadow-md`
+                      } ${
+                        isDone
+                          ? 'border-emerald-100'
+                          : isOverdue
+                            ? 'border-rose-200'
+                            : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="flex h-full flex-col gap-2.5">
+                        <div className="flex min-h-10 items-start gap-2">
+                          {isOverdue ? (
+                            <AlertTriangle
+                              className="mt-0.5 h-4 w-4 shrink-0 text-rose-500"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          <p className="text-sm font-extrabold leading-tight text-slate-900">
+                            {item.title}
+                          </p>
+                        </div>
+
+                        <div className="flex h-6 min-w-0 items-center gap-2">
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white ${
+                              avatarColors[index % avatarColors.length]
+                            }`}
+                          >
+                            {getInitials(ownerName)}
                           </span>
-                        ) : null}
-                        <span
-                          className={`truncate text-xs font-bold ${
-                            isDone
-                              ? 'text-emerald-700'
-                              : isOverdueActionItem(item)
-                                ? 'text-red-600'
-                                : 'text-slate-600'
-                          }`}
-                        >
-                          {getDueLabel(item)}
-                        </span>
-                      </div>
-
-                      <div className="mt-auto flex h-6 items-center justify-between gap-3">
-                        <span
-                          className={`flex h-5 shrink-0 items-center rounded-md px-2 text-[11px] font-extrabold capitalize ${footerStatus.className}`}
-                        >
-                          {footerStatus.label}
-                        </span>
-                        {tagLabel ? (
-                          <span className="flex h-5 min-w-0 max-w-[58%] items-center rounded-md bg-blue-50 px-2 text-[11px] font-extrabold text-blue-700">
-                            <span className="truncate">{tagLabel}</span>
+                          {!isDone && assignee ? (
+                            <span className="truncate text-xs font-bold text-slate-600">
+                              {ownerName}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`truncate text-xs font-bold ${
+                              isDone
+                                ? 'text-emerald-700'
+                                : isOverdueActionItem(item)
+                                  ? 'text-red-600'
+                                  : 'text-slate-600'
+                            }`}
+                          >
+                            {getDueLabel(item)}
                           </span>
-                        ) : (
-                          <span />
-                        )}
+                        </div>
+
+                        <div className="mt-auto flex h-6 items-center justify-between gap-3">
+                          <span
+                            className={`flex h-5 shrink-0 items-center rounded-md px-2 text-[11px] font-extrabold capitalize ${footerStatus.className}`}
+                          >
+                            {footerStatus.label}
+                          </span>
+                          {tagLabel ? (
+                            <span className="flex h-5 min-w-0 max-w-[58%] items-center rounded-md bg-blue-50 px-2 text-[11px] font-extrabold text-blue-700">
+                              <span className="truncate">{tagLabel}</span>
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                )
-              })}
-              {grouped[column.id].length === 0 ? (
-                <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
-                  No items
-                </p>
-              ) : null}
+                    </article>
+                  )
+                })}
+                {grouped[column.id].length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
+                    No items
+                  </p>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <ActionItemDetailModal

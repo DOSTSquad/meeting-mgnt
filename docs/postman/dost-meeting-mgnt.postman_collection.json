@@ -582,7 +582,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["dashboard"]
             },
-            "description": "Returns `{ recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }`. `recentMeetings` includes the next six accessible active meetings ordered by earliest start time. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user. `pendingAvailabilityRequests` includes requests where the current user is an invitee and still needs to submit availability. `myActionItems` includes lean summaries for the current user's open assigned action items; fetch `/action-items/:id` for detail-only fields."
+            "description": "Returns `{ recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }`. `recentMeetings` includes the next six accessible active meetings ordered by earliest start time. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user. `pendingAvailabilityRequests` includes requests where the current user is an invitee and still needs to submit availability. `myActionItems` includes lean summaries for the current user's open assigned action items, including derived `isOverdue` and `dueState`; fetch `/action-items/:id` for detail-only fields."
           }
         },
         {
@@ -853,7 +853,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording"]
             },
-            "description": "Returns `{ recording, transcript }`. Both are null when no active recording exists."
+            "description": "Returns `{ recording, transcript }`. Both are null when no active recording exists. Any meeting participant can read recording metadata and transcript status."
           },
           "event": [
             {
@@ -1177,7 +1177,7 @@
                 }
               ]
             },
-            "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters."
+            "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters. Each action item includes derived `isOverdue` and `dueState` fields; overdue is not a persisted status."
           }
         },
         {
@@ -1189,7 +1189,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["action-items", "{{actionItemId}}"]
             },
-            "description": "Returns `{ actionItem }` with full action item detail. Meeting creators, meeting participants, and the assigned user can view it."
+            "description": "Returns `{ actionItem }` with full action item detail, including derived `isOverdue` and `dueState`. Meeting creators, meeting participants, and the assigned user can view it."
           }
         },
         {

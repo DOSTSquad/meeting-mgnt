@@ -1,4 +1,4 @@
-import { apiBaseUrl } from '../lib/apiClient.js'
+import { buildApiUrl } from '../lib/apiClient.js'
 
 export const register = async ({ name, email, password }) => {
   const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
@@ -21,7 +21,7 @@ export const register = async ({ name, email, password }) => {
 }
 
 export const login = async ({ email, password }) => {
-  const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+  const response = await fetch(buildApiUrl('/api/auth/login'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

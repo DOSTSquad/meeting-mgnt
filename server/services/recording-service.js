@@ -60,9 +60,26 @@ const assertCanManageRecording = async (meeting, callerId) => {
   }
 }
 
+const assertCanViewRecording = async (meeting, callerId) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  if (callerId === meeting.createdBy) {
+    return
+  }
+
+  const participants = await listByMeeting(meeting.id)
+  const isParticipant = participants.some((participant) => participant.userId === callerId)
+
+  if (!isParticipant) {
+    throw createHttpError('Only meeting participants can access recordings', 403)
+  }
+}
+
 export const getRecordingForMeeting = async (meetingId, callerId) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanManageRecording(meeting, callerId)
+  await assertCanViewRecording(meeting, callerId)
 
   const recording = await findActiveRecordingByMeetingId(meetingId)
   const transcript = recording ? await findLatestTranscriptByRecordingId(recording.id) : null

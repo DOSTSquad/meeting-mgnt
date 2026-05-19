@@ -47,6 +47,9 @@ const AppShell = ({ token, user, onLogout }) => {
   const [activeMeetingRequestId, setActiveMeetingRequestId] = useState(null)
   const [activeAvailabilityRequest, setActiveAvailabilityRequest] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
+    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 1023px)').matches
+  )
   const activePage = getActivePage(location.pathname)
   const activeMeetingId = location.pathname.match(/^\/meetings\/([^/]+)$/)?.[1] ?? null
   const selectedActionItemIdFromQuery =
@@ -277,6 +280,14 @@ const AppShell = ({ token, user, onLogout }) => {
     navigate(`/meetings/${meetingId}`)
   }
 
+  const handleSidebarSelect = (item) => {
+    navigate(item.path)
+
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      setIsSidebarCollapsed(true)
+    }
+  }
+
   const openNewMeetingModal = async () => {
     if (meetings.length === 0) {
       await reloadMeetingsData()
@@ -322,6 +333,8 @@ const AppShell = ({ token, user, onLogout }) => {
     setIsPreviewOpen,
     updateMeetingDetailField,
     saveMeetingField,
+    updateMeetingMinutesField,
+    saveMeetingMinutesFields,
     addActionItemInDetail,
     updateActionItemStatusInDetail,
     editActionItemTitle,
@@ -352,11 +365,16 @@ const AppShell = ({ token, user, onLogout }) => {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 lg:flex">
-      <div className={isPreviewOpen ? 'contents print:hidden' : 'contents'}>
-        <Sidebar activePage={activePage} onSelect={(item) => navigate(item.path)} />
+    <main className="min-h-screen w-full overflow-x-hidden bg-slate-100">
+      <div className={`flex w-full min-w-0 ${isPreviewOpen ? 'print:hidden' : ''}`}>
+        <Sidebar
+          activePage={activePage}
+          isCollapsed={isSidebarCollapsed}
+          onSelect={handleSidebarSelect}
+          onToggle={() => setIsSidebarCollapsed((value) => !value)}
+        />
 
-        <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8">
           <Topbar
             currentUser={user}
             notifications={notifications}
@@ -415,6 +433,8 @@ const AppShell = ({ token, user, onLogout }) => {
                     onBack={() => navigate('/meetings')}
                     onChange={updateMeetingDetailField}
                     onSaveMeetingField={saveMeetingField}
+                    onMinutesChange={updateMeetingMinutesField}
+                    onSaveMinutes={saveMeetingMinutesFields}
                     onAddActionItem={addActionItemInDetail}
                     onActionItemChange={editActionItemTitle}
                     onActionItemSave={saveActionItemTitle}

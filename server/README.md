@@ -44,25 +44,25 @@ All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` 
 | PUT    | `/:id` | partial subset of POST body fields                                             | `200 { meeting }` or `404`                            |
 | DELETE | `/:id` | —                                                                              | `204` or `404`                                        |
 
-Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `in_progress`, `completed`, `cancelled`, `archived`.
+Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `completed`, `cancelled`, `archived`.
 
-Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
+Meeting responses include `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
 `GET /api/meetings/:id` is available only to the meeting creator or meeting participants. Non-participants receive `403`, matching meeting file access rules.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
 ```
-scheduled ──▶ in_progress ──▶ completed ──▶ archived
-    │               │                           ▲
-    └──────────────▶└───▶ cancelled ────────────┘
+scheduled ──▶ completed ──▶ archived
+    │                         ▲
+    └──────▶ cancelled ───────┘
 ```
 
 Updating `status` to the same value is a no-op. `archived` is terminal. Any other transition returns `400` with `Invalid status transition: <from> → <to>`.
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
 
-**Full-text search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`. Stemming applies (e.g., `q=plan` matches "planning"); multi-word queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
+**Search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`, and a case-insensitive filename match against uploaded meeting files. Stemming applies to meeting text (e.g., `q=plan` matches "planning"); multi-word text queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
 
 ### Meeting Requests (`/api/meeting-requests`)
 
@@ -102,7 +102,7 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 `pendingAvailabilityRequests` contains unconfirmed, uncancelled meeting requests where the current user is an invitee and has not submitted availability yet. Each item includes the `inviteeId`, creator summary, invitee counts, time option count, duration, timezone, deadline, and status so the dashboard can open the voting modal.
 
-`myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
+`myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `isOverdue`, `dueState`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
 
 Notifications are table-backed lifecycle records. New rows are created for meeting creation, action-item assignment, meeting-request invitations, and meeting-request confirmation. Each notification stores `entityType` and `entityId` for navigation plus snapshot `title` and `detail` for fast feed rendering. `unreadCount` counts rows where `readAt` is null. Archived notifications are hidden from summary and feed responses. `/notifications/summary` is intended for the topbar. It returns the latest five notifications and `nextCursor` when more items exist. `/notifications` supports cursor pagination for full notification feeds. `limit` defaults to 20 and is capped at 50. Pass the returned `nextCursor` to fetch the next page.
 
@@ -122,14 +122,14 @@ Any meeting participant can read minutes. Only the meeting creator or a particip
 
 Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
 
-| Method | Path                | Body / Query                                             | Returns                                      |
-| ------ | ------------------- | -------------------------------------------------------- | -------------------------------------------- |
-| GET    | `/`                 | —                                                        | `200 { recording, transcript }`              |
-| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`              |
-| DELETE | `/`                 | —                                                        | `204`                                        |
-| POST   | `/generate-minutes` | —                                                        | `202 { recording, transcript, generationStatus }` |
+| Method | Path                | Body / Query                                            | Returns                                           |
+| ------ | ------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| GET    | `/`                 | —                                                       | `200 { recording, transcript }`                   |
+| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`                   |
+| DELETE | `/`                 | —                                                       | `204`                                             |
+| POST   | `/generate-minutes` | —                                                       | `202 { recording, transcript, generationStatus }` |
 
-Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+Any meeting participant can read recording metadata and transcript status. Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
 `POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
@@ -175,6 +175,7 @@ Any meeting participant (creator or any role) can upload, list, and request down
 | DELETE | `/action-items/:id`                 | —                                                                                             | `204`                 |
 
 - `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
+- `isOverdue` and `dueState` are derived from `dueDate` and workflow `status`; they are not persisted statuses. `dueState` is one of `none`, `upcoming`, `overdue`, or `closed`.
 - `priority` — one of `low`, `medium` (default), `high`.
 - Any meeting participant (including the creator) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.

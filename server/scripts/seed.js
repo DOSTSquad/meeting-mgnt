@@ -68,7 +68,7 @@ const usersSeed = [
 const defaultTags = ['strategy', 'operations', 'engineering']
 const meetingTags = [...defaultTags]
 const locations = ['Room A / Teams', 'Room B', 'Room C', 'Zoom', 'Board Room']
-const statuses = ['scheduled', 'in_progress', 'completed']
+const statuses = ['scheduled', 'completed']
 const participantRoles = ['attendee', 'attendee', 'attendee', 'optional', 'organizer']
 const actionStatuses = ['todo', 'in_progress', 'blocked', 'completed']
 const actionPriorities = ['low', 'medium', 'high']
@@ -80,6 +80,36 @@ const actionTitlePool = [
   'Confirm integration test plan',
   'Document risk mitigation',
   'Review dependency timeline',
+]
+
+const overdueActionItemsSeed = [
+  {
+    meetingTitle: 'Launch Readiness Check',
+    title: 'Resolve launch checklist blocker',
+    description: 'Confirm the remaining launch readiness blocker and record the mitigation owner.',
+    assigneeEmail: 'paveen.anuntakulnatee@seed.local',
+    status: 'blocked',
+    priority: 'high',
+    daysOverdue: 4,
+  },
+  {
+    meetingTitle: 'Risk and Compliance Review',
+    title: 'Send overdue compliance evidence',
+    description: 'Upload the missing compliance evidence package for stakeholder review.',
+    assigneeEmail: 'paveen.anuntakulnatee@seed.local',
+    status: 'todo',
+    priority: 'high',
+    daysOverdue: 2,
+  },
+  {
+    meetingTitle: 'Engineering Velocity Sync',
+    title: 'Follow up delayed integration test report',
+    description: 'Summarize failed integration checks and assign remediation owners.',
+    assigneeEmail: 'paveen.anuntakulnatee@seed.local',
+    status: 'in_progress',
+    priority: 'medium',
+    daysOverdue: 1,
+  },
 ]
 
 const meetingDescriptionPool = [
@@ -124,6 +154,14 @@ const meetingNamePool = [
 ]
 
 const randomPick = (items) => items[Math.floor(Math.random() * items.length)]
+
+const daysFromNowIso = (dayOffset) => {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + dayOffset)
+  date.setUTCHours(17, 0, 0, 0)
+
+  return date.toISOString()
+}
 
 const randomPickMany = (items, minCount, maxCount) => {
   const count = Math.min(
@@ -358,6 +396,7 @@ const seedParticipants = async (meetingId, usersByEmail) => {
 
 const seedActionItems = async (meetingsByTitle, usersByEmail) => {
   const createdBy = usersByEmail.get('paveen.anuntakulnatee@seed.local')
+  let createdCount = 0
 
   for (const [meetingTitle, meetingId] of meetingsByTitle.entries()) {
     const participants = await query(
@@ -399,8 +438,51 @@ const seedActionItems = async (meetingsByTitle, usersByEmail) => {
           createdBy,
         ]
       )
+
+      createdCount += 1
     }
   }
+
+  for (const item of overdueActionItemsSeed) {
+    const meetingId = meetingsByTitle.get(item.meetingTitle)
+    const assigneeId = usersByEmail.get(item.assigneeEmail)
+
+    if (!meetingId || !assigneeId) {
+      continue
+    }
+
+    await query(
+      `
+        INSERT INTO action_items (
+          meeting_id,
+          title,
+          description,
+          assignee_id,
+          due_date,
+          status,
+          priority,
+          source,
+          source_ref,
+          created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual', 'seed:overdue-demo', $8)
+      `,
+      [
+        meetingId,
+        item.title,
+        item.description,
+        assigneeId,
+        daysFromNowIso(-item.daysOverdue),
+        item.status,
+        item.priority,
+        createdBy,
+      ]
+    )
+
+    createdCount += 1
+  }
+
+  return createdCount
 }
 
 const seedNotifications = async () => {
@@ -486,13 +568,13 @@ const main = async () => {
     await seedParticipants(meetingId, usersByEmail)
   }
 
-  await seedActionItems(meetingsByTitle, usersByEmail)
+  const actionItemCount = await seedActionItems(meetingsByTitle, usersByEmail)
   await seedNotifications()
 
   console.log('Seed complete:')
   console.log(`- users: ${usersSeed.length}`)
   console.log(`- meetings: ${meetingsSeed.length}`)
-  console.log(`- action_items: ${meetingsSeed.length * 2}`)
+  console.log(`- action_items: ${actionItemCount}`)
   console.log('Sample login: paveen.anuntakulnatee@seed.local / Password123!')
 }
 

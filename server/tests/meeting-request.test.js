@@ -401,6 +401,8 @@ describe('meeting request flow', () => {
       assigneeId: creator.id,
       priority: 'high',
       status: 'todo',
+      isOverdue: false,
+      dueState: 'upcoming',
     })
     expect(actionItem).not.toHaveProperty('description')
     expect(actionItem).not.toHaveProperty('updatedAt')

@@ -5,6 +5,11 @@ export const MeetingPreviewModal = ({ detail, isOpen, onClose }) => {
     return null
   }
 
+  const getParticipantName = (userId) =>
+    detail.participants.find((participant) => participant.userId === userId)?.name || null
+  const facilitatorName = getParticipantName(detail.minutes?.facilitatorId)
+  const recorderName = getParticipantName(detail.minutes?.recorderId)
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4 print:static print:block print:bg-white print:p-0">
       <div className="w-full max-w-4xl rounded-2xl bg-white p-4 shadow-2xl print:max-w-none print:rounded-none print:p-0 print:shadow-none">
@@ -57,6 +62,55 @@ export const MeetingPreviewModal = ({ detail, isOpen, onClose }) => {
             <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
               {detail.meeting.description || '-'}
             </p>
+
+            <h2 className="mt-6 text-lg font-semibold">Meeting Minutes</h2>
+            <section className="mt-2 rounded-lg border border-slate-200 p-3">
+              <div className="grid gap-3 text-sm sm:grid-cols-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Status
+                  </p>
+                  <p className="mt-1 capitalize text-slate-800">
+                    {detail.minutes?.status || 'draft'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Facilitator
+                  </p>
+                  <p className="mt-1 text-slate-800">{facilitatorName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Recorder
+                  </p>
+                  <p className="mt-1 text-slate-800">{recorderName || '-'}</p>
+                </div>
+              </div>
+
+              <p className="mt-4 whitespace-pre-wrap text-sm text-slate-700">
+                {detail.minutes?.content || '-'}
+              </p>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Key Discussions
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                    {detail.minutes?.keyDiscussions || '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Decisions
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                    {detail.minutes?.decisions || '-'}
+                  </p>
+                </div>
+              </div>
+            </section>
 
             <h2 className="mt-6 text-lg font-semibold">Attendees</h2>
             <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">

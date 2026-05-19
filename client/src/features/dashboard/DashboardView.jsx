@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowRight, CalendarCheck } from 'lucide-react'
 
 import { ActionItemDetailModal } from '../action-items/ActionItemsView.jsx'
+import { isOverdueActionItem } from '../../utils/actionItems.js'
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
 
 const toTitleCase = (value = '') =>
@@ -47,7 +48,7 @@ export const DashboardView = ({
   }
 
   return (
-    <section className="space-y-6">
+    <section className="min-w-0 space-y-6">
       <div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
@@ -68,26 +69,26 @@ export const DashboardView = ({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-slate-500">Upcoming Meetings</p>
           <p className="mt-1 text-3xl font-semibold text-slate-800">
             {data?.recentMeetings?.length || 0}
           </p>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-slate-500">Pending Requests</p>
           <p className="mt-1 text-3xl font-semibold text-slate-800">
             {data?.pendingMeetingRequests?.length || 0}
           </p>
         </article>
-        <article className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4 shadow-sm">
+        <article className="min-w-0 rounded-2xl border border-violet-100 bg-violet-50/70 p-4 shadow-sm">
           <p className="text-xs text-violet-600">Availability Requests</p>
           <p className="mt-1 text-3xl font-semibold text-slate-800">
             {data?.pendingAvailabilityRequests?.length || 0}
           </p>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <article className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-slate-500">My Action Items</p>
           <p className="mt-1 text-3xl font-semibold text-slate-800">
             {data?.myActionItems?.length || 0}
@@ -95,10 +96,10 @@ export const DashboardView = ({
         </article>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-700">Upcoming Meetings</h2>
+      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+            <h2 className="min-w-0 text-xl font-semibold text-slate-700">Upcoming Meetings</h2>
             <button
               type="button"
               onClick={onViewAllMeetings}
@@ -108,13 +109,13 @@ export const DashboardView = ({
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {(data?.recentMeetings ?? []).map((meeting) => (
               <button
                 key={meeting.id}
                 type="button"
                 onClick={() => onOpenMeeting(meeting.id)}
-                className="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-white"
+                className="block min-w-0 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-white"
               >
                 <p className="truncate text-base font-semibold text-slate-800">{meeting.title}</p>
                 <p className="mt-2 text-sm text-slate-500">{formatDateTime(meeting.startsAt)}</p>
@@ -128,9 +129,9 @@ export const DashboardView = ({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-700">My Action Items</h2>
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+            <h2 className="min-w-0 text-xl font-semibold text-slate-700">My Action Items</h2>
             <button
               type="button"
               onClick={onViewAllActionItems}
@@ -140,16 +141,27 @@ export const DashboardView = ({
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {actionItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => openActionItemDetail(item)}
-                className="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-white"
+                className={`block min-w-0 w-full rounded-2xl border p-4 text-left transition hover:bg-white ${
+                  isOverdueActionItem(item)
+                    ? 'border-rose-200 bg-rose-50/70 hover:border-rose-300'
+                    : 'border-slate-200 bg-slate-50 hover:border-blue-300'
+                }`}
               >
                 <p className="truncate font-semibold text-slate-700">{item.title}</p>
-                <p className="mt-1 text-sm text-slate-500">Due: {formatDateOnly(item.dueDate)}</p>
+                <p
+                  className={`mt-1 text-sm ${
+                    isOverdueActionItem(item) ? 'font-semibold text-rose-600' : 'text-slate-500'
+                  }`}
+                >
+                  {isOverdueActionItem(item) ? 'Overdue: ' : 'Due: '}
+                  {formatDateOnly(item.dueDate)}
+                </p>
               </button>
             ))}
             {actionItems.length === 0 ? (
@@ -160,18 +172,18 @@ export const DashboardView = ({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-violet-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-700">Availability Requests</h2>
+        <div className="min-w-0 rounded-3xl border border-violet-100 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+            <h2 className="min-w-0 text-xl font-semibold text-slate-700">Availability Requests</h2>
             <CalendarCheck className="h-5 w-5 text-violet-600" />
           </div>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             {(data?.pendingAvailabilityRequests ?? []).map((request) => (
               <button
                 key={`${request.id}-${request.inviteeId}`}
                 type="button"
                 onClick={() => onOpenAvailabilityRequest(request)}
-                className="block w-full rounded-2xl border border-violet-100 bg-violet-50/60 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50"
+                className="block min-w-0 w-full rounded-2xl border border-violet-100 bg-violet-50/60 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -204,15 +216,17 @@ export const DashboardView = ({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-xl font-semibold text-slate-700">Pending Meeting Requests</h2>
-          <div className="space-y-3">
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 min-w-0 text-xl font-semibold text-slate-700">
+            Pending Meeting Requests
+          </h2>
+          <div className="min-w-0 space-y-3">
             {(data?.pendingMeetingRequests ?? []).map((request) => (
               <button
                 key={request.id}
                 type="button"
                 onClick={() => onOpenMeetingRequest(request.id)}
-                className="block w-full rounded-2xl border border-amber-100 bg-amber-50/60 p-4 text-left transition hover:border-amber-200 hover:bg-amber-50"
+                className="block min-w-0 w-full rounded-2xl border border-amber-100 bg-amber-50/60 p-4 text-left transition hover:border-amber-200 hover:bg-amber-50"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

@@ -17,11 +17,10 @@ const createHttpError = (message, statusCode) => {
   return error
 }
 
-export const ALLOWED_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled', 'archived']
+export const ALLOWED_STATUSES = ['scheduled', 'completed', 'cancelled', 'archived']
 
 const ALLOWED_TRANSITIONS = {
-  scheduled: ['in_progress', 'cancelled'],
-  in_progress: ['completed', 'cancelled'],
+  scheduled: ['completed', 'cancelled'],
   completed: ['archived'],
   cancelled: ['archived'],
   archived: [],

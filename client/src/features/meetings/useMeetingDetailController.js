@@ -8,6 +8,7 @@ import {
 } from '../../services/actionItemService.js'
 import { downloadFileContent, uploadMeetingFile } from '../../services/fileService.js'
 import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
+import { updateMeetingMinutes } from '../../services/minuteService.js'
 import {
   generateMinutesFromRecording,
   removeMeetingRecording,
@@ -132,6 +133,41 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
       await patchMeetingFields({ [field]: normalizedValue ?? null })
     },
     [onError, patchMeetingFields, selectedMeetingDetail]
+  )
+
+  const updateMeetingMinutesField = useCallback((field, value) => {
+    setSelectedMeetingDetail((prev) =>
+      prev
+        ? {
+            ...prev,
+            minutes: {
+              ...(prev.minutes ?? {}),
+              [field]: value,
+            },
+          }
+        : prev
+    )
+  }, [])
+
+  const saveMeetingMinutesFields = useCallback(
+    async (updates) => {
+      if (!selectedMeetingDetail) {
+        return
+      }
+
+      try {
+        const client = getApiClient(token)
+        const minutes = await updateMeetingMinutes(
+          client,
+          selectedMeetingDetail.meeting.id,
+          updates
+        )
+        setSelectedMeetingDetail((prev) => (prev ? { ...prev, minutes } : prev))
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to save meeting minutes')
+      }
+    },
+    [onError, selectedMeetingDetail, token]
   )
 
   const addActionItemInDetail = useCallback(
@@ -453,6 +489,8 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     setIsPreviewOpen,
     updateMeetingDetailField,
     saveMeetingField,
+    updateMeetingMinutesField,
+    saveMeetingMinutesFields,
     addActionItemInDetail,
     updateActionItemStatusInDetail,
     editActionItemTitle,
