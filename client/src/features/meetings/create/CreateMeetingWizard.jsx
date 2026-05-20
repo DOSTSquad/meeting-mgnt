@@ -9,6 +9,7 @@ import { ConfirmMeetingStep } from './ConfirmMeetingStep.jsx'
 import { CreateRequestStep } from './CreateRequestStep.jsx'
 import { InviteParticipantsStep } from './InviteParticipantsStep.jsx'
 import { ReviewResponsesStep } from './ReviewResponsesStep.jsx'
+import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
 
 const steps = ['Request', 'Times', 'Invite', 'Review', 'Confirm']
 
@@ -16,14 +17,37 @@ const getInitialRequestForm = () => ({
   title: '',
   description: '',
   durationMinutes: 60,
-  timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  timezoneName: MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: '',
 })
 
 const getInitialTimeDraft = () => ({ date: '', time: '' })
 
-const toIsoFromLocal = (value) =>
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value) ? new Date(value).toISOString() : null
+const toIsoFromWallTime = (value, timeZone) => {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+    return null
+  }
+
+  const [date, time] = value.split('T')
+
+  return zonedDateTimeToUtcDate({ date, time, timeZone }).toISOString()
+}
+
+const getRequestPayload = (requestForm) => ({
+  title: requestForm.title,
+  description: requestForm.description || null,
+  durationMinutes: requestForm.durationMinutes,
+  timezoneName: requestForm.timezoneName,
+  responseDeadline: toIsoFromWallTime(requestForm.responseDeadline, requestForm.timezoneName),
+})
+
+const resizeTimeOptions = (options, durationMinutes) =>
+  options.map((option) => ({
+    ...option,
+    endsAt: new Date(
+      new Date(option.startsAt).getTime() + durationMinutes * 60 * 1000
+    ).toISOString(),
+  }))
 
 const isThirtyMinuteIncrement = (time) => {
   const [, minute = '', second = '0'] = time.split(':')
@@ -34,7 +58,7 @@ const getRequestFormFromMeetingRequest = (request) => ({
   title: request.title ?? '',
   description: request.description ?? '',
   durationMinutes: request.durationMinutes ?? 60,
-  timezoneName: request.timezoneName ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+  timezoneName: request.timezoneName ?? MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: request.responseDeadline ? request.responseDeadline.slice(0, 16) : '',
 })
 
@@ -176,15 +200,14 @@ export const CreateMeetingWizard = ({
 
     try {
       if (stepIndex === 0) {
+        const payload = getRequestPayload(requestForm)
+
         if (!meetingRequest?.id) {
-          const created = await service.createRequest({
-            title: requestForm.title,
-            description: requestForm.description || null,
-            durationMinutes: requestForm.durationMinutes,
-            timezoneName: requestForm.timezoneName,
-            responseDeadline: toIsoFromLocal(requestForm.responseDeadline),
-          })
+          const created = await service.createRequest(payload)
           setMeetingRequest(created)
+        } else {
+          const updated = await service.updateRequest(meetingRequest.id, payload)
+          setMeetingRequest(updated)
         }
       }
 
@@ -280,7 +303,11 @@ export const CreateMeetingWizard = ({
       return
     }
 
-    const startsAt = new Date(`${candidate.date}T${candidate.time}:00`)
+    const startsAt = zonedDateTimeToUtcDate({
+      date: candidate.date,
+      time: candidate.time,
+      timeZone: requestForm.timezoneName,
+    })
     const endsAt = new Date(startsAt.getTime() + requestForm.durationMinutes * 60 * 1000)
     const startsAtIso = startsAt.toISOString()
 
@@ -353,8 +380,28 @@ export const CreateMeetingWizard = ({
     }
   }
 
+  const updateRequestForm = (patch) => {
+    setRequestForm((prev) => ({ ...prev, ...patch }))
+
+    if (patch.durationMinutes !== undefined) {
+      const durationMinutes = Number(patch.durationMinutes)
+      setTimeOptions((prev) => resizeTimeOptions(prev, durationMinutes))
+      setSavedTimeOptions((prev) => resizeTimeOptions(prev, durationMinutes))
+    }
+
+    if (patch.timezoneName !== undefined && patch.timezoneName !== requestForm.timezoneName) {
+      setTimeDraft(getInitialTimeDraft())
+      setTimeOptions([])
+      setSavedTimeOptions([])
+      setSelectedTimeOptionId('')
+    }
+  }
+
+  const isRequestStepComplete =
+    requestForm.title.trim() && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
+
   const canContinue =
-    (stepIndex === 0 && requestForm.title.trim()) ||
+    (stepIndex === 0 && isRequestStepComplete) ||
     (stepIndex === 1 && timeOptions.length > 0) ||
     (stepIndex === 2 && invitees.length > 0) ||
     (stepIndex === 3 && savedTimeOptions.length > 0) ||
@@ -437,10 +484,7 @@ export const CreateMeetingWizard = ({
             </p>
           ) : null}
           {!isLoadingRequest && stepIndex === 0 ? (
-            <CreateRequestStep
-              form={requestForm}
-              onChange={(patch) => setRequestForm((prev) => ({ ...prev, ...patch }))}
-            />
+            <CreateRequestStep form={requestForm} onChange={updateRequestForm} />
           ) : null}
           {!isLoadingRequest && stepIndex === 1 ? (
             <AddTimeOptionsStep
@@ -479,6 +523,7 @@ export const CreateMeetingWizard = ({
               timeOptions={savedTimeOptions}
               invitees={savedInvitees}
               selectedTimeOptionId={selectedTimeOptionId}
+              timezoneName={meetingRequest?.timezoneName ?? requestForm.timezoneName}
               onSelect={setSelectedTimeOptionId}
             />
           ) : null}
@@ -488,6 +533,7 @@ export const CreateMeetingWizard = ({
               location={confirmForm.location}
               tag={confirmForm.tag}
               tags={tags}
+              timezoneName={meetingRequest?.timezoneName ?? requestForm.timezoneName}
               onChange={(patch) => setConfirmForm((prev) => ({ ...prev, ...patch }))}
             />
           ) : null}

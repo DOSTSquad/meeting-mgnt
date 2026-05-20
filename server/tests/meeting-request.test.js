@@ -15,6 +15,7 @@ import {
   replaceInvitees,
   replaceTimeOptions,
   submitAvailability,
+  update,
 } from '../controllers/meeting-request-controller.js'
 import { createUser } from '../repositories/user-repository.js'
 import {
@@ -249,6 +250,55 @@ describe('meeting request flow', () => {
     )
   })
 
+  it('updates request details before confirmation', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Initial planning',
+          durationMinutes: 60,
+          timezoneName: 'Asia/Manila',
+          responseDeadline: dateFromNow(1),
+        },
+      })
+    )
+    expect(createResult.nextError).toBeUndefined()
+    const requestId = createResult.res.body.meetingRequest.id
+    const updatedDeadline = dateFromNow(2)
+
+    const updateResult = await runHandler(
+      update,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: {
+          title: 'Updated planning',
+          description: 'Duration changed after going back',
+          durationMinutes: 90,
+          timezoneName: 'Australia/Brisbane',
+          responseDeadline: updatedDeadline,
+        },
+      })
+    )
+
+    expect(updateResult.nextError).toBeUndefined()
+    expect(updateResult.res.body.meetingRequest).toMatchObject({
+      id: requestId,
+      title: 'Updated planning',
+      description: 'Duration changed after going back',
+      durationMinutes: 90,
+      timezoneName: 'Australia/Brisbane',
+    })
+    expect(new Date(updateResult.res.body.meetingRequest.responseDeadline).toISOString()).toBe(
+      new Date(updatedDeadline).toISOString()
+    )
+  })
+
   it('closes invitee voting after the response deadline while allowing host confirmation', async () => {
     if (!runDatabaseTests) {
       return
@@ -355,6 +405,7 @@ describe('meeting request flow', () => {
           title: 'Binary availability only',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
+          responseDeadline: dateFromNow(1),
         },
       })
     )
@@ -636,6 +687,7 @@ describe('meeting request flow', () => {
           title: 'Should avoid host conflicts',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
+          responseDeadline: dateFromNow(1),
         },
       })
     )
@@ -674,6 +726,7 @@ describe('meeting request flow', () => {
           title: 'Past time request',
           durationMinutes: 60,
           timezoneName: 'UTC',
+          responseDeadline: dateFromNow(1),
         },
       })
     )
@@ -725,5 +778,26 @@ describe('meeting request flow', () => {
 
     expect(createResult.nextError.statusCode).toBe(400)
     expect(createResult.nextError.message).toBe('responseDeadline must be in the future')
+  })
+
+  it('requires a response deadline', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Missing deadline request',
+          durationMinutes: 60,
+          timezoneName: 'UTC',
+        },
+      })
+    )
+
+    expect(createResult.nextError.statusCode).toBe(400)
+    expect(createResult.nextError.message).toBe('responseDeadline is required')
   })
 })

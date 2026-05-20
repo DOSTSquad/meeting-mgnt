@@ -1,7 +1,13 @@
 import { useState } from 'react'
-import { addMinutes, format, isBefore, isSameDay, startOfToday } from 'date-fns'
+import { addMinutes, format, isBefore, startOfToday } from 'date-fns'
 import { CalendarDays, Check, Clock3, Globe2 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
+
+import {
+  formatDateTimeInTimeZone,
+  getDateValueInTimeZone,
+  zonedDateTimeToUtcDate,
+} from '../../../utils/timezone.js'
 
 const SLOT_INTERVAL_MINUTES = 30
 const TIME_WINDOWS = [
@@ -10,11 +16,11 @@ const TIME_WINDOWS = [
   { id: 'evening', label: 'Evening', start: 17 * 60, end: 21 * 60 },
 ]
 
-const formatOptionLabel = (option) =>
-  `${new Date(option.startsAt).toLocaleString([], {
+const formatOptionLabel = (option, timezoneName) =>
+  `${formatDateTimeInTimeZone(option.startsAt, timezoneName, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  })} - ${new Date(option.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}`
+  })} - ${formatDateTimeInTimeZone(option.endsAt, timezoneName, { timeStyle: 'short' })}`
 
 const toDateValue = (date) => format(date, 'yyyy-MM-dd')
 
@@ -47,14 +53,20 @@ const getTimeSlots = (durationMinutes, window) => {
   return slots
 }
 
-const getSlotIso = (dateValue, timeValue) => new Date(`${dateValue}T${timeValue}:00`).toISOString()
+const getSlotIso = (dateValue, timeValue, timezoneName) =>
+  zonedDateTimeToUtcDate({
+    date: dateValue,
+    time: timeValue,
+    timeZone: timezoneName,
+  }).toISOString()
 
 const isActiveMeeting = (meeting) => !['cancelled', 'archived'].includes(meeting.status)
 
-const isPastSlot = (dateValue, timeValue) => new Date(`${dateValue}T${timeValue}:00`) < new Date()
+const isPastSlot = (dateValue, timeValue, timezoneName) =>
+  zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) < new Date()
 
-const findBlockedMeeting = ({ date, time, durationMinutes, blockedMeetings }) => {
-  const startsAt = new Date(`${date}T${time}:00`)
+const findBlockedMeeting = ({ date, time, durationMinutes, timezoneName, blockedMeetings }) => {
+  const startsAt = zonedDateTimeToUtcDate({ date, time, timeZone: timezoneName })
   const endsAt = addMinutes(startsAt, durationMinutes)
 
   return blockedMeetings.find((meeting) => {
@@ -80,12 +92,15 @@ export const AddTimeOptionsStep = ({
   onRemoveOption,
 }) => {
   const [activeWindowId, setActiveWindowId] = useState(TIME_WINDOWS[0].id)
-  const activeWindow = TIME_WINDOWS.find((window) => window.id === activeWindowId) ?? TIME_WINDOWS[0]
+  const activeWindow =
+    TIME_WINDOWS.find((window) => window.id === activeWindowId) ?? TIME_WINDOWS[0]
   const today = startOfToday()
   const selectedDate = toDateFromValue(draft.date)
   const slots = getTimeSlots(durationMinutes, activeWindow)
   const selectedDateOptions = selectedDate
-    ? options.filter((option) => isSameDay(new Date(option.startsAt), selectedDate))
+    ? options.filter(
+        (option) => getDateValueInTimeZone(option.startsAt, timezoneName) === draft.date
+      )
     : []
 
   const addSlot = (time) => {
@@ -103,7 +118,7 @@ export const AddTimeOptionsStep = ({
       return
     }
 
-    const slotIso = getSlotIso(draft.date, time)
+    const slotIso = getSlotIso(draft.date, time, timezoneName)
     const optionIndex = options.findIndex((option) => option.startsAt === slotIso)
 
     if (optionIndex >= 0) {
@@ -134,46 +149,46 @@ export const AddTimeOptionsStep = ({
 
         <div className="grid gap-5 px-4 py-6 md:grid-cols-[1fr_0.9fr]">
           <div>
-              <div className="mb-3 flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-blue-600" aria-hidden="true" />
-                <h4 className="text-sm font-bold text-slate-800">Choose candidate dates</h4>
-              </div>
-              <DayPicker
-                mode="single"
-                selected={selectedDate}
-                disabled={{ before: today }}
-                onSelect={(date) => {
-                  if (date && !isBefore(date, today)) {
-                    onDraftChange({ date: toDateValue(date), time: '' })
-                  }
-                }}
-                classNames={{
-                  root: 'w-full',
-                  months: 'w-full',
-                  month: 'w-full',
-                  month_caption: 'mb-3 flex items-center justify-center',
-                  caption_label: 'text-sm font-bold text-slate-800',
-                  nav: 'absolute right-4 top-[104px] flex gap-1',
-                  button_previous:
-                    'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
-                  button_next:
-                    'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
-                  chevron: 'h-4 w-4 fill-current',
-                  month_grid: 'w-full table-fixed border-collapse',
-                  weekdays: 'text-xs text-slate-500',
-                  weekday: 'pb-2 text-center font-semibold',
-                  week: '',
-                  day: 'p-0 text-center align-middle',
-                  day_button:
-                    'mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200',
-                  selected:
-                    '[&>button]:bg-blue-600 [&>button]:text-white [&>button:hover]:bg-blue-600 [&>button:hover]:text-white',
-                  today: 'font-extrabold text-blue-700',
-                  outside: 'text-slate-300',
-                  disabled:
-                    '[&>button]:cursor-not-allowed [&>button]:text-slate-300 [&>button]:opacity-40 [&>button]:grayscale [&>button:hover]:bg-transparent [&>button:hover]:text-slate-300',
-                }}
-              />
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-blue-600" aria-hidden="true" />
+              <h4 className="text-sm font-bold text-slate-800">Choose candidate dates</h4>
+            </div>
+            <DayPicker
+              mode="single"
+              selected={selectedDate}
+              disabled={{ before: today }}
+              onSelect={(date) => {
+                if (date && !isBefore(date, today)) {
+                  onDraftChange({ date: toDateValue(date), time: '' })
+                }
+              }}
+              classNames={{
+                root: 'relative w-full',
+                months: 'w-full',
+                month: 'w-full',
+                month_caption: 'mb-3 flex h-8 items-center justify-center px-16',
+                caption_label: 'text-sm font-bold text-slate-800',
+                nav: 'absolute right-0 top-0 flex gap-1',
+                button_previous:
+                  'inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800 aria-disabled:pointer-events-none aria-disabled:opacity-30',
+                button_next:
+                  'inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800 aria-disabled:pointer-events-none aria-disabled:opacity-30',
+                chevron: 'h-4 w-4 fill-current',
+                month_grid: 'w-full table-fixed border-collapse',
+                weekdays: 'text-xs text-slate-500',
+                weekday: 'pb-2 text-center font-semibold',
+                week: '',
+                day: 'p-0 text-center align-middle',
+                day_button:
+                  'mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200',
+                selected:
+                  '[&>button]:bg-blue-600 [&>button]:text-white [&>button:hover]:bg-blue-600 [&>button:hover]:text-white',
+                today: 'font-extrabold text-blue-700',
+                outside: 'text-slate-300',
+                disabled:
+                  '[&>button]:cursor-not-allowed [&>button]:text-slate-300 [&>button]:opacity-40 [&>button]:grayscale [&>button:hover]:bg-transparent [&>button:hover]:text-slate-300',
+              }}
+            />
           </div>
 
           <div>
@@ -201,13 +216,15 @@ export const AddTimeOptionsStep = ({
                 <div className="mt-4 grid max-h-64 gap-2 overflow-auto pr-1">
                   {slots.map((slot) => {
                     const isSelected = options.some(
-                      (option) => option.startsAt === getSlotIso(draft.date, slot.value)
+                      (option) =>
+                        option.startsAt === getSlotIso(draft.date, slot.value, timezoneName)
                     )
-                    const isPast = isPastSlot(draft.date, slot.value)
+                    const isPast = isPastSlot(draft.date, slot.value, timezoneName)
                     const blockedMeeting = findBlockedMeeting({
                       date: draft.date,
                       time: slot.value,
                       durationMinutes,
+                      timezoneName,
                       blockedMeetings,
                     })
 
@@ -236,7 +253,11 @@ export const AddTimeOptionsStep = ({
                         } disabled:cursor-not-allowed disabled:grayscale disabled:opacity-50`}
                       >
                         {isSelected ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
-                        {isPast ? `${slot.label} passed` : blockedMeeting ? `${slot.label} blocked` : slot.label}
+                        {isPast
+                          ? `${slot.label} passed`
+                          : blockedMeeting
+                            ? `${slot.label} blocked`
+                            : slot.label}
                       </button>
                     )
                   })}
@@ -268,7 +289,9 @@ export const AddTimeOptionsStep = ({
               key={`${option.startsAt}-${index}`}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2"
             >
-              <span className="text-sm font-semibold text-slate-700">{formatOptionLabel(option)}</span>
+              <span className="text-sm font-semibold text-slate-700">
+                {formatOptionLabel(option, timezoneName)}
+              </span>
             </div>
           ))}
           {options.length === 0 ? (
