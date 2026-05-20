@@ -60,6 +60,33 @@ Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migra
 
 [`deploy/Caddyfile`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/deploy/Caddyfile) serves the built React app and proxies API traffic to the Express server.
 
+## GitHub Actions Deployment
+
+The [`Deploy`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.github/workflows/deploy.yml)
+workflow runs on pushes to `main` and can also be started manually from GitHub Actions.
+
+Configure these GitHub repository secrets:
+
+| Name             | Purpose                                    |
+| ---------------- | ------------------------------------------ |
+| `DEPLOY_HOST`    | VPS host or IP address                     |
+| `DEPLOY_USER`    | SSH user that can access the app directory |
+| `DEPLOY_SSH_KEY` | Private SSH key for the deploy user        |
+| `DEPLOY_PORT`    | Optional SSH port; defaults to `22`        |
+
+Optional repository variables:
+
+| Name                  | Default               |
+| --------------------- | --------------------- |
+| `DEPLOY_PATH`         | `/srv/meeting-mgnt`   |
+| `DEPLOY_SERVICE_NAME` | `meeting-mgnt-server` |
+
+The VPS deploy user must be able to run `git fetch`, `npm ci`,
+`npm run migrate --workspace=server`,
+`VITE_API_BASE_URL=/ npm run build --workspace=client`, and
+`sudo systemctl restart meeting-mgnt-server`. If the deploy user is not root,
+allow passwordless sudo only for restarting that service.
+
 Run the Express API as a private service on the VPS:
 
 ```bash
