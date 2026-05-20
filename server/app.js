@@ -1,6 +1,7 @@
 import { config as loadDotenv } from 'dotenv'
 import cors from 'cors'
 import express from 'express'
+import { rateLimit } from 'express-rate-limit'
 import http from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
@@ -27,9 +28,50 @@ import { fileRouter, meetingFileRouter } from './routes/file-routes.js'
 import { actionItemRouter, meetingActionItemRouter } from './routes/action-item-routes.js'
 
 const HEALTH_TIMEOUT_MS = 1500
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const DEFAULT_RATE_LIMIT_MAX = 100
 
 export const isDevelopmentEnvironment = (environment = process.env.NODE_ENV) =>
   environment === 'development'
+
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10)
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+export const getRateLimitConfig = (environment = process.env) => ({
+  windowMs: parsePositiveInteger(environment.RATE_LIMIT_WINDOW_MS, DEFAULT_RATE_LIMIT_WINDOW_MS),
+  limit: parsePositiveInteger(environment.RATE_LIMIT_MAX, DEFAULT_RATE_LIMIT_MAX),
+})
+
+const getTrustProxySetting = (value = process.env.TRUST_PROXY) => {
+  if (!value || value === 'false') {
+    return false
+  }
+
+  if (value === 'true') {
+    return 'loopback'
+  }
+
+  const parsed = Number.parseInt(value, 10)
+
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : value
+}
+
+export const createApiRateLimiter = (environment = process.env) => {
+  const { windowMs, limit } = getRateLimitConfig(environment)
+
+  return rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: {
+      error: 'Too many requests, please try again later',
+    },
+  })
+}
 
 const checkTcpDependency = ({ name, host, port }) =>
   new Promise((resolve) => {
@@ -206,8 +248,9 @@ const getHealthChecks = async () => {
 export const createApp = () => {
   const app = express()
 
+  app.set('trust proxy', getTrustProxySetting())
   app.use(express.json())
-  app.use(cors({ exposedHeaders: ['Link', 'X-Total-Count'] }))
+  app.use(cors({ exposedHeaders: ['Link', 'RateLimit', 'RateLimit-Policy', 'X-Total-Count'] }))
 
   app.get('/health/live', (_req, res) => {
     res.json({
@@ -231,6 +274,7 @@ export const createApp = () => {
     })
   })
 
+  app.use('/api', createApiRateLimiter())
   app.use('/api/auth', authRouter)
   app.use('/api', requireAuth)
   app.use('/api', dashboardRouter)

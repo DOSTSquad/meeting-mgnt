@@ -1,7 +1,7 @@
 import { buildApiUrl } from '../lib/apiClient.js'
 
 export const register = async ({ name, email, password }) => {
-  const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
+  const response = await fetch(buildApiUrl('/api/auth/register'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

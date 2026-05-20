@@ -6,6 +6,17 @@ Start the API with `npm run dev --workspace=server`.
 
 The default port is `3001`, configurable through `PORT` in `.env`.
 
+## Rate Limiting
+
+All `/api/*` routes are rate limited by client IP. Defaults are `100` requests per
+`900000` ms (15 minutes), configurable with `RATE_LIMIT_MAX` and
+`RATE_LIMIT_WINDOW_MS`. Requests over the limit return `429` with
+`{ "error": "Too many requests, please try again later" }`.
+
+When the API runs behind a same-host reverse proxy such as Caddy, set
+`TRUST_PROXY=true` so Express uses the forwarded client IP instead of the proxy's
+loopback address.
+
 ## Migrations
 
 Run database migrations with `npm run migrate --workspace=server`.

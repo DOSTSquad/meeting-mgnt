@@ -72,6 +72,8 @@ sudo systemctl enable --now meeting-mgnt-server
 
 The service assumes the app is deployed at `/srv/meeting-mgnt`, `.env` exists there, and Node is available at `/usr/bin/node`; edit the service file if your VPS differs.
 
+When the Express API is behind Caddy, set `TRUST_PROXY=true` in the server `.env` so API rate limiting keys on the forwarded client IP rather than Caddy's loopback address.
+
 For the current IP-only deployment at `194.195.127.196`:
 
 ```bash
