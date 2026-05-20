@@ -368,8 +368,11 @@ export const CreateMeetingWizard = ({
     }
   }
 
+  const isRequestStepComplete =
+    requestForm.title.trim() && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
+
   const canContinue =
-    (stepIndex === 0 && requestForm.title.trim()) ||
+    (stepIndex === 0 && isRequestStepComplete) ||
     (stepIndex === 1 && timeOptions.length > 0) ||
     (stepIndex === 2 && invitees.length > 0) ||
     (stepIndex === 3 && savedTimeOptions.length > 0) ||

@@ -228,7 +228,7 @@ export const CreateRequestStep = ({ form, onChange }) => {
       </div>
 
       <div>
-        <span className="text-sm font-bold text-slate-800">Response Deadline</span>
+        <RequiredLabel>Response Deadline</RequiredLabel>
         <div className="relative mt-2">
           <button
             type="button"

@@ -355,6 +355,7 @@ describe('meeting request flow', () => {
           title: 'Binary availability only',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
+          responseDeadline: dateFromNow(1),
         },
       })
     )
@@ -636,6 +637,7 @@ describe('meeting request flow', () => {
           title: 'Should avoid host conflicts',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
+          responseDeadline: dateFromNow(1),
         },
       })
     )
@@ -674,6 +676,7 @@ describe('meeting request flow', () => {
           title: 'Past time request',
           durationMinutes: 60,
           timezoneName: 'UTC',
+          responseDeadline: dateFromNow(1),
         },
       })
     )
@@ -725,5 +728,26 @@ describe('meeting request flow', () => {
 
     expect(createResult.nextError.statusCode).toBe(400)
     expect(createResult.nextError.message).toBe('responseDeadline must be in the future')
+  })
+
+  it('requires a response deadline', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Missing deadline request',
+          durationMinutes: 60,
+          timezoneName: 'UTC',
+        },
+      })
+    )
+
+    expect(createResult.nextError.statusCode).toBe(400)
+    expect(createResult.nextError.message).toBe('responseDeadline is required')
   })
 })
