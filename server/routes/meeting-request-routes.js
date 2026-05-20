@@ -10,6 +10,7 @@ import {
   replaceTimeOptions,
   submitAvailability,
   terminate,
+  update,
 } from '../controllers/meeting-request-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 
@@ -52,6 +53,39 @@ meetingRequestRouter.get(
   [param('requestId').isUUID().withMessage('requestId must be a UUID')],
   handleValidationErrors,
   getOne
+)
+
+meetingRequestRouter.put(
+  '/:requestId',
+  [
+    param('requestId').isUUID().withMessage('requestId must be a UUID'),
+    body('title')
+      .trim()
+      .notEmpty()
+      .withMessage('Title is required')
+      .bail()
+      .isLength({ max: 255 })
+      .withMessage('Title must be at most 255 characters'),
+    body('description')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('Description must be a string'),
+    body('durationMinutes')
+      .optional()
+      .isInt({ min: 1, max: 1440 })
+      .withMessage('durationMinutes must be between 1 and 1440')
+      .toInt(),
+    body('timezoneName').optional().trim().notEmpty().withMessage('timezoneName must not be empty'),
+    body('responseDeadline')
+      .exists({ checkFalsy: true })
+      .withMessage('responseDeadline is required')
+      .bail()
+      .isISO8601({ strict: true })
+      .withMessage('responseDeadline must be a valid ISO 8601 datetime')
+      .toDate(),
+  ],
+  handleValidationErrors,
+  update
 )
 
 meetingRequestRouter.get(

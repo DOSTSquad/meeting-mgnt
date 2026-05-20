@@ -33,6 +33,22 @@ const toIsoFromWallTime = (value, timeZone) => {
   return zonedDateTimeToUtcDate({ date, time, timeZone }).toISOString()
 }
 
+const getRequestPayload = (requestForm) => ({
+  title: requestForm.title,
+  description: requestForm.description || null,
+  durationMinutes: requestForm.durationMinutes,
+  timezoneName: requestForm.timezoneName,
+  responseDeadline: toIsoFromWallTime(requestForm.responseDeadline, requestForm.timezoneName),
+})
+
+const resizeTimeOptions = (options, durationMinutes) =>
+  options.map((option) => ({
+    ...option,
+    endsAt: new Date(
+      new Date(option.startsAt).getTime() + durationMinutes * 60 * 1000
+    ).toISOString(),
+  }))
+
 const isThirtyMinuteIncrement = (time) => {
   const [, minute = '', second = '0'] = time.split(':')
   return Number(minute) % 30 === 0 && Number(second) === 0
@@ -184,18 +200,14 @@ export const CreateMeetingWizard = ({
 
     try {
       if (stepIndex === 0) {
+        const payload = getRequestPayload(requestForm)
+
         if (!meetingRequest?.id) {
-          const created = await service.createRequest({
-            title: requestForm.title,
-            description: requestForm.description || null,
-            durationMinutes: requestForm.durationMinutes,
-            timezoneName: requestForm.timezoneName,
-            responseDeadline: toIsoFromWallTime(
-              requestForm.responseDeadline,
-              requestForm.timezoneName
-            ),
-          })
+          const created = await service.createRequest(payload)
           setMeetingRequest(created)
+        } else {
+          const updated = await service.updateRequest(meetingRequest.id, payload)
+          setMeetingRequest(updated)
         }
       }
 
@@ -368,6 +380,23 @@ export const CreateMeetingWizard = ({
     }
   }
 
+  const updateRequestForm = (patch) => {
+    setRequestForm((prev) => ({ ...prev, ...patch }))
+
+    if (patch.durationMinutes !== undefined) {
+      const durationMinutes = Number(patch.durationMinutes)
+      setTimeOptions((prev) => resizeTimeOptions(prev, durationMinutes))
+      setSavedTimeOptions((prev) => resizeTimeOptions(prev, durationMinutes))
+    }
+
+    if (patch.timezoneName !== undefined && patch.timezoneName !== requestForm.timezoneName) {
+      setTimeDraft(getInitialTimeDraft())
+      setTimeOptions([])
+      setSavedTimeOptions([])
+      setSelectedTimeOptionId('')
+    }
+  }
+
   const isRequestStepComplete =
     requestForm.title.trim() && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
 
@@ -455,10 +484,7 @@ export const CreateMeetingWizard = ({
             </p>
           ) : null}
           {!isLoadingRequest && stepIndex === 0 ? (
-            <CreateRequestStep
-              form={requestForm}
-              onChange={(patch) => setRequestForm((prev) => ({ ...prev, ...patch }))}
-            />
+            <CreateRequestStep form={requestForm} onChange={updateRequestForm} />
           ) : null}
           {!isLoadingRequest && stepIndex === 1 ? (
             <AddTimeOptionsStep

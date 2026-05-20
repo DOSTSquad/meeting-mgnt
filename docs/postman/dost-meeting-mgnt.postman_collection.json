@@ -390,6 +390,28 @@
           ]
         },
         {
+          "name": "Update meeting request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"description\": \"Review delivery health and updated risks\",\n  \"durationMinutes\": 90,\n  \"timezoneName\": \"Asia/Manila\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+08:00\"\n}"
+            },
+            "description": "Updates editable meeting request details before the request is closed. Used when the organizer goes back in the creation wizard and changes duration, timezone, title, description, or response deadline."
+          }
+        },
+        {
           "name": "Replace time options",
           "request": {
             "method": "PUT",
