@@ -79,20 +79,20 @@ Updating `status` to the same value is a no-op. `archived` is terminal. Any othe
 
 Meeting requests support the 5-step scheduling flow before a confirmed meeting exists. Confirmed meetings still live in `/api/meetings`.
 
-| Method | Path                                           | Body / Query                                                                  | Returns                                                   |
-| ------ | ---------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------- |
-| POST   | `/`                                            | `{ title, description?, durationMinutes?, timezoneName?, responseDeadline? }` | `201 { meetingRequest }`                                  |
-| GET    | `/:requestId`                                  | —                                                                             | `200 { meetingRequest, timeOptions, invitees }`           |
-| GET    | `/:requestId/invitees/:inviteeId`              | —                                                                             | `200 { meetingRequest, invitee, timeOptions, responses }` |
-| PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                         | `200 { timeOptions }`                                     |
-| PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                            | `200 { invitees }`                                        |
-| PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                              | `200 { responses }`                                       |
-| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                           | `201 { meeting, meetingRequest }`                         |
-| DELETE | `/:requestId`                                  | —                                                                             | `200 { meetingRequest }`                                  |
+| Method | Path                                           | Body / Query                                                                 | Returns                                                   |
+| ------ | ---------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| POST   | `/`                                            | `{ title, responseDeadline, description?, durationMinutes?, timezoneName? }` | `201 { meetingRequest }`                                  |
+| GET    | `/:requestId`                                  | —                                                                            | `200 { meetingRequest, timeOptions, invitees }`           |
+| GET    | `/:requestId/invitees/:inviteeId`              | —                                                                            | `200 { meetingRequest, invitee, timeOptions, responses }` |
+| PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                        | `200 { timeOptions }`                                     |
+| PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                           | `200 { invitees }`                                        |
+| PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                             | `200 { responses }`                                       |
+| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                          | `201 { meeting, meetingRequest }`                         |
+| DELETE | `/:requestId`                                  | —                                                                            | `200 { meetingRequest }`                                  |
 
 Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
 
-Meeting request responses include derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags. `responseDeadline` closes invitee availability submission and updates, but does not cancel the request. Once the deadline has passed, the organizer can confirm a final meeting time from the existing time options even if some invitees never responded.
+Meeting request responses include derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags. `responseDeadline` is required when creating a meeting request. It closes invitee availability submission and updates, but does not cancel the request. Once the deadline has passed, the organizer can confirm a final meeting time from the existing time options even if some invitees never responded.
 
 Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet. Availability submission after the response deadline returns `409`. The invitee detail endpoint is safe for the matching invitee or the request creator and returns only that invitee's response rows, not the full invitee list.
 

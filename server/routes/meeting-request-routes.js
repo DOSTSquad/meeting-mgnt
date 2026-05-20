@@ -36,7 +36,9 @@ meetingRequestRouter.post(
       .toInt(),
     body('timezoneName').optional().trim().notEmpty().withMessage('timezoneName must not be empty'),
     body('responseDeadline')
-      .optional({ nullable: true })
+      .exists({ checkFalsy: true })
+      .withMessage('responseDeadline is required')
+      .bail()
       .isISO8601({ strict: true })
       .withMessage('responseDeadline must be a valid ISO 8601 datetime')
       .toDate(),

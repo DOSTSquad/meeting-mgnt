@@ -67,6 +67,10 @@ const validateTimeRange = (startsAt, endsAt) => {
 }
 
 const validateFutureDateTime = (value, fieldName) => {
+  if (!value) {
+    throw createHttpError(`${fieldName} is required`, 400)
+  }
+
   if (value && toDate(value) < new Date()) {
     throw createHttpError(`${fieldName} must be in the future`, 400)
   }
@@ -130,7 +134,7 @@ export const createRequestForUser = async (input, callerId) => {
     description: description ?? null,
     durationMinutes: numericDuration,
     timezoneName,
-    responseDeadline: responseDeadline ? toDate(responseDeadline) : null,
+    responseDeadline: toDate(responseDeadline),
     createdBy: callerId,
   })
 
