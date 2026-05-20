@@ -1,6 +1,10 @@
 export const MEETING_TIMEZONE_OPTIONS = [
-  { value: 'Asia/Manila', label: 'Asia/Manila' },
-  { value: 'Australia/Brisbane', label: 'Australia/Brisbane' },
+  { value: 'Asia/Manila', label: 'Asia/Manila', description: 'Philippines, UTC+8' },
+  {
+    value: 'Australia/Brisbane',
+    label: 'Australia/Brisbane',
+    description: 'Queensland, UTC+10',
+  },
 ]
 
 const getZonedParts = (date, timeZone) => {

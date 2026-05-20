@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format, isBefore, startOfToday } from 'date-fns'
-import { CalendarDays, ChevronDown, Clock3 } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, Clock3, Globe2 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
 import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
@@ -88,6 +88,7 @@ const RequiredLabel = ({ children }) => (
 
 export const CreateRequestStep = ({ form, onChange }) => {
   const [isDeadlineCalendarOpen, setIsDeadlineCalendarOpen] = useState(false)
+  const [isTimezoneMenuOpen, setIsTimezoneMenuOpen] = useState(false)
   const [activeTimeWindowId, setActiveTimeWindowId] = useState(TIME_WINDOWS[1].id)
   const deadline = getDeadlineParts(form.responseDeadline)
   const deadlineDate = toDateFromValue(deadline.date)
@@ -99,7 +100,16 @@ export const CreateRequestStep = ({ form, onChange }) => {
     (option) => option.value === form.timezoneName
   )
     ? MEETING_TIMEZONE_OPTIONS
-    : [{ value: form.timezoneName, label: form.timezoneName }, ...MEETING_TIMEZONE_OPTIONS]
+    : [
+        {
+          value: form.timezoneName,
+          label: form.timezoneName,
+          description: 'Saved timezone',
+        },
+        ...MEETING_TIMEZONE_OPTIONS,
+      ]
+  const selectedTimezone =
+    timezoneOptions.find((option) => option.value === form.timezoneName) ?? timezoneOptions[0]
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-2">
@@ -145,26 +155,77 @@ export const CreateRequestStep = ({ form, onChange }) => {
         </div>
       </label>
 
-      <label className="block">
+      <div className="block">
         <RequiredLabel>Time Zone</RequiredLabel>
         <div className="relative mt-2">
-          <select
-            value={form.timezoneName}
-            onChange={(event) => onChange({ timezoneName: event.target.value })}
-            className="h-12 w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={isTimezoneMenuOpen}
+            onClick={() => setIsTimezoneMenuOpen((prev) => !prev)}
+            className="flex min-h-14 w-full items-center justify-between rounded-xl border border-slate-300 bg-white px-3 py-2 text-left shadow-sm outline-none transition hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           >
-            {timezoneOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
-            aria-hidden="true"
-          />
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                <Globe2 className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-slate-900">
+                  {selectedTimezone.label}
+                </span>
+                <span className="block truncate text-xs font-semibold text-slate-500">
+                  {selectedTimezone.description}
+                </span>
+              </span>
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-slate-500 transition ${
+                isTimezoneMenuOpen ? 'rotate-180' : ''
+              }`}
+              aria-hidden="true"
+            />
+          </button>
+          {isTimezoneMenuOpen ? (
+            <div
+              role="listbox"
+              aria-label="Meeting timezone"
+              className="absolute z-[70] mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10"
+            >
+              {timezoneOptions.map((option) => {
+                const isSelected = option.value === form.timezoneName
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      onChange({ timezoneName: option.value })
+                      setIsTimezoneMenuOpen(false)
+                    }}
+                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition ${
+                      isSelected ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold">{option.label}</span>
+                      <span
+                        className={`block truncate text-xs font-semibold ${
+                          isSelected ? 'text-blue-500' : 'text-slate-500'
+                        }`}
+                      >
+                        {option.description}
+                      </span>
+                    </span>
+                    {isSelected ? <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
-      </label>
+      </div>
 
       <div>
         <span className="text-sm font-bold text-slate-800">Response Deadline</span>
