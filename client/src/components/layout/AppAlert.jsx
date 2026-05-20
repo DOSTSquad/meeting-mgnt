@@ -16,7 +16,14 @@ const alertStyles = {
   },
 }
 
-export const AppAlert = ({ message, tone = 'error', autoDismissMs = 5000, onDismiss }) => {
+export const DEFAULT_ALERT_AUTO_DISMISS_MS = 5000
+
+export const AppAlert = ({
+  message,
+  tone = 'error',
+  autoDismissMs = DEFAULT_ALERT_AUTO_DISMISS_MS,
+  onDismiss,
+}) => {
   useEffect(() => {
     if (!message || !autoDismissMs) {
       return undefined
