@@ -366,7 +366,7 @@ const AppShell = ({ token, user, onLogout }) => {
 
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-slate-100">
-      <div className={`flex w-full min-w-0 ${isPreviewOpen ? 'print:hidden' : ''}`}>
+      <div className={`flex min-h-screen w-full min-w-0 ${isPreviewOpen ? 'print:hidden' : ''}`}>
         <Sidebar
           activePage={activePage}
           isCollapsed={isSidebarCollapsed}
@@ -374,7 +374,7 @@ const AppShell = ({ token, user, onLogout }) => {
           onToggle={() => setIsSidebarCollapsed((value) => !value)}
         />
 
-        <div className="min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen min-w-0 flex-1 px-4 py-4 sm:px-6 lg:px-8">
           <Topbar
             currentUser={user}
             notifications={notifications}

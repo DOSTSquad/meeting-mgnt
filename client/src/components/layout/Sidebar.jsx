@@ -28,9 +28,9 @@ export const Sidebar = ({ activePage, isCollapsed, onSelect, onToggle }) => (
     <aside
       className={`${
         isCollapsed
-          ? 'fixed left-3 top-3 z-40 h-12 w-12 rounded-xl shadow-lg shadow-slate-950/20 lg:sticky lg:left-auto lg:top-0 lg:z-20 lg:min-h-screen lg:w-16 lg:rounded-none lg:shadow-none'
-          : 'fixed inset-y-0 left-0 z-40 w-64 shadow-2xl shadow-slate-950/30 lg:sticky lg:top-0 lg:w-[240px] lg:shadow-none'
-      } shrink-0 bg-slate-950 text-white transition-all duration-200`}
+          ? 'fixed left-3 top-3 z-40 h-12 w-12 rounded-xl shadow-lg shadow-slate-950/20 lg:sticky lg:bottom-auto lg:left-auto lg:top-0 lg:z-20 lg:h-auto lg:min-h-screen lg:w-16 lg:self-stretch lg:rounded-none lg:shadow-none'
+          : 'fixed inset-y-0 left-0 z-40 h-screen w-64 shadow-2xl shadow-slate-950/30 lg:sticky lg:bottom-auto lg:top-0 lg:h-auto lg:min-h-screen lg:w-[240px] lg:self-stretch lg:shadow-none'
+      } shrink-0 overflow-y-auto bg-slate-950 text-white transition-all duration-200`}
     >
       <div
         className={`relative flex h-full flex-col ${
