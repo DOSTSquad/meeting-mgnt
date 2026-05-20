@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import { login } from '../../services/authService.js'
 
-export const LoginView = ({ onLogin, onShowRegister }) => {
+export const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -49,7 +49,9 @@ export const LoginView = ({ onLogin, onShowRegister }) => {
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-300/40 lg:grid-cols-2">
         <div className="relative hidden bg-slate-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Welcome</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              Welcome
+            </p>
             <h2 className="mt-4 max-w-sm text-3xl font-semibold leading-tight text-white">
               Organize every meeting in one clear workspace
             </h2>
@@ -121,18 +123,15 @@ export const LoginView = ({ onLogin, onShowRegister }) => {
                   <span className="font-semibold">Password123!</span>
                 </p>
                 <p>
-                  Alt login:{' '}
-                  <span className="font-semibold">nattanan.thepsathorn@seed.local</span> /{' '}
+                  Alt login: <span className="font-semibold">nattanan.thepsathorn@seed.local</span>{' '}
+                  / <span className="font-semibold">Password123!</span>
+                </p>
+                <p>
+                  Alt login 2: <span className="font-semibold">hannah.law@seed.local</span> /{' '}
                   <span className="font-semibold">Password123!</span>
                 </p>
                 <p>
-                  Alt login 2:{' '}
-                  <span className="font-semibold">hannah.law@seed.local</span> /{' '}
-                  <span className="font-semibold">Password123!</span>
-                </p>
-                <p>
-                  Alt login 3:{' '}
-                  <span className="font-semibold">jhow.liu@seed.local</span> /{' '}
+                  Alt login 3: <span className="font-semibold">jhow.liu@seed.local</span> /{' '}
                   <span className="font-semibold">Password123!</span>
                 </p>
               </div>
@@ -144,17 +143,6 @@ export const LoginView = ({ onLogin, onShowRegister }) => {
               >
                 {isSubmitting ? 'Signing In...' : 'Sign In'}
               </button>
-
-              <p className="text-center text-sm text-slate-600">
-                Don&apos;t have an account?{' '}
-                <button
-                  type="button"
-                  onClick={onShowRegister}
-                  className="font-semibold text-blue-700 transition hover:text-blue-800"
-                >
-                  Register
-                </button>
-              </p>
             </form>
           </div>
         </div>
