@@ -187,7 +187,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
             type="search"
             value={search}
             onChange={(event) => handleSearchChange(event.target.value)}
-            placeholder="Search meetings or file names..."
+            placeholder="Search meeting, tag, or file name..."
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
           />
         </label>
