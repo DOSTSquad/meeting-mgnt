@@ -56,21 +56,6 @@ const toTitleCase = (value = '') =>
     .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1).toLowerCase()}`)
     .join(' ')
 
-const isDueToday = (dueDate) => {
-  if (!dueDate) {
-    return false
-  }
-
-  const due = new Date(dueDate)
-  const today = new Date()
-
-  return (
-    due.getFullYear() === today.getFullYear() &&
-    due.getMonth() === today.getMonth() &&
-    due.getDate() === today.getDate()
-  )
-}
-
 const getDueLabel = (item) => {
   if (item.status === 'completed') {
     return item.completedAt ? `Completed ${formatDateOnly(item.completedAt)}` : 'Completed'
@@ -78,10 +63,6 @@ const getDueLabel = (item) => {
 
   if (isOverdueActionItem(item)) {
     return `Overdue · Due ${formatDateOnly(item.dueDate)}`
-  }
-
-  if (isDueToday(item.dueDate)) {
-    return 'Due today'
   }
 
   return item.dueDate ? `Due ${formatDateOnly(item.dueDate)}` : 'No due date'

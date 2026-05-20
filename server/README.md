@@ -62,7 +62,7 @@ Updating `status` to the same value is a no-op. `archived` is terminal. Any othe
 
 `GET /api/meetings` paginates via [RFC 5988 `Link` headers](https://www.rfc-editor.org/rfc/rfc5988) (`first`, `last`, `prev`, `next`) plus `X-Total-Count`. Page defaults: `page=1`, `limit=20` (max `100`). All filter query params are preserved across `Link` URLs.
 
-**Search.** The `q` query param runs a Postgres full-text match (`plainto_tsquery` / `english` config) against `title` + `description`, and a case-insensitive filename match against uploaded meeting files. Stemming applies to meeting text (e.g., `q=plan` matches "planning"); multi-word text queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
+**Search.** The `q` query param runs Postgres full-text search against `title` + `description` (`english` config) and uploaded meeting file names (`simple` config). Both are backed by GIN inverted indexes. Stemming applies to meeting text (e.g., `q=plan` matches "planning"); file names are tokenized without language stemming. Multi-word text queries are AND-ed. Max 200 chars. Composes with every other filter. Example: `GET /api/meetings?q=budget&status=scheduled`.
 
 ### Meeting Requests (`/api/meeting-requests`)
 

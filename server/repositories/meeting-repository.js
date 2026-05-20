@@ -219,7 +219,11 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
             SELECT 1
             FROM meeting_files search_mf
             WHERE search_mf.meeting_id = m.id
-              AND search_mf.file_name ILIKE '%' || $? || '%'
+              AND to_tsvector(
+                'simple',
+                regexp_replace(COALESCE(search_mf.file_name, ''), '[^[:alnum:]]+', ' ', 'g')
+              )
+                @@ plainto_tsquery('simple', regexp_replace($?, '[^[:alnum:]]+', ' ', 'g'))
           )
         )
       `,
