@@ -1,8 +1,11 @@
+import { formatDateTimeInTimeZone } from '../../../utils/timezone.js'
+
 export const ConfirmMeetingStep = ({
   selectedOption,
   location,
   tag,
   tags,
+  timezoneName,
   onChange,
 }) => (
   <div className="grid gap-4 sm:grid-cols-2">
@@ -10,7 +13,7 @@ export const ConfirmMeetingStep = ({
       <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Selected time</p>
       <p className="mt-1 text-lg font-bold text-slate-900">
         {selectedOption
-          ? new Date(selectedOption.startsAt).toLocaleString([], {
+          ? formatDateTimeInTimeZone(selectedOption.startsAt, timezoneName, {
               dateStyle: 'full',
               timeStyle: 'short',
             })
