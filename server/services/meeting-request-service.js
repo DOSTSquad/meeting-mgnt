@@ -20,6 +20,7 @@ import {
   notifyMeetingRequestConfirmed,
   notifyMeetingRequestInvited,
 } from './notification-service.js'
+import { hasResponseDeadlinePassed } from '../utils/meeting-requests.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -271,6 +272,10 @@ export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, 
 
   if (meetingRequest.createdBy !== callerId && invitee.userId !== callerId) {
     throw createHttpError('Only the invitee or request creator can submit this availability', 403)
+  }
+
+  if (hasResponseDeadlinePassed(meetingRequest.responseDeadline)) {
+    throw createHttpError('Response deadline has passed', 409)
   }
 
   const { responses } = input ?? {}

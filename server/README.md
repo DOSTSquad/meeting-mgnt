@@ -92,7 +92,9 @@ Meeting requests support the 5-step scheduling flow before a confirmed meeting e
 
 Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
 
-Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet. The invitee detail endpoint is safe for the matching invitee or the request creator and returns only that invitee's response rows, not the full invitee list.
+Meeting request responses include derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags. `responseDeadline` closes invitee availability submission and updates, but does not cancel the request. Once the deadline has passed, the organizer can confirm a final meeting time from the existing time options even if some invitees never responded.
+
+Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet. Availability submission after the response deadline returns `409`. The invitee detail endpoint is safe for the matching invitee or the request creator and returns only that invitee's response rows, not the full invitee list.
 
 ### Dashboard (`/api/dashboard`)
 
@@ -109,9 +111,9 @@ Time options are scoped to a meeting request. The same wall-clock time offered i
 
 `recentMeetings` contains the next six accessible active meetings ordered by earliest `startsAt`. Cancelled, archived, and past meetings are excluded.
 
-`pendingMeetingRequests` contains unconfirmed, uncancelled meeting requests created by the current user. Each item includes `inviteeCounts`, `timeOptionCount`, `durationMinutes`, `timezoneName`, `responseDeadline`, and `status` so the dashboard can show in-progress meeting polls before a real meeting exists.
+`pendingMeetingRequests` contains unconfirmed, uncancelled meeting requests created by the current user. Each item includes `inviteeCounts`, `timeOptionCount`, `durationMinutes`, `timezoneName`, `responseDeadline`, `status`, and derived deadline flags so the dashboard can show in-progress meeting polls before a real meeting exists.
 
-`pendingAvailabilityRequests` contains unconfirmed, uncancelled meeting requests where the current user is an invitee and has not submitted availability yet. Each item includes the `inviteeId`, creator summary, invitee counts, time option count, duration, timezone, deadline, and status so the dashboard can open the voting modal.
+`pendingAvailabilityRequests` contains unconfirmed, uncancelled meeting requests where the current user is an invitee, has not submitted availability yet, and the response deadline has not passed. Each item includes the `inviteeId`, creator summary, invitee counts, time option count, duration, timezone, deadline, status, and derived deadline flags so the dashboard can open the voting modal.
 
 `myActionItems` contains the current user's open assigned action items. Each item is a lean dashboard summary with `id`, `title`, `meetingId`, `meetingTitle`, `assigneeId`, `status`, `isOverdue`, `dueState`, `priority`, `dueDate`, and `createdAt`. Fetch `/api/action-items/:id` for detail-only fields such as `description`, `updatedAt`, and `completedAt`.
 

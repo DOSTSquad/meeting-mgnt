@@ -491,7 +491,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meeting-requests", "{{meetingRequestId}}", "invitees", "{{inviteeId}}"]
             },
-            "description": "Invitee-safe request detail for the dashboard voting modal. Returns `{ meetingRequest, invitee, timeOptions, responses }` for the matching invitee or request creator."
+            "description": "Invitee-safe request detail for the dashboard voting modal. Returns `{ meetingRequest, invitee, timeOptions, responses }` for the matching invitee or request creator. `meetingRequest` includes derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags."
           }
         },
         {
@@ -518,7 +518,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"responses\": [\n    {\n      \"timeOptionId\": \"{{timeOptionId}}\",\n      \"isAvailable\": true\n    }\n  ]\n}"
-            }
+            },
+            "description": "Submit or replace an invitee's binary availability responses. Returns `409` after the request response deadline has passed."
           }
         },
         {
@@ -582,7 +583,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["dashboard"]
             },
-            "description": "Returns `{ recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }`. `recentMeetings` includes the next six accessible active meetings ordered by earliest start time. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user. `pendingAvailabilityRequests` includes requests where the current user is an invitee and still needs to submit availability. `myActionItems` includes lean summaries for the current user's open assigned action items, including derived `isOverdue` and `dueState`; fetch `/action-items/:id` for detail-only fields."
+            "description": "Returns `{ recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }`. `recentMeetings` includes the next six accessible active meetings ordered by earliest start time. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user, including derived deadline flags. `pendingAvailabilityRequests` includes requests where the current user is an invitee, still needs to submit availability, and the response deadline has not passed. `myActionItems` includes lean summaries for the current user's open assigned action items, including derived `isOverdue` and `dueState`; fetch `/action-items/:id` for detail-only fields."
           }
         },
         {

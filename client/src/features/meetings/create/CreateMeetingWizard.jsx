@@ -88,8 +88,9 @@ export const CreateMeetingWizard = ({
   const isResumeMode = Boolean(meetingRequestId)
   const availableUsers = users.filter((user) => user.id !== currentUserId)
   const selectedOption = savedTimeOptions.find((option) => option.id === selectedTimeOptionId)
-  const isReadyToConfirm = meetingRequest?.status === 'ready_to_confirm'
-  const isReviewWaiting = stepIndex === 3 && !isReadyToConfirm
+  const canConfirmMeetingRequest =
+    meetingRequest?.canConfirm || meetingRequest?.status === 'ready_to_confirm'
+  const isReviewWaiting = stepIndex === 3 && !canConfirmMeetingRequest
 
   const reset = () => {
     setStepIndex(0)
@@ -225,7 +226,10 @@ export const CreateMeetingWizard = ({
         setSavedInvitees(detail.invitees)
         setSelectedTimeOptionId((prev) => prev || detail.timeOptions[0]?.id || '')
 
-        if (detail.meetingRequest.status !== 'ready_to_confirm') {
+        if (
+          !detail.meetingRequest.canConfirm &&
+          detail.meetingRequest.status !== 'ready_to_confirm'
+        ) {
           await onCreated()
           reset()
           onClose()
@@ -359,13 +363,13 @@ export const CreateMeetingWizard = ({
     ? 'Saving...'
     : !isResumeMode && stepIndex === 2
       ? 'Send Invitations'
-    : stepIndex === 3
-      ? isReadyToConfirm
-        ? 'Continue'
-        : 'Done'
-      : stepIndex === 4
-        ? 'Confirm Meeting'
-        : 'Continue'
+      : stepIndex === 3
+        ? canConfirmMeetingRequest
+          ? 'Continue'
+          : 'Done'
+        : stepIndex === 4
+          ? 'Confirm Meeting'
+          : 'Continue'
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <section className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white px-4 py-5 shadow-2xl sm:px-5">
@@ -470,6 +474,8 @@ export const CreateMeetingWizard = ({
           {!isLoadingRequest && stepIndex === 3 ? (
             <ReviewResponsesStep
               status={meetingRequest?.status}
+              canConfirm={canConfirmMeetingRequest}
+              responseDeadlinePassed={meetingRequest?.responseDeadlinePassed}
               timeOptions={savedTimeOptions}
               invitees={savedInvitees}
               selectedTimeOptionId={selectedTimeOptionId}
