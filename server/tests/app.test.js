@@ -96,7 +96,7 @@ describe('API rate limiting', () => {
         RATE_LIMIT_MAX: 'not-a-number',
       })
     ).toEqual({
-      windowMs: 900000,
+      windowMs: 300000,
       limit: 100,
     })
   })
