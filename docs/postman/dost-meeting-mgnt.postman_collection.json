@@ -238,7 +238,7 @@
                 }
               ]
             },
-            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`; `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views."
+            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames for repository search/display, `participantCount` is the full attendee count, and `participantNames` is a short preview of up to three names for repository/list views."
           }
         },
         {
@@ -253,7 +253,7 @@
                 {
                   "key": "status",
                   "value": "scheduled",
-                  "description": "scheduled | in_progress | completed | cancelled | archived"
+                  "description": "scheduled | completed | cancelled | archived"
                 },
                 {
                   "key": "from",
@@ -291,7 +291,7 @@
                 {
                   "key": "q",
                   "value": "budget",
-                  "description": "plainto_tsquery over title + description (english config, stemmed); max 200 chars"
+                  "description": "plainto_tsquery over title + description (english config, stemmed), plus case-insensitive uploaded filename matching; max 200 chars"
                 },
                 {
                   "key": "status",
@@ -311,7 +311,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
             },
-            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `fileCount`, `participantCount`, and `participantNames`; `participantNames` is a short preview of up to three names."
+            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames and `participantNames` is a short preview of up to three names."
           }
         },
         {
@@ -331,7 +331,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"in_progress\",\n  \"location\": \"Room 5.2\"\n}"
+              "raw": "{\n  \"status\": \"completed\",\n  \"location\": \"Room 5.2\"\n}"
             },
             "description": "Partial update — send only the fields you want to change."
           }
