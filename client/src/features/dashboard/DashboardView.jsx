@@ -238,7 +238,7 @@ export const DashboardView = ({
                     </p>
                   </div>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-bold capitalize text-amber-700">
-                    {request.status.replaceAll('_', ' ')}
+                    {request.canConfirm ? 'ready to confirm' : request.status.replaceAll('_', ' ')}
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">

@@ -75,6 +75,9 @@ const createTestUser = async (suffix) =>
     passwordHash: 'hashed-password',
   })
 
+const dateFromNow = (days, hours = 0) =>
+  new Date(Date.now() + days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString()
+
 describe('meeting request flow', () => {
   let creator
   let invitee
@@ -118,7 +121,7 @@ describe('meeting request flow', () => {
           description: 'Review delivery health',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
-          responseDeadline: '2026-05-08T17:00:00+10:00',
+          responseDeadline: dateFromNow(2),
         },
       })
     )
@@ -134,8 +137,8 @@ describe('meeting request flow', () => {
         body: {
           timeOptions: [
             {
-              startsAt: '2026-05-12T09:00:00+10:00',
-              endsAt: '2026-05-12T10:00:00+10:00',
+              startsAt: dateFromNow(7),
+              endsAt: dateFromNow(7, 1),
             },
           ],
         },
@@ -246,6 +249,99 @@ describe('meeting request flow', () => {
     )
   })
 
+  it('closes invitee voting after the response deadline while allowing host confirmation', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Deadline-driven confirmation',
+          durationMinutes: 60,
+          timezoneName: 'Australia/Brisbane',
+          responseDeadline: dateFromNow(1),
+        },
+      })
+    )
+    expect(createResult.nextError).toBeUndefined()
+    const requestId = createResult.res.body.meetingRequest.id
+
+    const optionsResult = await runHandler(
+      replaceTimeOptions,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: {
+          timeOptions: [
+            {
+              startsAt: dateFromNow(7),
+              endsAt: dateFromNow(7, 1),
+            },
+          ],
+        },
+      })
+    )
+    expect(optionsResult.nextError).toBeUndefined()
+    const timeOptionId = optionsResult.res.body.timeOptions[0].id
+
+    const inviteesResult = await runHandler(
+      replaceInvitees,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: { invitees: [{ email: invitee.email }] },
+      })
+    )
+    expect(inviteesResult.nextError).toBeUndefined()
+    const inviteeId = inviteesResult.res.body.invitees[0].id
+
+    await query(
+      "UPDATE meeting_requests SET response_deadline = NOW() - INTERVAL '1 minute' WHERE id = $1",
+      [requestId]
+    )
+
+    const inviteeDashboard = await getDashboardData(invitee.id)
+    expect(inviteeDashboard.pendingAvailabilityRequests).toHaveLength(0)
+
+    const detailResult = await runHandler(
+      getOne,
+      buildRequest({ user: { id: creator.id }, params: { requestId } })
+    )
+    expect(detailResult.nextError).toBeUndefined()
+    expect(detailResult.res.body.meetingRequest).toMatchObject({
+      status: 'collecting_availability',
+      responseDeadlinePassed: true,
+      availabilityClosed: true,
+      canConfirm: true,
+    })
+
+    const availabilityResult = await runHandler(
+      submitAvailability,
+      buildRequest({
+        user: { id: invitee.id },
+        params: { requestId, inviteeId },
+        body: { responses: [{ timeOptionId, isAvailable: true }] },
+      })
+    )
+    expect(availabilityResult.nextError.statusCode).toBe(409)
+    expect(availabilityResult.nextError.message).toBe('Response deadline has passed')
+
+    const confirmResult = await runHandler(
+      confirm,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: { timeOptionId, location: 'Room 8.1', tag: 'Operations' },
+      })
+    )
+    expect(confirmResult.nextError).toBeUndefined()
+    expect(confirmResult.res.statusCode).toBe(201)
+    expect(confirmResult.res.body.meetingRequest.status).toBe('confirmed')
+  })
+
   it('rejects non-boolean availability values', async () => {
     if (!runDatabaseTests) {
       return
@@ -272,8 +368,8 @@ describe('meeting request flow', () => {
         body: {
           timeOptions: [
             {
-              startsAt: '2026-05-12T09:00:00+10:00',
-              endsAt: '2026-05-12T10:00:00+10:00',
+              startsAt: dateFromNow(7),
+              endsAt: dateFromNow(7, 1),
             },
           ],
         },
@@ -517,11 +613,16 @@ describe('meeting request flow', () => {
       return
     }
 
+    const blockedStart = dateFromNow(7)
+    const blockedEnd = dateFromNow(7, 1)
+    const candidateStart = new Date(new Date(blockedStart).getTime() - 30 * 60 * 1000).toISOString()
+    const candidateEnd = new Date(new Date(blockedStart).getTime() + 30 * 60 * 1000).toISOString()
+
     await createMeetingForUser(
       {
         title: 'Blocked host calendar time',
-        startsAt: '2026-05-12T09:30:00+10:00',
-        endsAt: '2026-05-12T10:30:00+10:00',
+        startsAt: blockedStart,
+        endsAt: blockedEnd,
         timezoneName: 'Australia/Brisbane',
       },
       creator.id
@@ -548,8 +649,8 @@ describe('meeting request flow', () => {
         body: {
           timeOptions: [
             {
-              startsAt: '2026-05-12T09:00:00+10:00',
-              endsAt: '2026-05-12T10:00:00+10:00',
+              startsAt: candidateStart,
+              endsAt: candidateEnd,
             },
           ],
         },

@@ -8,22 +8,32 @@ const formatOption = (option) =>
     minute: '2-digit',
   })
 
-export const ReviewResponsesStep = ({ status, timeOptions, invitees, selectedTimeOptionId, onSelect }) => (
+export const ReviewResponsesStep = ({
+  status,
+  canConfirm,
+  responseDeadlinePassed,
+  timeOptions,
+  invitees,
+  selectedTimeOptionId,
+  onSelect,
+}) => (
   <div className="space-y-4">
     <div
       className={`rounded-lg border px-4 py-3 text-sm ${
-        status === 'ready_to_confirm'
+        canConfirm
           ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
           : 'border-amber-200 bg-amber-50 text-amber-800'
       }`}
     >
       <p className="font-bold">
-        {status === 'ready_to_confirm'
-          ? 'All availability responses are in.'
-          : 'Availability request is collecting responses.'}
+        {responseDeadlinePassed
+          ? 'Response deadline has passed.'
+          : status === 'ready_to_confirm'
+            ? 'All availability responses are in.'
+            : 'Availability request is collecting responses.'}
       </p>
       <p className="mt-1">
-        {status === 'ready_to_confirm'
+        {canConfirm
           ? 'Choose the final time option, then continue to confirm the meeting.'
           : 'This request will stay on the dashboard until participants submit availability.'}
       </p>

@@ -1,4 +1,5 @@
 import { query, transaction } from '../db/postgres.js'
+import { decorateMeetingRequest } from '../utils/meeting-requests.js'
 
 const REQUEST_COLUMNS = `
   id,
@@ -19,7 +20,7 @@ const mapRequest = (row) => {
     return null
   }
 
-  return {
+  return decorateMeetingRequest({
     id: row.id,
     title: row.title,
     description: row.description,
@@ -31,7 +32,7 @@ const mapRequest = (row) => {
     confirmedMeetingId: row.confirmed_meeting_id,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
-  }
+  })
 }
 
 const mapTimeOption = (row) => ({

@@ -91,12 +91,21 @@ export const VoteAvailabilityModal = ({ request, token, isOpen, onClose, onSubmi
     [detail?.timeOptions]
   )
   const selectedCount = selectedOptionIds.size
+  const isAvailabilityClosed = Boolean(
+    meetingRequest?.availabilityClosed ||
+    meetingRequest?.responseDeadlinePassed ||
+    (meetingRequest?.responseDeadline && new Date(meetingRequest.responseDeadline) <= new Date())
+  )
 
   if (!isOpen || !request) {
     return null
   }
 
   const toggleOption = (timeOptionId) => {
+    if (isAvailabilityClosed) {
+      return
+    }
+
     setSelectedOptionIds((prev) => {
       const next = new Set(prev)
       if (next.has(timeOptionId)) {
@@ -203,9 +212,10 @@ export const VoteAvailabilityModal = ({ request, token, isOpen, onClose, onSubmi
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="w-full rounded-lg bg-violet-600 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-violet-700"
+                disabled={isAvailabilityClosed}
+                className="w-full rounded-lg bg-violet-600 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                Select Availability
+                {isAvailabilityClosed ? 'Response Deadline Passed' : 'Select Availability'}
               </button>
             </div>
           ) : null}
@@ -230,7 +240,9 @@ export const VoteAvailabilityModal = ({ request, token, isOpen, onClose, onSubmi
               <div>
                 <p className="text-base font-extrabold text-slate-900">{meetingRequest?.title}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">
-                  Select all the times that work for you.
+                  {isAvailabilityClosed
+                    ? 'The response deadline has passed. Availability can no longer be changed.'
+                    : 'Select all the times that work for you.'}
                 </p>
               </div>
 
@@ -244,6 +256,7 @@ export const VoteAvailabilityModal = ({ request, token, isOpen, onClose, onSubmi
                       key={option.id}
                       type="button"
                       onClick={() => toggleOption(option.id)}
+                      disabled={isAvailabilityClosed}
                       className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left transition ${
                         isSelected
                           ? 'border-violet-300 bg-violet-50'
@@ -292,14 +305,16 @@ export const VoteAvailabilityModal = ({ request, token, isOpen, onClose, onSubmi
                 <button
                   type="button"
                   onClick={submitAvailability}
-                  disabled={isSubmitting || sortedTimeOptions.length === 0}
+                  disabled={isSubmitting || isAvailabilityClosed || sortedTimeOptions.length === 0}
                   className="rounded-lg bg-violet-600 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {isSubmitting
-                    ? 'Submitting...'
-                    : selectedCount > 0
-                      ? `Submit ${selectedCount} selected`
-                      : 'Submit none available'}
+                  {isAvailabilityClosed
+                    ? 'Deadline passed'
+                    : isSubmitting
+                      ? 'Submitting...'
+                      : selectedCount > 0
+                        ? `Submit ${selectedCount} selected`
+                        : 'Submit none available'}
                 </button>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { query } from '../db/postgres.js'
 import { getActionItemDueState, isOverdueActionItem } from '../utils/action-items.js'
+import { getMeetingRequestDerivedState } from '../utils/meeting-requests.js'
 
 const mapMeetingRow = (row) => ({
   id: row.id,
@@ -11,48 +12,55 @@ const mapMeetingRow = (row) => ({
   status: row.status,
 })
 
+const mapMeetingRequestBaseRow = (row, extraFields = {}) => {
+  const meetingRequest = {
+    id: row.id,
+    ...extraFields,
+    title: row.title,
+    description: row.description,
+    durationMinutes: row.duration_minutes,
+    timezoneName: row.timezone_name,
+    responseDeadline: row.response_deadline ? row.response_deadline.toISOString() : null,
+    status: row.status,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+  }
+
+  return {
+    ...meetingRequest,
+    ...getMeetingRequestDerivedState(meetingRequest),
+  }
+}
+
+const mapInviteeCounts = (row) => ({
+  submitted: row.submitted_count,
+  pending: row.pending_count,
+  total: row.invitee_count,
+})
+
 const mapMeetingRequestRow = (row) => ({
-  id: row.id,
-  title: row.title,
-  description: row.description,
-  durationMinutes: row.duration_minutes,
-  timezoneName: row.timezone_name,
-  responseDeadline: row.response_deadline ? row.response_deadline.toISOString() : null,
-  status: row.status,
-  createdAt: row.created_at.toISOString(),
-  updatedAt: row.updated_at.toISOString(),
-  inviteeCounts: {
-    submitted: row.submitted_count,
-    pending: row.pending_count,
-    total: row.invitee_count,
-  },
+  ...mapMeetingRequestBaseRow(row),
+  inviteeCounts: mapInviteeCounts(row),
   timeOptionCount: row.time_option_count,
 })
 
-const mapPendingAvailabilityRequestRow = (row) => ({
-  id: row.id,
-  inviteeId: row.invitee_id,
-  title: row.title,
-  description: row.description,
-  durationMinutes: row.duration_minutes,
-  timezoneName: row.timezone_name,
-  responseDeadline: row.response_deadline ? row.response_deadline.toISOString() : null,
-  status: row.status,
-  responseStatus: row.response_status,
-  createdAt: row.created_at.toISOString(),
-  updatedAt: row.updated_at.toISOString(),
-  creator: {
-    id: row.created_by,
-    name: row.creator_name,
-    email: row.creator_email,
-  },
-  inviteeCounts: {
-    submitted: row.submitted_count,
-    pending: row.pending_count,
-    total: row.invitee_count,
-  },
-  timeOptionCount: row.time_option_count,
-})
+const mapPendingAvailabilityRequestRow = (row) => {
+  const meetingRequest = mapMeetingRequestBaseRow(row, {
+    inviteeId: row.invitee_id,
+    responseStatus: row.response_status,
+  })
+
+  return {
+    ...meetingRequest,
+    creator: {
+      id: row.created_by,
+      name: row.creator_name,
+      email: row.creator_email,
+    },
+    inviteeCounts: mapInviteeCounts(row),
+    timeOptionCount: row.time_option_count,
+  }
+}
 
 const baseMeetingAccessCte = `
   WITH accessible_meetings AS (
@@ -209,6 +217,7 @@ export const listPendingAvailabilityRequestsForUser = async (userId, limit = 5) 
       WHERE mri.user_id = $1
         AND mri.response_status = 'pending'
         AND mr.status NOT IN ('confirmed', 'cancelled')
+        AND (mr.response_deadline IS NULL OR mr.response_deadline > NOW())
       GROUP BY mr.id, mri.id, u.id
       ORDER BY mr.response_deadline ASC NULLS LAST, mr.updated_at DESC
       LIMIT $2
