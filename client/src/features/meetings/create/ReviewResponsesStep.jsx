@@ -1,5 +1,7 @@
-const formatOption = (option) =>
-  new Date(option.startsAt).toLocaleString([], {
+import { formatDateTimeInTimeZone } from '../../../utils/timezone.js'
+
+const formatOption = (option, timezoneName) =>
+  formatDateTimeInTimeZone(option.startsAt, timezoneName, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -15,6 +17,7 @@ export const ReviewResponsesStep = ({
   timeOptions,
   invitees,
   selectedTimeOptionId,
+  timezoneName,
   onSelect,
 }) => (
   <div className="space-y-4">
@@ -69,7 +72,7 @@ export const ReviewResponsesStep = ({
           }`}
         >
           <div>
-            <p className="text-sm font-bold text-slate-800">{formatOption(option)}</p>
+            <p className="text-sm font-bold text-slate-800">{formatOption(option, timezoneName)}</p>
             <p className="text-xs text-slate-500">
               {option.availableCount} available · {option.unavailableCount} unavailable ·{' '}
               {option.notRespondedCount} pending

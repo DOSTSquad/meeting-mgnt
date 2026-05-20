@@ -3,6 +3,8 @@ import { format, isBefore, startOfToday } from 'date-fns'
 import { CalendarDays, ChevronDown, Clock3 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
+import { zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
+
 const getDeadlineParts = (value) => {
   if (!value) {
     return { date: '', time: '' }
@@ -72,8 +74,8 @@ const getTimeOptions = (window = { start: 0, end: 24 * 60 }) => {
 
 const timeOptions = getTimeOptions()
 
-const isPastDateTime = (dateValue, timeValue) =>
-  new Date(`${dateValue}T${timeValue}:00`) < new Date()
+const isPastDateTime = (dateValue, timeValue, timezoneName) =>
+  zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) < new Date()
 
 const RequiredLabel = ({ children }) => (
   <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-800">
@@ -196,16 +198,16 @@ export const CreateRequestStep = ({ form, onChange }) => {
                   })
                 }}
                 classNames={{
-                  root: 'w-full',
+                  root: 'relative w-full',
                   months: 'w-full',
                   month: 'w-full',
-                  month_caption: 'mb-3 flex items-center justify-center',
+                  month_caption: 'mb-3 flex h-8 items-center justify-center px-16',
                   caption_label: 'text-sm font-bold text-slate-800',
-                  nav: 'absolute right-3 top-3 flex gap-1',
+                  nav: 'absolute right-0 top-0 flex gap-1',
                   button_previous:
-                    'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
+                    'inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800 aria-disabled:pointer-events-none aria-disabled:opacity-30',
                   button_next:
-                    'flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100',
+                    'inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800 aria-disabled:pointer-events-none aria-disabled:opacity-30',
                   chevron: 'h-4 w-4 fill-current',
                   month_grid: 'w-full table-fixed border-collapse',
                   weekdays: 'text-xs text-slate-500',
@@ -244,7 +246,7 @@ export const CreateRequestStep = ({ form, onChange }) => {
                   </div>
                   <div className="grid max-h-44 gap-2 overflow-auto pr-1 sm:grid-cols-2">
                     {visibleTimeOptions.map((option) => {
-                      const isPast = isPastDateTime(deadline.date, option.value)
+                      const isPast = isPastDateTime(deadline.date, option.value, form.timezoneName)
 
                       return (
                         <button

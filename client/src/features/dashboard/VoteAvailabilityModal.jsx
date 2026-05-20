@@ -4,23 +4,22 @@ import { useEffect, useMemo, useState } from 'react'
 import { getApiClient } from '../../lib/apiClient.js'
 import { createMeetingRequestService } from '../../services/meetingRequestService.js'
 import { formatDateTime } from '../../utils/date.js'
+import { formatDateTimeInTimeZone } from '../../utils/timezone.js'
 
-const formatTimeRange = (startsAt, endsAt) => {
-  const start = new Date(startsAt)
-  const end = new Date(endsAt)
-  const date = new Intl.DateTimeFormat(undefined, {
+const formatTimeRange = (startsAt, endsAt, timezoneName) => {
+  const date = formatDateTimeInTimeZone(startsAt, timezoneName, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-  }).format(start)
-  const startTime = new Intl.DateTimeFormat(undefined, {
+  })
+  const startTime = formatDateTimeInTimeZone(startsAt, timezoneName, {
     hour: 'numeric',
     minute: '2-digit',
-  }).format(start)
-  const endTime = new Intl.DateTimeFormat(undefined, {
+  })
+  const endTime = formatDateTimeInTimeZone(endsAt, timezoneName, {
     hour: 'numeric',
     minute: '2-digit',
-  }).format(end)
+  })
 
   return { date, time: `${startTime} - ${endTime}` }
 }
@@ -249,7 +248,11 @@ export const VoteAvailabilityModal = ({ request, token, isOpen, onClose, onSubmi
               <div className="space-y-3">
                 {sortedTimeOptions.map((option) => {
                   const isSelected = selectedOptionIds.has(option.id)
-                  const range = formatTimeRange(option.startsAt, option.endsAt)
+                  const range = formatTimeRange(
+                    option.startsAt,
+                    option.endsAt,
+                    meetingRequest.timezoneName
+                  )
 
                   return (
                     <button
