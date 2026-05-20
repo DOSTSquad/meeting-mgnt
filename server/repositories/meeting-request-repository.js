@@ -106,6 +106,11 @@ export const findMeetingRequestById = async (requestId) => {
 
 export const updateMeetingRequest = async (requestId, updates) => {
   const fieldToColumn = {
+    title: 'title',
+    description: 'description',
+    durationMinutes: 'duration_minutes',
+    timezoneName: 'timezone_name',
+    responseDeadline: 'response_deadline',
     status: 'status',
     confirmedMeetingId: 'confirmed_meeting_id',
   }

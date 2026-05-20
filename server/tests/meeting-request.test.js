@@ -15,6 +15,7 @@ import {
   replaceInvitees,
   replaceTimeOptions,
   submitAvailability,
+  update,
 } from '../controllers/meeting-request-controller.js'
 import { createUser } from '../repositories/user-repository.js'
 import {
@@ -246,6 +247,55 @@ describe('meeting request flow', () => {
     )
     expect(participants.rows.map((row) => row.user_id).sort()).toEqual(
       [creator.id, invitee.id].sort()
+    )
+  })
+
+  it('updates request details before confirmation', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Initial planning',
+          durationMinutes: 60,
+          timezoneName: 'Asia/Manila',
+          responseDeadline: dateFromNow(1),
+        },
+      })
+    )
+    expect(createResult.nextError).toBeUndefined()
+    const requestId = createResult.res.body.meetingRequest.id
+    const updatedDeadline = dateFromNow(2)
+
+    const updateResult = await runHandler(
+      update,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: {
+          title: 'Updated planning',
+          description: 'Duration changed after going back',
+          durationMinutes: 90,
+          timezoneName: 'Australia/Brisbane',
+          responseDeadline: updatedDeadline,
+        },
+      })
+    )
+
+    expect(updateResult.nextError).toBeUndefined()
+    expect(updateResult.res.body.meetingRequest).toMatchObject({
+      id: requestId,
+      title: 'Updated planning',
+      description: 'Duration changed after going back',
+      durationMinutes: 90,
+      timezoneName: 'Australia/Brisbane',
+    })
+    expect(new Date(updateResult.res.body.meetingRequest.responseDeadline).toISOString()).toBe(
+      new Date(updatedDeadline).toISOString()
     )
   })
 

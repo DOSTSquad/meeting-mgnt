@@ -4,6 +4,11 @@ export const createMeetingRequestService = (client) => ({
     return response.data.meetingRequest
   },
 
+  updateRequest: async (requestId, payload) => {
+    const response = await client.put(`/api/meeting-requests/${requestId}`, payload)
+    return response.data.meetingRequest
+  },
+
   updateTimeOptions: async (requestId, timeOptions) => {
     const response = await client.put(`/api/meeting-requests/${requestId}/time-options`, {
       timeOptions,

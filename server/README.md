@@ -83,6 +83,7 @@ Meeting requests support the 5-step scheduling flow before a confirmed meeting e
 | ------ | ---------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
 | POST   | `/`                                            | `{ title, responseDeadline, description?, durationMinutes?, timezoneName? }` | `201 { meetingRequest }`                                  |
 | GET    | `/:requestId`                                  | —                                                                            | `200 { meetingRequest, timeOptions, invitees }`           |
+| PUT    | `/:requestId`                                  | `{ title, responseDeadline, description?, durationMinutes?, timezoneName? }` | `200 { meetingRequest }`                                  |
 | GET    | `/:requestId/invitees/:inviteeId`              | —                                                                            | `200 { meetingRequest, invitee, timeOptions, responses }` |
 | PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                        | `200 { timeOptions }`                                     |
 | PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                           | `200 { invitees }`                                        |

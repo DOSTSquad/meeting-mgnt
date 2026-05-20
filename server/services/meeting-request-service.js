@@ -11,6 +11,7 @@ import {
   replaceInviteeResponses,
   replaceInvitees,
   replaceTimeOptions,
+  updateMeetingRequest,
 } from '../repositories/meeting-request-repository.js'
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { findUserByEmail } from '../repositories/user-repository.js'
@@ -168,6 +169,45 @@ export const getInviteeRequestForUser = async (requestId, inviteeId, callerId) =
   const responses = await listInviteeResponses(inviteeId)
 
   return { meetingRequest, invitee, timeOptions, responses }
+}
+
+export const updateRequestForUser = async (requestId, input, callerId) => {
+  const meetingRequest = await loadRequestOrThrow(requestId)
+  assertCreator(meetingRequest, callerId)
+
+  if (['confirmed', 'cancelled'].includes(meetingRequest.status)) {
+    throw createHttpError('Closed meeting requests cannot be changed', 409)
+  }
+
+  const {
+    title,
+    description,
+    durationMinutes = 60,
+    timezoneName = 'UTC',
+    responseDeadline,
+  } = input ?? {}
+
+  if (!title || !title.trim()) {
+    throw createHttpError('Title is required', 400)
+  }
+
+  const numericDuration = Number(durationMinutes)
+  if (!Number.isInteger(numericDuration) || numericDuration <= 0 || numericDuration > 1440) {
+    throw createHttpError('durationMinutes must be between 1 and 1440', 400)
+  }
+
+  validateTimezone(timezoneName)
+  validateFutureDateTime(responseDeadline, 'responseDeadline')
+
+  const updatedRequest = await updateMeetingRequest(requestId, {
+    title: title.trim(),
+    description: description ?? null,
+    durationMinutes: numericDuration,
+    timezoneName,
+    responseDeadline: toDate(responseDeadline),
+  })
+
+  return { meetingRequest: updatedRequest }
 }
 
 export const replaceTimeOptionsForRequest = async (requestId, input, callerId) => {
