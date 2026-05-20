@@ -74,6 +74,11 @@ jobs:
             "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' bash -s" <<'REMOTE'
           set -euo pipefail
 
+          command -v node >/dev/null || { echo "node not found. Install Node.js globally or make it available on PATH."; exit 1; }
+          command -v npm >/dev/null || { echo "npm not found. Install Node.js globally or make it available on PATH."; exit 1; }
+          node -v
+          npm -v
+
           cd "${APP_DIR}"
           git fetch --prune origin main
           git checkout main
@@ -84,5 +89,16 @@ jobs:
           npm run migrate --workspace=server
 
           sudo systemctl restart "${SERVICE_NAME}"
-          curl -fsS http://127.0.0.1:3001/health/live
+
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3001/health/live; then
+              exit 0
+            fi
+
+            echo "Waiting for API health check (${attempt}/20)..."
+            sleep 2
+          done
+
+          sudo systemctl status "${SERVICE_NAME}" --no-pager
+          exit 1
           REMOTE
