@@ -50,7 +50,6 @@ jobs:
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/meeting-mgnt' }}
       SERVICE_NAME: ${{ vars.DEPLOY_SERVICE_NAME || 'meeting-mgnt-server.service' }}
-      DEPLOY_NODE_BIN_DIR: ${{ vars.DEPLOY_NODE_BIN_DIR || '' }}
 
     steps:
       - name: Check deployment configuration
@@ -72,13 +71,11 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' DEPLOY_NODE_BIN_DIR='${DEPLOY_NODE_BIN_DIR}' bash -s" <<'REMOTE'
+            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' bash -s" <<'REMOTE'
           set -euo pipefail
-          node_bin_dir="${DEPLOY_NODE_BIN_DIR:-${HOME}/.local/bin}"
-          export PATH="${node_bin_dir}:${PATH}"
 
-          command -v node >/dev/null || { echo "node not found. Set DEPLOY_NODE_BIN_DIR or install Node.js globally."; exit 1; }
-          command -v npm >/dev/null || { echo "npm not found. Set DEPLOY_NODE_BIN_DIR or install Node.js globally."; exit 1; }
+          command -v node >/dev/null || { echo "node not found. Install Node.js globally or make it available on PATH."; exit 1; }
+          command -v npm >/dev/null || { echo "npm not found. Install Node.js globally or make it available on PATH."; exit 1; }
           node -v
           npm -v
 
