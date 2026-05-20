@@ -9,7 +9,7 @@ import { ConfirmMeetingStep } from './ConfirmMeetingStep.jsx'
 import { CreateRequestStep } from './CreateRequestStep.jsx'
 import { InviteParticipantsStep } from './InviteParticipantsStep.jsx'
 import { ReviewResponsesStep } from './ReviewResponsesStep.jsx'
-import { zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
+import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
 
 const steps = ['Request', 'Times', 'Invite', 'Review', 'Confirm']
 
@@ -17,7 +17,7 @@ const getInitialRequestForm = () => ({
   title: '',
   description: '',
   durationMinutes: 60,
-  timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+  timezoneName: MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: '',
 })
 
@@ -42,7 +42,7 @@ const getRequestFormFromMeetingRequest = (request) => ({
   title: request.title ?? '',
   description: request.description ?? '',
   durationMinutes: request.durationMinutes ?? 60,
-  timezoneName: request.timezoneName ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+  timezoneName: request.timezoneName ?? MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: request.responseDeadline ? request.responseDeadline.slice(0, 16) : '',
 })
 
