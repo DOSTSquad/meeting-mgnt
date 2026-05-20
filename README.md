@@ -80,12 +80,18 @@ Optional repository variables:
 | --------------------- | --------------------- |
 | `DEPLOY_PATH`         | `/srv/meeting-mgnt`   |
 | `DEPLOY_SERVICE_NAME` | `meeting-mgnt-server` |
+| `DEPLOY_NODE_BIN_DIR` | `$HOME/.local/bin`    |
 
 The VPS deploy user must be able to run `git fetch`, `npm ci`,
 `npm run migrate --workspace=server`,
 `VITE_API_BASE_URL=/ npm run build --workspace=client`, and
 `sudo systemctl restart meeting-mgnt-server`. If the deploy user is not root,
 allow passwordless sudo only for restarting that service.
+
+If Node.js is installed in a user-local path such as `/home/wendy/.local/bin`,
+set `DEPLOY_NODE_BIN_DIR` to that directory or rely on the default
+`$HOME/.local/bin`. The systemd service still needs its own `ExecStart` Node path
+to point at a Node binary readable by the service user.
 
 Run the Express API as a private service on the VPS:
 
