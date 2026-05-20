@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import { AppModals } from './components/layout/AppModals.jsx'
+import { AppAlert } from './components/layout/AppAlert.jsx'
 import { Sidebar } from './components/layout/Sidebar.jsx'
 import { Topbar } from './components/layout/Topbar.jsx'
 import { getApiClient } from './lib/apiClient.js'
@@ -388,12 +389,6 @@ const AppShell = ({ token, user, onLogout }) => {
             onLogout={onLogout}
           />
 
-          {errorMessage ? (
-            <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {errorMessage}
-            </p>
-          ) : null}
-
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
@@ -493,6 +488,8 @@ const AppShell = ({ token, user, onLogout }) => {
         isPreviewOpen={isPreviewOpen}
         onClosePreview={() => setIsPreviewOpen(false)}
       />
+
+      <AppAlert message={errorMessage} onDismiss={() => setErrorMessage('')} />
     </main>
   )
 }

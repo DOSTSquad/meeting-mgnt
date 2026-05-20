@@ -28,7 +28,7 @@ import { fileRouter, meetingFileRouter } from './routes/file-routes.js'
 import { actionItemRouter, meetingActionItemRouter } from './routes/action-item-routes.js'
 
 const HEALTH_TIMEOUT_MS = 1500
-const DEFAULT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000
 const DEFAULT_RATE_LIMIT_MAX = 100
 
 export const isDevelopmentEnvironment = (environment = process.env.NODE_ENV) =>
