@@ -1,35 +1,72 @@
 import { describe, expect, it } from '@jest/globals'
 
-import { createApp, getRateLimitConfig, isDevelopmentEnvironment } from '../app.js'
+import { createApiRateLimiter, getRateLimitConfig, isDevelopmentEnvironment } from '../app.js'
 
-const closeServer = (server) =>
-  new Promise((resolve, reject) => {
-    server.close((error) => {
+const buildRateLimitRequest = () => ({
+  ip: '127.0.0.1',
+  headers: {},
+  method: 'POST',
+  originalUrl: '/api/auth/login',
+  app: {
+    get: () => false,
+  },
+})
+
+const createRateLimitResponse = (done) => ({
+  statusCode: 200,
+  body: undefined,
+  headers: {},
+  append(name, value) {
+    const key = name.toLowerCase()
+    this.headers[key] = this.headers[key] ? [].concat(this.headers[key], value) : value
+    return this
+  },
+  end(value) {
+    this.body = value
+    done('response')
+    return this
+  },
+  getHeader(name) {
+    return this.headers[name.toLowerCase()]
+  },
+  json(value) {
+    this.body = value
+    done('response')
+    return this
+  },
+  removeHeader(name) {
+    delete this.headers[name.toLowerCase()]
+  },
+  send(value) {
+    this.body = value
+    done('response')
+    return this
+  },
+  setHeader(name, value) {
+    this.headers[name.toLowerCase()] = value
+  },
+  status(statusCode) {
+    this.statusCode = statusCode
+    return this
+  },
+})
+
+const runRateLimiter = async (rateLimiter, request) => {
+  let response
+  const result = await new Promise((resolve, reject) => {
+    response = createRateLimitResponse(resolve)
+
+    rateLimiter(request, response, (error) => {
       if (error) {
         reject(error)
         return
       }
 
-      resolve()
+      resolve('next')
     })
   })
 
-const withTestServer = async (app, callback) => {
-  const server = app.listen(0)
-
-  try {
-    await new Promise((resolve, reject) => {
-      server.once('listening', resolve)
-      server.once('error', reject)
-    })
-
-    const address = server.address()
-    const baseUrl = `http://127.0.0.1:${address.port}`
-
-    return await callback(baseUrl)
-  } finally {
-    await closeServer(server)
-  }
+  return { result, response }
 }
 
 describe('app environment gates', () => {
@@ -65,42 +102,21 @@ describe('API rate limiting', () => {
   })
 
   it('returns 429 after the API request limit is exceeded', async () => {
-    const previousWindowMs = process.env.RATE_LIMIT_WINDOW_MS
-    const previousMax = process.env.RATE_LIMIT_MAX
+    const rateLimiter = createApiRateLimiter({
+      RATE_LIMIT_WINDOW_MS: '60000',
+      RATE_LIMIT_MAX: '1',
+    })
 
-    process.env.RATE_LIMIT_WINDOW_MS = '60000'
-    process.env.RATE_LIMIT_MAX = '1'
+    const firstResult = await runRateLimiter(rateLimiter, buildRateLimitRequest())
+    const secondResult = await runRateLimiter(rateLimiter, buildRateLimitRequest())
 
-    try {
-      await withTestServer(createApp(), async (baseUrl) => {
-        const requestOptions = {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({}),
-        }
-
-        const firstResponse = await fetch(`${baseUrl}/api/auth/login`, requestOptions)
-        const secondResponse = await fetch(`${baseUrl}/api/auth/login`, requestOptions)
-
-        expect(firstResponse.status).toBe(400)
-        expect(secondResponse.status).toBe(429)
-        expect(await secondResponse.json()).toEqual({
-          error: 'Too many requests, please try again later',
-        })
-        expect(secondResponse.headers.get('ratelimit')).toBeTruthy()
-      })
-    } finally {
-      if (previousWindowMs === undefined) {
-        delete process.env.RATE_LIMIT_WINDOW_MS
-      } else {
-        process.env.RATE_LIMIT_WINDOW_MS = previousWindowMs
-      }
-
-      if (previousMax === undefined) {
-        delete process.env.RATE_LIMIT_MAX
-      } else {
-        process.env.RATE_LIMIT_MAX = previousMax
-      }
-    }
+    expect(firstResult.result).toBe('next')
+    expect(firstResult.response.statusCode).toBe(200)
+    expect(secondResult.result).toBe('response')
+    expect(secondResult.response.statusCode).toBe(429)
+    expect(secondResult.response.body).toEqual({
+      error: 'Too many requests, please try again later',
+    })
+    expect(secondResult.response.headers.ratelimit).toBeTruthy()
   })
 })

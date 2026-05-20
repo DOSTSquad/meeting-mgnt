@@ -6,6 +6,7 @@ import {
   replaceInviteesForRequest,
   replaceTimeOptionsForRequest,
   submitAvailabilityForInvitee,
+  terminateRequestForUser,
 } from '../services/meeting-request-service.js'
 
 export const create = async (req, res, next) => {
@@ -90,6 +91,16 @@ export const confirm = async (req, res, next) => {
     const result = await confirmRequestForUser(req.params.requestId, req.body ?? {}, req.user?.id)
 
     res.status(201).json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const terminate = async (req, res, next) => {
+  try {
+    const result = await terminateRequestForUser(req.params.requestId, req.user?.id)
+
+    res.json(result)
   } catch (error) {
     next(error)
   }

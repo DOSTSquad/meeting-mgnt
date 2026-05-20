@@ -219,7 +219,7 @@ export const MeetingDetailView = ({
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Title and location save when the field loses focus.
+            Title and location/meeting link save when the field loses focus.
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="block">
@@ -237,7 +237,7 @@ export const MeetingDetailView = ({
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Location
+                Location / Meeting Link
               </span>
               <input
                 value={detail.meeting.location || ''}
@@ -245,7 +245,7 @@ export const MeetingDetailView = ({
                 onBlur={() => onSaveMeetingField('location')}
                 onKeyDown={(event) => saveOnEnter(event, 'location')}
                 className="h-11 w-full rounded-xl border border-slate-200 px-3"
-                placeholder="Location"
+                placeholder="Room 4.1 or https://teams.microsoft.com/..."
               />
             </label>
             <label className="block">

@@ -18,6 +18,18 @@ const createHttpError = (message, statusCode) => {
   return error
 }
 
+const isOverdueActionItem = (actionItem) => {
+  if (!actionItem?.dueDate) {
+    return false
+  }
+
+  if (!['todo', 'in_progress'].includes(actionItem.status)) {
+    return false
+  }
+
+  return new Date(actionItem.dueDate).getTime() < Date.now()
+}
+
 export const ALLOWED_STATUSES = ['todo', 'in_progress', 'blocked', 'completed', 'cancelled']
 export const ALLOWED_PRIORITIES = ['low', 'medium', 'high']
 
@@ -294,6 +306,10 @@ export const deleteActionItem = async (itemId, callerId) => {
   const meeting = await loadMeetingOrThrow(existing.meetingId)
   const participants = await listParticipantsByMeeting(existing.meetingId)
   assertIsParticipant(meeting, callerId, participants)
+
+  if (isOverdueActionItem(existing)) {
+    throw createHttpError('Overdue action items cannot be deleted', 409)
+  }
 
   await removeActionItemRow(itemId)
 }

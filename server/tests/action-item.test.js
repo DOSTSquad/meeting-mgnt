@@ -661,4 +661,30 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(nextError).toBeDefined()
     expect(nextError.statusCode).toBe(404)
   })
+
+  it('returns 409 when deleting an overdue action item', async () => {
+    const created = await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: {
+          title: 'Do not delete overdue',
+          dueDate: '2020-01-01T00:00:00.000Z',
+        },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    const deleteRes = await runHandler(
+      removeActionItemHandler,
+      buildRequest({
+        params: { id: created.res.body.actionItem.id },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    expect(deleteRes.nextError).toBeDefined()
+    expect(deleteRes.nextError.statusCode).toBe(409)
+    expect(deleteRes.nextError.message).toMatch(/Overdue action items cannot be deleted/)
+  })
 })

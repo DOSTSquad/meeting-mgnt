@@ -14,7 +14,7 @@ import {
 } from '../repositories/meeting-request-repository.js'
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { findUserByEmail } from '../repositories/user-repository.js'
-import { createMeetingForUser } from './meeting-service.js'
+import { createMeetingForUser, updateMeetingById } from './meeting-service.js'
 import {
   notifyMeetingCreated,
   notifyMeetingRequestConfirmed,
@@ -373,4 +373,22 @@ export const confirmRequestForUser = async (requestId, input, callerId) => {
   ])
 
   return { meeting, meetingRequest: meetingRequestAfterConfirm }
+}
+
+export const terminateRequestForUser = async (requestId, callerId) => {
+  const meetingRequest = await loadRequestOrThrow(requestId)
+  assertCreator(meetingRequest, callerId)
+
+  if (meetingRequest.confirmedMeetingId) {
+    await updateMeetingById(meetingRequest.confirmedMeetingId, { status: 'cancelled' })
+  }
+
+  const terminatedRequest = await confirmMeetingRequest({
+    requestId,
+    timeOptionId: null,
+    meetingId: null,
+    status: 'cancelled',
+  })
+
+  return { meetingRequest: terminatedRequest }
 }

@@ -62,7 +62,7 @@ const getDueLabel = (item) => {
   }
 
   if (isOverdueActionItem(item)) {
-    return `Overdue ${formatDateOnly(item.dueDate)}`
+    return `Overdue · Due ${formatDateOnly(item.dueDate)}`
   }
 
   return item.dueDate ? `Due ${formatDateOnly(item.dueDate)}` : 'No due date'

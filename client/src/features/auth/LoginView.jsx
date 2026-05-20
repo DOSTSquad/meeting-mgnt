@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import { login } from '../../services/authService.js'
 
-export const LoginView = ({ onLogin }) => {
+export const LoginView = ({ onLogin, onShowRegister }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -125,6 +125,16 @@ export const LoginView = ({ onLogin }) => {
                   <span className="font-semibold">nattanan.thepsathorn@seed.local</span> /{' '}
                   <span className="font-semibold">Password123!</span>
                 </p>
+                <p>
+                  Alt login 2:{' '}
+                  <span className="font-semibold">hannah.law@seed.local</span> /{' '}
+                  <span className="font-semibold">Password123!</span>
+                </p>
+                <p>
+                  Alt login 3:{' '}
+                  <span className="font-semibold">jhow.liu@seed.local</span> /{' '}
+                  <span className="font-semibold">Password123!</span>
+                </p>
               </div>
 
               <button
@@ -134,6 +144,17 @@ export const LoginView = ({ onLogin }) => {
               >
                 {isSubmitting ? 'Signing In...' : 'Sign In'}
               </button>
+
+              <p className="text-center text-sm text-slate-600">
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={onShowRegister}
+                  className="font-semibold text-blue-700 transition hover:text-blue-800"
+                >
+                  Register
+                </button>
+              </p>
             </form>
           </div>
         </div>

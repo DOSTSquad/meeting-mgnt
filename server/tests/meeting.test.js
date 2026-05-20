@@ -471,7 +471,7 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(noMatch.res.body.meetings).toEqual([])
   })
 
-  it('filters q against uploaded file names', async () => {
+  it('filters q with full-text search against uploaded file names', async () => {
     const matchingMeeting = await createMeetingViaController({
       title: 'Policy working group',
       description: 'Department process updates',
@@ -500,6 +500,15 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(result.res.body.meetings).toHaveLength(1)
     expect(result.res.body.meetings[0].title).toBe('Policy working group')
     expect(result.res.body.meetings[0].fileNames).toEqual(['cabinet-brief-final.pdf'])
+
+    const multiTokenResult = await runHandler(
+      list,
+      buildRequest({ query: { q: 'cabinet final' }, user: { id: testUser.id } })
+    )
+
+    expect(multiTokenResult.nextError).toBeUndefined()
+    expect(multiTokenResult.res.body.meetings).toHaveLength(1)
+    expect(multiTokenResult.res.body.meetings[0].title).toBe('Policy working group')
   })
 
   it('applies english-language stemming for q (plan matches planning)', async () => {

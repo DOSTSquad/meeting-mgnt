@@ -52,7 +52,7 @@ export const MeetingPreviewModal = ({ detail, isOpen, onClose }) => {
               </div>
               <div className="rounded-lg border border-slate-200 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Location
+                  Location / Meeting Link
                 </p>
                 <p className="mt-1 text-sm text-slate-800">{detail.meeting.location || '-'}</p>
               </div>

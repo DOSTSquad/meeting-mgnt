@@ -291,7 +291,7 @@
                 {
                   "key": "q",
                   "value": "budget",
-                  "description": "plainto_tsquery over title + description (english config, stemmed), plus case-insensitive uploaded filename matching; max 200 chars"
+                  "description": "plainto_tsquery over title + description (english config, stemmed) and uploaded file names (simple config); max 200 chars"
                 },
                 {
                   "key": "status",
@@ -555,6 +555,17 @@
               }
             }
           ]
+        },
+        {
+          "name": "Terminate meeting request",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
+            }
+          }
         }
       ]
     },

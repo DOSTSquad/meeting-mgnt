@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarDays, ChevronRight, FileText, Search, Users } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, FileText, Search, Users } from 'lucide-react'
 
 import { formatDateOnly } from '../../utils/date.js'
 
@@ -49,11 +49,14 @@ const statusStyles = {
   archived: 'bg-slate-100 text-slate-600',
 }
 
+const PAGE_SIZE = 6
+
 export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) => {
   const keyword = search.trim().toLowerCase()
   const [currentTimestamp] = useState(() => Date.now())
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedTagKey, setSelectedTagKey] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
   const tagGroups = Array.from(
     meetings
       .reduce((groups, meeting) => {
@@ -131,12 +134,18 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
       .toLowerCase()
     return searchable.includes(keyword)
   })
-  const shownMeetings = filteredMeetings
-    .slice()
-    .sort(
-      (first, second) => new Date(second.startsAt).getTime() - new Date(first.startsAt).getTime()
-    )
-    .slice(0, 9)
+  const sortedMeetings = filteredMeetings.slice().sort((first, second) => {
+    return new Date(second.startsAt).getTime() - new Date(first.startsAt).getTime()
+  })
+  const totalPages = Math.max(1, Math.ceil(sortedMeetings.length / PAGE_SIZE))
+  const visiblePage = Math.min(currentPage, totalPages)
+  const currentPageStartIndex = (visiblePage - 1) * PAGE_SIZE
+  const shownMeetings = sortedMeetings.slice(
+    currentPageStartIndex,
+    currentPageStartIndex + PAGE_SIZE
+  )
+  const shownStart = sortedMeetings.length === 0 ? 0 : currentPageStartIndex + 1
+  const shownEnd = Math.min(currentPageStartIndex + shownMeetings.length, sortedMeetings.length)
   const upcomingCount = filteredMeetings.filter(
     (meeting) => new Date(meeting.endsAt).getTime() >= currentTimestamp
   ).length
@@ -144,6 +153,21 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
     tagCards.find((card) => card.key === selectedTagKey)?.label ||
     tagGroups.find((group) => group.key === selectedTagKey)?.label ||
     'Meeting Tag'
+
+  const handleSearchChange = (value) => {
+    setCurrentPage(1)
+    onSearch(value)
+  }
+
+  const handleStatusFilterChange = (value) => {
+    setCurrentPage(1)
+    setStatusFilter(value)
+  }
+
+  const handleTagSelect = (tagKey) => {
+    setCurrentPage(1)
+    setSelectedTagKey(tagKey)
+  }
 
   return (
     <section className="min-w-0 space-y-6">
@@ -162,14 +186,14 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
           <input
             type="search"
             value={search}
-            onChange={(event) => onSearch(event.target.value)}
+            onChange={(event) => handleSearchChange(event.target.value)}
             placeholder="Search meetings or file names..."
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
           />
         </label>
         <select
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
+          onChange={(event) => handleStatusFilterChange(event.target.value)}
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-300"
         >
           <option value="all">All Meetings</option>
@@ -185,7 +209,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
         {selectedTagKey !== 'all' ? (
           <button
             type="button"
-            onClick={() => setSelectedTagKey('all')}
+            onClick={() => handleTagSelect('all')}
             className="h-9 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
           >
             Clear tag
@@ -207,7 +231,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
           <span className="sr-only">Filter by meeting tag</span>
           <select
             value={selectedTagKey}
-            onChange={(event) => setSelectedTagKey(event.target.value)}
+            onChange={(event) => handleTagSelect(event.target.value)}
             className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-300"
           >
             {tagFilterOptions.map((tag) => (
@@ -226,7 +250,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
               <button
                 key={tag.key}
                 type="button"
-                onClick={() => setSelectedTagKey(tag.key)}
+                onClick={() => handleTagSelect(tag.key)}
                 className={`rounded-lg border bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${
                   isSelected ? 'border-blue-300 ring-2 ring-blue-100' : palette.border
                 }`}
@@ -264,7 +288,9 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                 : `Showing meetings tagged ${selectedTagLabel}.`}
             </p>
           </div>
-          <span className="text-xs font-semibold text-slate-400">{shownMeetings.length} shown</span>
+          <span className="text-xs font-semibold text-slate-400">
+            {shownStart}-{shownEnd} of {sortedMeetings.length} shown
+          </span>
         </div>
         <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="hidden grid-cols-[minmax(0,1.7fr)_10rem_8rem_6rem_7rem_2rem] items-center gap-4 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold uppercase text-slate-400 lg:grid">
@@ -382,6 +408,33 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
             ) : null}
           </div>
         </div>
+        {sortedMeetings.length > PAGE_SIZE ? (
+          <div className="mt-3 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-semibold text-slate-500">
+              Page {visiblePage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={visiblePage === 1}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={visiblePage === totalPages}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   )
