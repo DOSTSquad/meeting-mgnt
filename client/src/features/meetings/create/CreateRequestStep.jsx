@@ -3,7 +3,7 @@ import { format, isBefore, startOfToday } from 'date-fns'
 import { CalendarDays, ChevronDown, Clock3 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
-import { zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
+import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
 
 const getDeadlineParts = (value) => {
   if (!value) {
@@ -95,6 +95,11 @@ export const CreateRequestStep = ({ form, onChange }) => {
   const activeTimeWindow =
     TIME_WINDOWS.find((window) => window.id === activeTimeWindowId) ?? TIME_WINDOWS[1]
   const visibleTimeOptions = getTimeOptions(activeTimeWindow)
+  const timezoneOptions = MEETING_TIMEZONE_OPTIONS.some(
+    (option) => option.value === form.timezoneName
+  )
+    ? MEETING_TIMEZONE_OPTIONS
+    : [{ value: form.timezoneName, label: form.timezoneName }, ...MEETING_TIMEZONE_OPTIONS]
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-2">
@@ -142,11 +147,23 @@ export const CreateRequestStep = ({ form, onChange }) => {
 
       <label className="block">
         <RequiredLabel>Time Zone</RequiredLabel>
-        <input
-          value={form.timezoneName}
-          onChange={(event) => onChange({ timezoneName: event.target.value })}
-          className="mt-2 h-12 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900"
-        />
+        <div className="relative mt-2">
+          <select
+            value={form.timezoneName}
+            onChange={(event) => onChange({ timezoneName: event.target.value })}
+            className="h-12 w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          >
+            {timezoneOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
+            aria-hidden="true"
+          />
+        </div>
       </label>
 
       <div>

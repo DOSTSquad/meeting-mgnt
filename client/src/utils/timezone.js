@@ -1,3 +1,8 @@
+export const MEETING_TIMEZONE_OPTIONS = [
+  { value: 'Asia/Manila', label: 'Asia/Manila' },
+  { value: 'Australia/Brisbane', label: 'Australia/Brisbane' },
+]
+
 const getZonedParts = (date, timeZone) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
