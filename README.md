@@ -150,6 +150,43 @@ sudo journalctl -u caddy -n 100 --no-pager
 
 `/health/live` should return `200`. If it does, check `/health` next; a `503` from `/health` means the API process is up but PostgreSQL, Redis, or MinIO is unavailable or misconfigured.
 
+## GitHub Actions Swarm Deployment
+
+The [`Deploy Swarm`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.github/workflows/deploy-swarm.yml)
+workflow builds and pushes the API/web images to GHCR, uploads the Swarm deployment files, deploys the
+selected stack, runs migrations, and checks `/health/live`.
+
+Before running it, initialize Docker Swarm on the manager node and create
+`deploy/swarm/swarm.env` on the target host. If the file is missing, the workflow creates it from
+`swarm.env.example` and stops so production values can be filled in.
+
+Configure these GitHub repository secrets:
+
+| Name                   | Purpose                                                                  |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `SWARM_DEPLOY_HOST`    | Swarm manager host or IP. Falls back to `DEPLOY_HOST`.                   |
+| `SWARM_DEPLOY_USER`    | SSH user for the Swarm manager. Falls back to `DEPLOY_USER`.             |
+| `SWARM_DEPLOY_SSH_KEY` | Private SSH key. Falls back to `DEPLOY_SSH_KEY`.                         |
+| `SWARM_DEPLOY_PORT`    | Optional SSH port. Falls back to `DEPLOY_PORT` or `22`.                  |
+| `SWARM_REGISTRY_TOKEN` | Optional GHCR token for the Swarm manager. Falls back to workflow token. |
+
+Optional repository variables:
+
+| Name                  | Default             |
+| --------------------- | ------------------- |
+| `SWARM_DEPLOY_PATH`   | `/srv/meeting-mgnt` |
+| `SWARM_STACK_NAME`    | `meeting-mgnt`      |
+| `SWARM_REGISTRY_USER` | GitHub actor        |
+
+Manual workflow inputs:
+
+| Input        | Value                                          |
+| ------------ | ---------------------------------------------- |
+| `stack_file` | `stack.yml` or `pilot-stack.yml`               |
+| `image_tag`  | Optional image tag; defaults to the commit SHA |
+
+For Swarm setup details, see [`deploy/swarm/README.md`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/deploy/swarm/README.md).
+
 ## Current Product Surface
 
 ### Client
