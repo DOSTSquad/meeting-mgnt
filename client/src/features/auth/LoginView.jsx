@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Building2 } from 'lucide-react'
 
 import { login } from '../../services/authService.js'
 
@@ -9,6 +10,10 @@ export const LoginView = ({ onLogin }) => {
   const [errorMessage, setErrorMessage] = useState('')
 
   const trimmedEmail = useMemo(() => email.trim(), [email])
+
+  const handleSsoLogin = () => {
+    setErrorMessage('Single sign-on is not configured yet. Please use email and password.')
+  }
 
   const handleLogin = async (event) => {
     event.preventDefault()
@@ -142,6 +147,23 @@ export const LoginView = ({ onLogin }) => {
                 className="mt-3 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-400"
               >
                 {isSubmitting ? 'Signing In...' : 'Sign In'}
+              </button>
+
+              <div className="flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-medium uppercase tracking-[0.15em] text-slate-400">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSsoLogin}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <Building2 className="h-4 w-4" aria-hidden="true" />
+                Sign in with SSO
               </button>
             </form>
           </div>
