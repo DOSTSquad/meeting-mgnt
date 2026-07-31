@@ -86,10 +86,13 @@ const RequiredLabel = ({ children }) => (
   </span>
 )
 
-export const CreateRequestStep = ({ form, onChange }) => {
+export const CreateRequestStep = ({ form, tags = [], onChange }) => {
   const [isDeadlineCalendarOpen, setIsDeadlineCalendarOpen] = useState(false)
   const [isTimezoneMenuOpen, setIsTimezoneMenuOpen] = useState(false)
   const [activeTimeWindowId, setActiveTimeWindowId] = useState(TIME_WINDOWS[1].id)
+  const [tagMode, setTagMode] = useState(() =>
+    form.meetingTag && !tags.some((tag) => tag.name === form.meetingTag) ? 'new' : 'existing'
+  )
   const deadline = getDeadlineParts(form.responseDeadline)
   const deadlineDate = toDateFromValue(deadline.date)
   const today = startOfToday()
@@ -123,6 +126,74 @@ export const CreateRequestStep = ({ form, onChange }) => {
         />
       </label>
 
+      <div className="block">
+        <RequiredLabel>Meeting Tag</RequiredLabel>
+        <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setTagMode('existing')
+              onChange({
+                meetingTag: tags.some((tag) => tag.name === form.meetingTag) ? form.meetingTag : '',
+              })
+            }}
+            className={`rounded-md px-3 py-2 text-sm font-bold transition ${
+              tagMode === 'existing'
+                ? 'bg-white text-blue-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Use existing tag
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTagMode('new')
+              if (tags.some((tag) => tag.name === form.meetingTag)) {
+                onChange({ meetingTag: '' })
+              }
+            }}
+            className={`rounded-md px-3 py-2 text-sm font-bold transition ${
+              tagMode === 'new'
+                ? 'bg-white text-blue-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Create new tag
+          </button>
+        </div>
+        {tagMode === 'existing' ? (
+          <div className="relative mt-2">
+            <select
+              value={tags.some((tag) => tag.name === form.meetingTag) ? form.meetingTag : ''}
+              onChange={(event) => onChange({ meetingTag: event.target.value })}
+              className="h-12 w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="" disabled>
+                Select an existing tag
+              </option>
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.name}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+          </div>
+        ) : (
+          <input
+            value={form.meetingTag}
+            onChange={(event) => onChange({ meetingTag: event.target.value })}
+            maxLength={100}
+            className="mt-2 h-12 w-full rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            placeholder="Enter a new meeting tag"
+          />
+        )}
+      </div>
+
       <label className="block">
         <span className="text-sm font-bold text-slate-800">Description (optional)</span>
         <textarea
@@ -132,27 +203,6 @@ export const CreateRequestStep = ({ form, onChange }) => {
           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           placeholder="Let's align on Q2 roadmap, timelines and key initiatives."
         />
-      </label>
-
-      <label className="block max-w-40">
-        <RequiredLabel>Duration</RequiredLabel>
-        <div className="relative mt-2">
-          <select
-            value={form.durationMinutes}
-            onChange={(event) => onChange({ durationMinutes: Number(event.target.value) })}
-            className="h-12 w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          >
-            <option value={30}>30 min</option>
-            <option value={45}>45 min</option>
-            <option value={60}>60 min</option>
-            <option value={90}>90 min</option>
-            <option value={120}>120 min</option>
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"
-            aria-hidden="true"
-          />
-        </div>
       </label>
 
       <div className="block">

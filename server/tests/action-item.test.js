@@ -377,20 +377,20 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(completed.res.body.actionItem.dueState).toBe('closed')
   })
 
-  it('treats blocked past-due action items as overdue', async () => {
+  it('rejects the removed blocked status', async () => {
     const created = await runHandler(
       createActionItemHandler,
       buildRequest({
         params: { meetingId: baseMeeting.id },
         body: {
-          title: 'Blocked and past due',
+          title: 'Cannot be blocked',
           dueDate: '2000-01-01T00:00:00.000Z',
         },
         user: { id: organizerUser.id },
       })
     )
 
-    const { res, nextError } = await runHandler(
+    const { nextError } = await runHandler(
       updateActionItemHandler,
       buildRequest({
         params: { id: created.res.body.actionItem.id },
@@ -399,10 +399,8 @@ dbDescribe('Action item controller (DB-backed)', () => {
       })
     )
 
-    expect(nextError).toBeUndefined()
-    expect(res.body.actionItem.status).toBe('blocked')
-    expect(res.body.actionItem.isOverdue).toBe(true)
-    expect(res.body.actionItem.dueState).toBe('overdue')
+    expect(nextError.statusCode).toBe(400)
+    expect(nextError.message).toBe('Invalid status')
   })
 
   it('returns 403 when a non-participant tries to create', async () => {

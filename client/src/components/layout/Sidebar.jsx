@@ -77,7 +77,7 @@ export const Sidebar = ({ activePage, isCollapsed, onSelect, onToggle }) => (
           {!isCollapsed ? <span className="text-sm font-bold">Meeting Manager</span> : null}
         </div>
         <div className={`mb-4 h-px bg-slate-700 ${isCollapsed ? 'hidden lg:block' : ''}`} />
-        <nav className={`space-y-2 ${isCollapsed ? 'hidden lg:block' : ''}`}>
+        <nav className={`space-y-1.5 ${isCollapsed ? 'hidden lg:block' : ''}`}>
           {menuItems.map((item) => {
             const Icon = navIcons[item.id]
 
@@ -86,17 +86,27 @@ export const Sidebar = ({ activePage, isCollapsed, onSelect, onToggle }) => (
                 key={item.id}
                 type="button"
                 onClick={() => onSelect(item)}
-                className={`flex h-11 w-full items-center rounded-md text-xs font-semibold transition ${
-                  isCollapsed ? 'justify-center px-0' : 'gap-2 px-3 text-left'
+                className={`group flex h-11 w-full items-center rounded-xl text-xs font-bold transition-all ${
+                  isCollapsed ? 'justify-center px-0' : 'gap-3 px-2 text-left'
                 } ${
                   activePage === item.id
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-300 hover:bg-slate-800/70'
+                    ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10'
+                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
                 }`}
                 aria-label={item.label}
                 title={isCollapsed ? item.label : undefined}
               >
-                {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+                {Icon ? (
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                      activePage === item.id
+                        ? 'bg-blue-500 text-white shadow-md shadow-blue-950/30'
+                        : 'bg-white/[0.04] text-slate-400 group-hover:bg-white/10 group-hover:text-white'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                ) : null}
                 {!isCollapsed ? <span>{item.label}</span> : null}
               </button>
             )

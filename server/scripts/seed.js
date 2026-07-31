@@ -70,7 +70,7 @@ const meetingTags = [...defaultTags]
 const locations = ['Room A / Teams', 'Room B', 'Room C', 'Zoom', 'Board Room']
 const statuses = ['scheduled', 'completed']
 const participantRoles = ['attendee', 'attendee', 'attendee', 'optional', 'organizer']
-const actionStatuses = ['todo', 'in_progress', 'blocked', 'completed']
+const actionStatuses = ['todo', 'in_progress', 'completed']
 const actionPriorities = ['low', 'medium', 'high']
 
 const actionTitlePool = [
@@ -88,7 +88,7 @@ const overdueActionItemsSeed = [
     title: 'Resolve launch checklist blocker',
     description: 'Confirm the remaining launch readiness blocker and record the mitigation owner.',
     assigneeEmail: 'paveen.anuntakulnatee@seed.local',
-    status: 'blocked',
+    status: 'in_progress',
     priority: 'high',
     daysOverdue: 4,
   },

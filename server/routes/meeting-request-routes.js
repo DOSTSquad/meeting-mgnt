@@ -30,6 +30,16 @@ meetingRequestRouter.post(
       .optional({ nullable: true })
       .isString()
       .withMessage('Description must be a string'),
+    body('tag')
+      .isString()
+      .withMessage('tag must be a string')
+      .bail()
+      .trim()
+      .notEmpty()
+      .withMessage('tag is required')
+      .bail()
+      .isLength({ max: 100 })
+      .withMessage('tag must be at most 100 characters'),
     body('durationMinutes')
       .optional()
       .isInt({ min: 1, max: 1440 })
@@ -70,6 +80,16 @@ meetingRequestRouter.put(
       .optional({ nullable: true })
       .isString()
       .withMessage('Description must be a string'),
+    body('tag')
+      .isString()
+      .withMessage('tag must be a string')
+      .bail()
+      .trim()
+      .notEmpty()
+      .withMessage('tag is required')
+      .bail()
+      .isLength({ max: 100 })
+      .withMessage('tag must be at most 100 characters'),
     body('durationMinutes')
       .optional()
       .isInt({ min: 1, max: 1440 })

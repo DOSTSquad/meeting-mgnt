@@ -1,4 +1,4 @@
-const OVERDUE_STATUSES = new Set(['todo', 'in_progress', 'blocked'])
+const OVERDUE_STATUSES = new Set(['todo', 'in_progress'])
 
 export const isOverdueActionItem = ({ dueDate, status }, now = new Date()) => {
   if (!dueDate || !OVERDUE_STATUSES.has(status)) {

@@ -77,19 +77,19 @@ Updating `status` to the same value is a no-op. `archived` is terminal. Any othe
 
 ### Meeting Requests (`/api/meeting-requests`)
 
-Meeting requests support the 5-step scheduling flow before a confirmed meeting exists. Confirmed meetings still live in `/api/meetings`.
+Meeting requests support the scheduling flow before a confirmed meeting exists. Confirmed meetings still live in `/api/meetings`.
 
-| Method | Path                                           | Body / Query                                                                 | Returns                                                   |
-| ------ | ---------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
-| POST   | `/`                                            | `{ title, responseDeadline, description?, durationMinutes?, timezoneName? }` | `201 { meetingRequest }`                                  |
-| GET    | `/:requestId`                                  | —                                                                            | `200 { meetingRequest, timeOptions, invitees }`           |
-| PUT    | `/:requestId`                                  | `{ title, responseDeadline, description?, durationMinutes?, timezoneName? }` | `200 { meetingRequest }`                                  |
-| GET    | `/:requestId/invitees/:inviteeId`              | —                                                                            | `200 { meetingRequest, invitee, timeOptions, responses }` |
-| PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                        | `200 { timeOptions }`                                     |
-| PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                           | `200 { invitees }`                                        |
-| PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                             | `200 { responses }`                                       |
-| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                          | `201 { meeting, meetingRequest }`                         |
-| DELETE | `/:requestId`                                  | —                                                                            | `200 { meetingRequest }`                                  |
+| Method | Path                                           | Body / Query                                                                      | Returns                                                   |
+| ------ | ---------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| POST   | `/`                                            | `{ title, tag, responseDeadline, description?, durationMinutes?, timezoneName? }` | `201 { meetingRequest }`                                  |
+| GET    | `/:requestId`                                  | —                                                                                 | `200 { meetingRequest, timeOptions, invitees }`           |
+| PUT    | `/:requestId`                                  | `{ title, tag, responseDeadline, description?, durationMinutes?, timezoneName? }` | `200 { meetingRequest }`                                  |
+| GET    | `/:requestId/invitees/:inviteeId`              | —                                                                                 | `200 { meetingRequest, invitee, timeOptions, responses }` |
+| PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                             | `200 { timeOptions }`                                     |
+| PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                                | `200 { invitees }`                                        |
+| PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                                  | `200 { responses }`                                       |
+| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                               | `201 { meeting, meetingRequest }`                         |
+| DELETE | `/:requestId`                                  | —                                                                                 | `200 { meetingRequest }`                                  |
 
 Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
 
@@ -188,7 +188,7 @@ Any meeting participant (creator or any role) can upload, list, and request down
 | PUT    | `/action-items/:id`                 | partial: `{ title?, description?, assigneeId?, dueDate?, status?, priority? }` (at least one) | `200 { actionItem }`  |
 | DELETE | `/action-items/:id`                 | —                                                                                             | `204`                 |
 
-- `status` — one of `todo` (default), `in_progress`, `blocked`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
+- `status` — one of `todo` (default), `in_progress`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
 - `isOverdue` and `dueState` are derived from `dueDate` and workflow `status`; they are not persisted statuses. `dueState` is one of `none`, `upcoming`, `overdue`, or `closed`.
 - `priority` — one of `low`, `medium` (default), `high`.
 - Any meeting participant (including the creator) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.

@@ -370,7 +370,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"tag\": \"Operations\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
             },
             "description": "Creates a meeting request. `responseDeadline` is required, must be a future ISO 8601 datetime, and controls when invitee availability submission closes."
           },
@@ -406,9 +406,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"description\": \"Review delivery health and updated risks\",\n  \"durationMinutes\": 90,\n  \"timezoneName\": \"Asia/Manila\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+08:00\"\n}"
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"tag\": \"Operations\",\n  \"description\": \"Review delivery health and updated risks\",\n  \"durationMinutes\": 90,\n  \"timezoneName\": \"Asia/Manila\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+08:00\"\n}"
             },
-            "description": "Updates editable meeting request details before the request is closed. Used when the organizer goes back in the creation wizard and changes duration, timezone, title, description, or response deadline."
+            "description": "Updates editable meeting request details before the request is closed. Used when the organizer goes back in the creation wizard and changes duration, timezone, title, tag, description, or response deadline."
           }
         },
         {
@@ -1190,7 +1190,7 @@
                 {
                   "key": "status",
                   "value": "todo",
-                  "description": "Optional: todo | in_progress | blocked | completed | cancelled",
+                  "description": "Optional: todo | in_progress | completed | cancelled",
                   "disabled": true
                 },
                 {

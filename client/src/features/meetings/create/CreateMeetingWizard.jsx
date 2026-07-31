@@ -9,14 +9,43 @@ import { ConfirmMeetingStep } from './ConfirmMeetingStep.jsx'
 import { CreateRequestStep } from './CreateRequestStep.jsx'
 import { InviteParticipantsStep } from './InviteParticipantsStep.jsx'
 import { ReviewResponsesStep } from './ReviewResponsesStep.jsx'
-import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
+import {
+  getDateValueInTimeZone,
+  MEETING_TIMEZONE_OPTIONS,
+  zonedDateTimeToUtcDate,
+} from '../../../utils/timezone.js'
 
-const steps = ['Request', 'Times', 'Invite', 'Review', 'Confirm']
+const steps = ['Meeting Setup', 'Invite', 'Review', 'Confirm']
+
+const DEFAULT_START_TIME = '09:00'
+
+const getTimeValueAfterDuration = (startTime, durationMinutes) => {
+  const [hour, minute] = startTime.split(':').map(Number)
+  const totalMinutes = hour * 60 + minute + durationMinutes
+  const endHour = String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0')
+  const endMinute = String(totalMinutes % 60).padStart(2, '0')
+
+  return `${endHour}:${endMinute}`
+}
+
+const getDurationMinutes = (startTime, endTime) => {
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    return 0
+  }
+
+  const [startHour, startMinute] = startTime.split(':').map(Number)
+  const [endHour, endMinute] = endTime.split(':').map(Number)
+
+  return endHour * 60 + endMinute - (startHour * 60 + startMinute)
+}
 
 const getInitialRequestForm = () => ({
   title: '',
+  meetingTag: '',
   description: '',
   durationMinutes: 60,
+  startTime: DEFAULT_START_TIME,
+  endTime: getTimeValueAfterDuration(DEFAULT_START_TIME, 60),
   timezoneName: MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: '',
 })
@@ -35,47 +64,46 @@ const toIsoFromWallTime = (value, timeZone) => {
 
 const getRequestPayload = (requestForm) => ({
   title: requestForm.title,
+  tag: requestForm.meetingTag || null,
   description: requestForm.description || null,
   durationMinutes: requestForm.durationMinutes,
   timezoneName: requestForm.timezoneName,
   responseDeadline: toIsoFromWallTime(requestForm.responseDeadline, requestForm.timezoneName),
 })
 
-const resizeTimeOptions = (options, durationMinutes) =>
-  options.map((option) => ({
-    ...option,
-    endsAt: new Date(
-      new Date(option.startsAt).getTime() + durationMinutes * 60 * 1000
-    ).toISOString(),
-  }))
+const updateTimeOptionsForMeetingTime = (options, { startTime, durationMinutes, timezoneName }) =>
+  options.map((option) => {
+    const date = getDateValueInTimeZone(option.startsAt, timezoneName)
+    const startsAt = zonedDateTimeToUtcDate({ date, time: startTime, timeZone: timezoneName })
 
-const isThirtyMinuteIncrement = (time) => {
-  const [, minute = '', second = '0'] = time.split(':')
-  return Number(minute) % 30 === 0 && Number(second) === 0
-}
+    return {
+      ...option,
+      startsAt: startsAt.toISOString(),
+      endsAt: new Date(startsAt.getTime() + durationMinutes * 60 * 1000).toISOString(),
+    }
+  })
 
 const getRequestFormFromMeetingRequest = (request) => ({
   title: request.title ?? '',
+  meetingTag: request.tag ?? '',
   description: request.description ?? '',
   durationMinutes: request.durationMinutes ?? 60,
+  startTime: DEFAULT_START_TIME,
+  endTime: getTimeValueAfterDuration(DEFAULT_START_TIME, request.durationMinutes ?? 60),
   timezoneName: request.timezoneName ?? MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: request.responseDeadline ? request.responseDeadline.slice(0, 16) : '',
 })
 
 const getResumeStepIndex = ({ meetingRequest, timeOptions, invitees }) => {
-  if (!meetingRequest?.title) {
+  if (!meetingRequest?.title || timeOptions.length === 0) {
     return 0
   }
 
-  if (timeOptions.length === 0) {
+  if (invitees.length === 0) {
     return 1
   }
 
-  if (invitees.length === 0) {
-    return 2
-  }
-
-  return 3
+  return 2
 }
 
 export const CreateMeetingWizard = ({
@@ -100,7 +128,7 @@ export const CreateMeetingWizard = ({
   const [selectedUserId, setSelectedUserId] = useState('')
   const [manualEmail, setManualEmail] = useState('')
   const [selectedTimeOptionId, setSelectedTimeOptionId] = useState('')
-  const [confirmForm, setConfirmForm] = useState({ location: '', tag: '' })
+  const [confirmForm, setConfirmForm] = useState({ location: '' })
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingRequest, setIsLoadingRequest] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -114,7 +142,7 @@ export const CreateMeetingWizard = ({
   const selectedOption = savedTimeOptions.find((option) => option.id === selectedTimeOptionId)
   const canConfirmMeetingRequest =
     meetingRequest?.canConfirm || meetingRequest?.status === 'ready_to_confirm'
-  const isReviewWaiting = stepIndex === 3 && !canConfirmMeetingRequest
+  const isReviewWaiting = stepIndex === 2 && !canConfirmMeetingRequest
 
   const reset = () => {
     setStepIndex(0)
@@ -128,7 +156,7 @@ export const CreateMeetingWizard = ({
     setSelectedUserId('')
     setManualEmail('')
     setSelectedTimeOptionId('')
-    setConfirmForm({ location: '', tag: '' })
+    setConfirmForm({ location: '' })
     setIsLoadingRequest(false)
     setErrorMessage('')
     setSuccessMessage('')
@@ -201,26 +229,21 @@ export const CreateMeetingWizard = ({
     try {
       if (stepIndex === 0) {
         const payload = getRequestPayload(requestForm)
+        let savedMeetingRequest
 
         if (!meetingRequest?.id) {
-          const created = await service.createRequest(payload)
-          setMeetingRequest(created)
+          savedMeetingRequest = await service.createRequest(payload)
         } else {
-          const updated = await service.updateRequest(meetingRequest.id, payload)
-          setMeetingRequest(updated)
+          savedMeetingRequest = await service.updateRequest(meetingRequest.id, payload)
         }
-      }
+        setMeetingRequest(savedMeetingRequest)
 
-      if (stepIndex === 1) {
-        if (!meetingRequest?.id) {
-          throw new Error('Create the request before adding time options')
-        }
-        const saved = await service.updateTimeOptions(meetingRequest.id, timeOptions)
+        const saved = await service.updateTimeOptions(savedMeetingRequest.id, timeOptions)
         setSavedTimeOptions(saved)
         setSelectedTimeOptionId((prev) => prev || saved[0]?.id || '')
       }
 
-      if (stepIndex === 2) {
+      if (stepIndex === 1) {
         if (!meetingRequest?.id) {
           throw new Error('Create the request before inviting participants')
         }
@@ -238,11 +261,11 @@ export const CreateMeetingWizard = ({
         setSavedTimeOptions(detail.timeOptions)
         setSavedInvitees(detail.invitees)
         setSelectedTimeOptionId((prev) => prev || detail.timeOptions[0]?.id || '')
-        setStepIndex(3)
+        setStepIndex(2)
         return
       }
 
-      if (stepIndex === 3) {
+      if (stepIndex === 2) {
         const detail = await service.getRequest(meetingRequest.id)
         setMeetingRequest(detail.meetingRequest)
         setSavedTimeOptions(detail.timeOptions)
@@ -259,11 +282,11 @@ export const CreateMeetingWizard = ({
           return
         }
 
-        setStepIndex(4)
+        setStepIndex(3)
         return
       }
 
-      if (stepIndex === 4) {
+      if (stepIndex === 3) {
         if (!selectedTimeOptionId) {
           throw new Error('Select a time option before confirming')
         }
@@ -271,7 +294,7 @@ export const CreateMeetingWizard = ({
         const result = await service.confirmRequest(meetingRequest.id, {
           timeOptionId: selectedTimeOptionId,
           location: confirmForm.location || null,
-          tag: confirmForm.tag || null,
+          tag: requestForm.meetingTag || null,
         })
         await onCreated(result)
         reset()
@@ -295,11 +318,6 @@ export const CreateMeetingWizard = ({
 
     if (isBefore(new Date(`${candidate.date}T00:00:00`), startOfToday())) {
       setErrorMessage('Choose today or a future date')
-      return
-    }
-
-    if (!isThirtyMinuteIncrement(candidate.time)) {
-      setErrorMessage('Choose a start time in 30-minute increments')
       return
     }
 
@@ -381,12 +399,18 @@ export const CreateMeetingWizard = ({
   }
 
   const updateRequestForm = (patch) => {
-    setRequestForm((prev) => ({ ...prev, ...patch }))
+    const nextStartTime = patch.startTime ?? requestForm.startTime
+    const nextEndTime = patch.endTime ?? requestForm.endTime
+    const nextRequestForm = {
+      ...requestForm,
+      ...patch,
+      durationMinutes: getDurationMinutes(nextStartTime, nextEndTime),
+    }
+    setRequestForm(nextRequestForm)
 
-    if (patch.durationMinutes !== undefined) {
-      const durationMinutes = Number(patch.durationMinutes)
-      setTimeOptions((prev) => resizeTimeOptions(prev, durationMinutes))
-      setSavedTimeOptions((prev) => resizeTimeOptions(prev, durationMinutes))
+    if (patch.startTime !== undefined || patch.endTime !== undefined) {
+      setTimeOptions((prev) => updateTimeOptionsForMeetingTime(prev, nextRequestForm))
+      setSavedTimeOptions((prev) => updateTimeOptionsForMeetingTime(prev, nextRequestForm))
     }
 
     if (patch.timezoneName !== undefined && patch.timezoneName !== requestForm.timezoneName) {
@@ -398,23 +422,27 @@ export const CreateMeetingWizard = ({
   }
 
   const isRequestStepComplete =
-    requestForm.title.trim() && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
+    requestForm.title.trim() &&
+    requestForm.meetingTag.trim() &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
 
   const canContinue =
-    (stepIndex === 0 && isRequestStepComplete) ||
-    (stepIndex === 1 && timeOptions.length > 0) ||
-    (stepIndex === 2 && invitees.length > 0) ||
-    (stepIndex === 3 && savedTimeOptions.length > 0) ||
-    (stepIndex === 4 && selectedTimeOptionId)
+    (stepIndex === 0 &&
+      isRequestStepComplete &&
+      requestForm.durationMinutes > 0 &&
+      timeOptions.length > 0) ||
+    (stepIndex === 1 && invitees.length > 0) ||
+    (stepIndex === 2 && savedTimeOptions.length > 0) ||
+    (stepIndex === 3 && selectedTimeOptionId)
   const primaryActionLabel = isSaving
     ? 'Saving...'
-    : !isResumeMode && stepIndex === 2
+    : !isResumeMode && stepIndex === 1
       ? 'Send Invitations'
-      : stepIndex === 3
+      : stepIndex === 2
         ? canConfirmMeetingRequest
           ? 'Continue'
           : 'Done'
-        : stepIndex === 4
+        : stepIndex === 3
           ? 'Confirm Meeting'
           : 'Continue'
   return (
@@ -433,7 +461,7 @@ export const CreateMeetingWizard = ({
             </button>
           </div>
 
-          <div className="mx-auto mt-6 grid w-full max-w-2xl grid-cols-5">
+          <div className="mx-auto mt-6 grid w-full max-w-2xl grid-cols-4">
             {steps.map((step, index) => (
               <div
                 key={step}
@@ -484,23 +512,24 @@ export const CreateMeetingWizard = ({
             </p>
           ) : null}
           {!isLoadingRequest && stepIndex === 0 ? (
-            <CreateRequestStep form={requestForm} onChange={updateRequestForm} />
+            <div className="space-y-6">
+              <CreateRequestStep form={requestForm} tags={tags} onChange={updateRequestForm} />
+              <AddTimeOptionsStep
+                options={timeOptions}
+                durationMinutes={requestForm.durationMinutes}
+                startTime={requestForm.startTime}
+                endTime={requestForm.endTime}
+                timezoneName={requestForm.timezoneName}
+                blockedMeetings={meetings}
+                onMeetingTimeChange={updateRequestForm}
+                onAddOption={addTimeOption}
+                onRemoveOption={(indexToRemove) =>
+                  setTimeOptions((prev) => prev.filter((_, index) => index !== indexToRemove))
+                }
+              />
+            </div>
           ) : null}
           {!isLoadingRequest && stepIndex === 1 ? (
-            <AddTimeOptionsStep
-              draft={timeDraft}
-              options={timeOptions}
-              durationMinutes={requestForm.durationMinutes}
-              timezoneName={requestForm.timezoneName}
-              blockedMeetings={meetings}
-              onDraftChange={(patch) => setTimeDraft((prev) => ({ ...prev, ...patch }))}
-              onAddOption={addTimeOption}
-              onRemoveOption={(indexToRemove) =>
-                setTimeOptions((prev) => prev.filter((_, index) => index !== indexToRemove))
-              }
-            />
-          ) : null}
-          {!isLoadingRequest && stepIndex === 2 ? (
             <InviteParticipantsStep
               users={availableUsers}
               invitees={invitees}
@@ -515,7 +544,7 @@ export const CreateMeetingWizard = ({
               }
             />
           ) : null}
-          {!isLoadingRequest && stepIndex === 3 ? (
+          {!isLoadingRequest && stepIndex === 2 ? (
             <ReviewResponsesStep
               status={meetingRequest?.status}
               canConfirm={canConfirmMeetingRequest}
@@ -527,12 +556,10 @@ export const CreateMeetingWizard = ({
               onSelect={setSelectedTimeOptionId}
             />
           ) : null}
-          {!isLoadingRequest && stepIndex === 4 ? (
+          {!isLoadingRequest && stepIndex === 3 ? (
             <ConfirmMeetingStep
               selectedOption={selectedOption}
               location={confirmForm.location}
-              tag={confirmForm.tag}
-              tags={tags}
               timezoneName={meetingRequest?.timezoneName ?? requestForm.timezoneName}
               onChange={(patch) => setConfirmForm((prev) => ({ ...prev, ...patch }))}
             />
@@ -580,7 +607,7 @@ export const CreateMeetingWizard = ({
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
             >
               {primaryActionLabel}
-              {stepIndex === 4 || isReviewWaiting ? (
+              {stepIndex === 3 || isReviewWaiting ? (
                 <CheckCircle className="h-4 w-4" aria-hidden="true" />
               ) : (
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
