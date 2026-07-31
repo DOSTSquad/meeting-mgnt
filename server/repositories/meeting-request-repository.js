@@ -5,6 +5,7 @@ const REQUEST_COLUMNS = `
   id,
   title,
   description,
+  tag,
   duration_minutes,
   timezone_name,
   response_deadline,
@@ -24,6 +25,7 @@ const mapRequest = (row) => {
     id: row.id,
     title: row.title,
     description: row.description,
+    tag: row.tag,
     durationMinutes: row.duration_minutes,
     timezoneName: row.timezone_name,
     responseDeadline: row.response_deadline ? row.response_deadline.toISOString() : null,
@@ -71,6 +73,7 @@ const mapResponse = (row) => ({
 export const createMeetingRequest = async ({
   title,
   description = null,
+  tag = null,
   durationMinutes,
   timezoneName,
   responseDeadline = null,
@@ -79,12 +82,12 @@ export const createMeetingRequest = async ({
   const result = await query(
     `
       INSERT INTO meeting_requests (
-        title, description, duration_minutes, timezone_name, response_deadline, created_by
+        title, description, tag, duration_minutes, timezone_name, response_deadline, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING ${REQUEST_COLUMNS}
     `,
-    [title.trim(), description, durationMinutes, timezoneName, responseDeadline, createdBy]
+    [title.trim(), description, tag, durationMinutes, timezoneName, responseDeadline, createdBy]
   )
 
   return mapRequest(result.rows[0])
@@ -108,6 +111,7 @@ export const updateMeetingRequest = async (requestId, updates) => {
   const fieldToColumn = {
     title: 'title',
     description: 'description',
+    tag: 'tag',
     durationMinutes: 'duration_minutes',
     timezoneName: 'timezone_name',
     responseDeadline: 'response_deadline',

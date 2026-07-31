@@ -53,7 +53,7 @@ export const Topbar = ({
   }, [isProfileOpen])
 
   return (
-    <header className="flex min-h-14 items-center justify-end">
+    <header className="mb-5 flex min-h-14 items-center justify-end sm:mb-6">
       <div className="flex h-11 items-center rounded-xl border border-slate-200/80 bg-white/80 px-2 shadow-sm shadow-slate-200/60 ring-1 ring-white/60">
         <NotificationMenu
           notifications={notifications}

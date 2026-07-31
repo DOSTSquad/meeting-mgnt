@@ -113,6 +113,7 @@ export const createRequestForUser = async (input, callerId) => {
   const {
     title,
     description,
+    tag,
     durationMinutes = 60,
     timezoneName = 'UTC',
     responseDeadline,
@@ -120,6 +121,14 @@ export const createRequestForUser = async (input, callerId) => {
 
   if (!title || !title.trim()) {
     throw createHttpError('Title is required', 400)
+  }
+
+  const normalizedTag = tag?.trim() || null
+  if (!normalizedTag) {
+    throw createHttpError('tag is required', 400)
+  }
+  if (normalizedTag.length > 100) {
+    throw createHttpError('tag must be at most 100 characters', 400)
   }
 
   const numericDuration = Number(durationMinutes)
@@ -133,6 +142,7 @@ export const createRequestForUser = async (input, callerId) => {
   const meetingRequest = await createMeetingRequest({
     title,
     description: description ?? null,
+    tag: normalizedTag,
     durationMinutes: numericDuration,
     timezoneName,
     responseDeadline: toDate(responseDeadline),
@@ -182,6 +192,7 @@ export const updateRequestForUser = async (requestId, input, callerId) => {
   const {
     title,
     description,
+    tag,
     durationMinutes = 60,
     timezoneName = 'UTC',
     responseDeadline,
@@ -189,6 +200,14 @@ export const updateRequestForUser = async (requestId, input, callerId) => {
 
   if (!title || !title.trim()) {
     throw createHttpError('Title is required', 400)
+  }
+
+  const normalizedTag = tag?.trim() || null
+  if (!normalizedTag) {
+    throw createHttpError('tag is required', 400)
+  }
+  if (normalizedTag.length > 100) {
+    throw createHttpError('tag must be at most 100 characters', 400)
   }
 
   const numericDuration = Number(durationMinutes)
@@ -202,6 +221,7 @@ export const updateRequestForUser = async (requestId, input, callerId) => {
   const updatedRequest = await updateMeetingRequest(requestId, {
     title: title.trim(),
     description: description ?? null,
+    tag: normalizedTag,
     durationMinutes: numericDuration,
     timezoneName,
     responseDeadline: toDate(responseDeadline),
@@ -388,7 +408,7 @@ export const confirmRequestForUser = async (requestId, input, callerId) => {
       endsAt: selectedOption.endsAt,
       timezoneName: meetingRequest.timezoneName,
       location: location ?? null,
-      tag: tag ?? null,
+      tag: tag ?? meetingRequest.tag ?? null,
       status: 'scheduled',
     },
     callerId

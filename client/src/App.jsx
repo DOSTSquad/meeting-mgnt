@@ -13,7 +13,7 @@ import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
 import { useMeetingDetailController } from './features/meetings/useMeetingDetailController.js'
 import { useNotificationActions } from './features/notifications/useNotificationActions.js'
-import { getActionItem, listActionItems, updateActionItem } from './services/actionItemService.js'
+import { listActionItems, updateActionItem } from './services/actionItemService.js'
 import { loadAppData } from './services/appDataService.js'
 import { getDashboard } from './services/dashboardService.js'
 import { listMeetings } from './services/meetingService.js'
@@ -148,10 +148,16 @@ const AppShell = ({ token, user, onLogout }) => {
     const load = async () => {
       try {
         const client = getApiClient(token)
-        const dashboard = await getDashboard(client)
+        const [dashboard, loadedMeetings, loadedActionItems] = await Promise.all([
+          getDashboard(client),
+          listMeetings(client, { limit: 100 }),
+          listActionItems(client),
+        ])
 
         if (!isCancelled) {
           setDashboardData(dashboard)
+          setMeetings(loadedMeetings)
+          setActionItems(loadedActionItems)
         }
       } catch (error) {
         if (isCancelled) {
@@ -248,14 +254,6 @@ const AppShell = ({ token, user, onLogout }) => {
       isCancelled = true
     }
   }, [activePage, token, onLogout])
-
-  const fetchActionItemDetail = useCallback(
-    async (actionItemId) => {
-      const client = getApiClient(token)
-      return getActionItem(client, actionItemId)
-    },
-    [token]
-  )
 
   const {
     archiveReadNotificationsInMenu,
@@ -396,14 +394,14 @@ const AppShell = ({ token, user, onLogout }) => {
                 <DashboardView
                   data={dashboardData}
                   currentUser={user}
-                  users={users}
+                  meetings={meetings}
+                  allActionItems={actionItems}
                   onOpenCreateModal={openNewMeetingModal}
                   onOpenMeeting={openMeetingDetail}
                   onOpenMeetingRequest={openMeetingRequestModal}
                   onOpenAvailabilityRequest={openAvailabilityRequestModal}
                   onViewAllMeetings={() => navigate('/meetings')}
                   onViewAllActionItems={() => navigate('/action-items')}
-                  onLoadActionItemDetail={fetchActionItemDetail}
                 />
               }
             />

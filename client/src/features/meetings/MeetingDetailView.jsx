@@ -12,10 +12,6 @@ const actionStatusStyles = {
     label: 'In progress',
     className: 'bg-blue-50 text-blue-700 ring-blue-200',
   },
-  blocked: {
-    label: 'Blocked',
-    className: 'bg-rose-50 text-rose-700 ring-rose-200',
-  },
   completed: {
     label: 'Done',
     className: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
@@ -697,7 +693,6 @@ export const MeetingDetailView = ({
                       >
                         <option value="todo">To do</option>
                         <option value="in_progress">In progress</option>
-                        <option value="blocked">Blocked</option>
                         <option value="completed">Done</option>
                       </select>
                     </label>

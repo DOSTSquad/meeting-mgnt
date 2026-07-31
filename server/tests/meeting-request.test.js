@@ -119,6 +119,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Quarterly review',
+          tag: 'Operations',
           description: 'Review delivery health',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
@@ -233,12 +234,13 @@ describe('meeting request flow', () => {
       buildRequest({
         user: { id: creator.id },
         params: { requestId },
-        body: { timeOptionId, location: 'Room 4.1', tag: 'Operations' },
+        body: { timeOptionId, location: 'Room 4.1' },
       })
     )
     expect(confirmResult.nextError).toBeUndefined()
     expect(confirmResult.res.statusCode).toBe(201)
     expect(confirmResult.res.body.meeting.title).toBe('Quarterly review')
+    expect(confirmResult.res.body.meeting.tag).toBe('operations')
     expect(confirmResult.res.body.meetingRequest.status).toBe('confirmed')
 
     const participants = await query(
@@ -261,6 +263,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Initial planning',
+          tag: 'Planning',
           durationMinutes: 60,
           timezoneName: 'Asia/Manila',
           responseDeadline: dateFromNow(1),
@@ -278,6 +281,7 @@ describe('meeting request flow', () => {
         params: { requestId },
         body: {
           title: 'Updated planning',
+          tag: 'Planning',
           description: 'Duration changed after going back',
           durationMinutes: 90,
           timezoneName: 'Australia/Brisbane',
@@ -290,6 +294,7 @@ describe('meeting request flow', () => {
     expect(updateResult.res.body.meetingRequest).toMatchObject({
       id: requestId,
       title: 'Updated planning',
+      tag: 'Planning',
       description: 'Duration changed after going back',
       durationMinutes: 90,
       timezoneName: 'Australia/Brisbane',
@@ -310,6 +315,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Deadline-driven confirmation',
+          tag: 'Operations',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
           responseDeadline: dateFromNow(1),
@@ -403,6 +409,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Binary availability only',
+          tag: 'Operations',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
           responseDeadline: dateFromNow(1),
@@ -685,6 +692,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Should avoid host conflicts',
+          tag: 'Operations',
           durationMinutes: 60,
           timezoneName: 'Australia/Brisbane',
           responseDeadline: dateFromNow(1),
@@ -724,6 +732,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Past time request',
+          tag: 'Operations',
           durationMinutes: 60,
           timezoneName: 'UTC',
           responseDeadline: dateFromNow(1),
@@ -769,6 +778,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Past deadline request',
+          tag: 'Operations',
           durationMinutes: 60,
           timezoneName: 'UTC',
           responseDeadline: yesterday.toISOString(),
@@ -791,6 +801,7 @@ describe('meeting request flow', () => {
         user: { id: creator.id },
         body: {
           title: 'Missing deadline request',
+          tag: 'Operations',
           durationMinutes: 60,
           timezoneName: 'UTC',
         },

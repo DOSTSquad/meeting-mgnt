@@ -30,7 +30,7 @@ const isOverdueActionItem = (actionItem) => {
   return new Date(actionItem.dueDate).getTime() < Date.now()
 }
 
-export const ALLOWED_STATUSES = ['todo', 'in_progress', 'blocked', 'completed', 'cancelled']
+export const ALLOWED_STATUSES = ['todo', 'in_progress', 'completed', 'cancelled']
 export const ALLOWED_PRIORITIES = ['low', 'medium', 'high']
 
 const assertIsParticipant = (meeting, callerId, participants) => {

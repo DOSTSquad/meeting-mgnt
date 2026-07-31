@@ -1,6 +1,15 @@
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, FileText, Search, Users } from 'lucide-react'
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  FolderOpen,
+  Search,
+  Users,
+} from 'lucide-react'
 
+import { PageHeader } from '../../components/layout/PageHeader.jsx'
 import { formatDateOnly } from '../../utils/date.js'
 
 const tagPalette = [
@@ -171,14 +180,13 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
 
   return (
     <section className="min-w-0 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-          Meeting Repository
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Browse meeting files through the meetings and tags they belong to
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Meeting library"
+        title="Meeting Repository"
+        description="Browse meeting files through the meetings and tags they belong to."
+        icon={FolderOpen}
+        accent="violet"
+      />
 
       <div className="flex flex-col gap-3 rounded-lg border border-slate-100 bg-slate-50 p-2 sm:flex-row sm:items-center">
         <label className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500">

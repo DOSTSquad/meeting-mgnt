@@ -7,7 +7,7 @@ export const isOverdueActionItem = (item) => {
     return false
   }
 
-  if (!['todo', 'in_progress', 'blocked'].includes(item.status)) {
+  if (!['todo', 'in_progress'].includes(item.status)) {
     return false
   }
 
