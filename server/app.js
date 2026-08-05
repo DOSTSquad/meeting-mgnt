@@ -21,6 +21,7 @@ import meetingRequestRouter from './routes/meeting-request-routes.js'
 import meetingRouter from './routes/meeting-routes.js'
 import minuteRouter from './routes/minute-routes.js'
 import participantRouter from './routes/participant-routes.js'
+import publicInvitationRouter from './routes/public-invitation-routes.js'
 import recordingRouter from './routes/recording-routes.js'
 import tagRouter from './routes/tag-routes.js'
 import userRouter from './routes/user-routes.js'
@@ -276,6 +277,7 @@ export const createApp = () => {
 
   app.use('/api', createApiRateLimiter())
   app.use('/api/auth', authRouter)
+  app.use('/api/public/invitations', publicInvitationRouter)
   app.use('/api', requireAuth)
   app.use('/api', dashboardRouter)
   if (isDevelopmentEnvironment()) {

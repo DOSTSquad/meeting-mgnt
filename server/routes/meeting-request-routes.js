@@ -8,6 +8,7 @@ import {
   getOne,
   replaceInvitees,
   replaceTimeOptions,
+  sendInvitations,
   submitAvailability,
   terminate,
   update,
@@ -106,6 +107,13 @@ meetingRequestRouter.put(
   ],
   handleValidationErrors,
   update
+)
+
+meetingRequestRouter.post(
+  '/:requestId/send-invitations',
+  [param('requestId').isUUID().withMessage('requestId must be a UUID')],
+  handleValidationErrors,
+  sendInvitations
 )
 
 meetingRequestRouter.get(

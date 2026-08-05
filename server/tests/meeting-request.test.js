@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/globals'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals'
 import { parse } from 'dotenv'
 
 import { closePool, query } from '../db/postgres.js'
@@ -12,9 +12,11 @@ import {
   create,
   getInviteeDetail,
   getOne,
+  getPublicInvitation,
   replaceInvitees,
   replaceTimeOptions,
   submitAvailability,
+  submitPublicAvailability,
   update,
 } from '../controllers/meeting-request-controller.js'
 import { createUser } from '../repositories/user-repository.js'
@@ -24,6 +26,10 @@ import {
   getNotificationSummaryData,
 } from '../services/dashboard-service.js'
 import { createMeetingForUser } from '../services/meeting-service.js'
+import {
+  confirmRequestForUser,
+  sendInvitationsForRequest,
+} from '../services/meeting-request-service.js'
 import {
   archiveOneNotification,
   archiveReadNotificationsForUser,
@@ -301,6 +307,116 @@ describe('meeting request flow', () => {
     })
     expect(new Date(updateResult.res.body.meetingRequest.responseDeadline).toISOString()).toBe(
       new Date(updatedDeadline).toISOString()
+    )
+  })
+
+  it('creates a public invitation token without storing the raw credential', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'External availability request',
+          tag: 'Operations',
+          durationMinutes: 60,
+          timezoneName: 'Australia/Brisbane',
+          responseDeadline: dateFromNow(2),
+        },
+      })
+    )
+    const requestId = createResult.res.body.meetingRequest.id
+    const optionsResult = await runHandler(
+      replaceTimeOptions,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: {
+          timeOptions: [{ startsAt: dateFromNow(7), endsAt: dateFromNow(7, 1) }],
+        },
+      })
+    )
+    const inviteesResult = await runHandler(
+      replaceInvitees,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: { invitees: [{ email: 'external-invitee@example.test', name: 'External Guest' }] },
+      })
+    )
+    const invitationToken = []
+
+    const result = await sendInvitationsForRequest(requestId, creator.id, async (invitation) => {
+      invitationToken.push(invitation.invitationToken)
+      return { messageId: 'test-message' }
+    })
+
+    expect(result).toEqual({ sentCount: 1 })
+    expect(invitationToken[0]).toEqual(expect.any(String))
+
+    const storedInvitee = await query(
+      `
+        SELECT invitation_token_hash, invitation_expires_at, email_sent_at
+        FROM meeting_request_invitees
+        WHERE id = $1
+      `,
+      [inviteesResult.res.body.invitees[0].id]
+    )
+    expect(storedInvitee.rows[0].invitation_token_hash).not.toBe(invitationToken[0])
+    expect(storedInvitee.rows[0].invitation_expires_at).toBeInstanceOf(Date)
+    expect(storedInvitee.rows[0].email_sent_at).toBeInstanceOf(Date)
+
+    const publicResult = await runHandler(
+      getPublicInvitation,
+      buildRequest({ params: { token: invitationToken[0] } })
+    )
+
+    expect(publicResult.nextError).toBeUndefined()
+    expect(publicResult.res.body).toMatchObject({
+      meetingRequest: { id: requestId, title: 'External availability request' },
+      invitee: { email: 'external-invitee@example.test', name: 'External Guest' },
+      timeOptions: [{ id: optionsResult.res.body.timeOptions[0].id }],
+      responses: [],
+    })
+
+    const availabilityResult = await runHandler(
+      submitPublicAvailability,
+      buildRequest({
+        params: { token: invitationToken[0] },
+        body: {
+          responses: [
+            { timeOptionId: optionsResult.res.body.timeOptions[0].id, isAvailable: true },
+          ],
+        },
+      })
+    )
+
+    expect(availabilityResult.nextError).toBeUndefined()
+    expect(availabilityResult.res.body.responses[0]).toMatchObject({
+      timeOptionId: optionsResult.res.body.timeOptions[0].id,
+      isAvailable: true,
+    })
+
+    const sendConfirmation = jest.fn().mockResolvedValue({ messageId: 'confirmation-message' })
+    const confirmationResult = await confirmRequestForUser(
+      requestId,
+      { timeOptionId: optionsResult.res.body.timeOptions[0].id, location: 'Room 4.1' },
+      creator.id,
+      sendConfirmation
+    )
+
+    expect(confirmationResult.emailDelivery).toEqual({ sentCount: 1, failedCount: 0 })
+    expect(sendConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        invitee: expect.objectContaining({ email: 'external-invitee@example.test' }),
+        meeting: expect.objectContaining({
+          title: 'External availability request',
+          location: 'Room 4.1',
+        }),
+      })
     )
   })
 

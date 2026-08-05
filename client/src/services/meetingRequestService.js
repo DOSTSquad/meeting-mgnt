@@ -1,3 +1,5 @@
+import { buildApiUrl } from '../lib/apiClient.js'
+
 export const createMeetingRequestService = (client) => ({
   createRequest: async (payload) => {
     const response = await client.post('/api/meeting-requests', payload)
@@ -21,6 +23,11 @@ export const createMeetingRequestService = (client) => ({
       invitees,
     })
     return response.data.invitees
+  },
+
+  sendInvitations: async (requestId) => {
+    const response = await client.post(`/api/meeting-requests/${requestId}/send-invitations`)
+    return response.data
   },
 
   getRequest: async (requestId) => {
@@ -51,3 +58,32 @@ export const createMeetingRequestService = (client) => ({
     return response.data
   },
 })
+
+export const getPublicInvitation = async (token) => {
+  const response = await fetch(buildApiUrl(`/api/public/invitations/${encodeURIComponent(token)}`))
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Unable to load invitation')
+  }
+
+  return data
+}
+
+export const submitPublicAvailability = async (token, responses) => {
+  const response = await fetch(
+    buildApiUrl(`/api/public/invitations/${encodeURIComponent(token)}/availability`),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ responses }),
+    }
+  )
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Unable to submit availability')
+  }
+
+  return data.responses
+}

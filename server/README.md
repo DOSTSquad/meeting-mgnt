@@ -23,6 +23,28 @@ Run database migrations with `npm run migrate --workspace=server`.
 
 Migrations are located in `server/db/migrations` and tracked in `schema_migrations`.
 
+## Email Delivery
+
+Meeting invitations and confirmations use SMTP through Nodemailer. For Gmail, enable
+two-factor authentication and use a Google App Password rather than the account password:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_USER=meeting-service@gmail.com
+SMTP_PASSWORD=<google-app-password>
+SMTP_FROM="Meeting Management <meeting-service@gmail.com>"
+CLIENT_URL=http://localhost:5173
+INVITATION_TOKEN_TTL_DAYS=7
+```
+
+The same variables can point to the client's SMTP relay without application changes. Invitation
+links use random credentials; only their SHA-256 hashes are stored. The link expires at the earlier
+of `INVITATION_TOKEN_TTL_DAYS` or the meeting request response deadline. Meeting confirmation
+emails include the request description as a Markdown agenda. Markdown raw HTML is disabled.
+
 ## Health Endpoints
 
 | Endpoint        | Purpose                                            |
@@ -35,7 +57,7 @@ Migrations are located in `server/db/migrations` and tracked in `schema_migratio
 
 ## API Endpoints
 
-All `/api/*` routes require a JWT bearer token except `POST /api/auth/register` and `POST /api/auth/login`. Obtain a token from register or login and send it as `Authorization: Bearer <token>`.
+All `/api/*` routes require a JWT bearer token except the auth endpoints and `/api/public/invitations/*`. Public invitation routes require the random token delivered by email. Obtain a user token from register or login and send it as `Authorization: Bearer <token>` for protected routes.
 
 ### Auth (`/api/auth`)
 
@@ -87,8 +109,9 @@ Meeting requests support the scheduling flow before a confirmed meeting exists. 
 | GET    | `/:requestId/invitees/:inviteeId`              | —                                                                                 | `200 { meetingRequest, invitee, timeOptions, responses }` |
 | PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                             | `200 { timeOptions }`                                     |
 | PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                                | `200 { invitees }`                                        |
+| POST   | `/:requestId/send-invitations`                 | —                                                                                 | `200 { sentCount }`                                       |
 | PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                                  | `200 { responses }`                                       |
-| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                               | `201 { meeting, meetingRequest }`                         |
+| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                               | `201 { meeting, meetingRequest, emailDelivery }`          |
 | DELETE | `/:requestId`                                  | —                                                                                 | `200 { meetingRequest }`                                  |
 
 Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
@@ -96,6 +119,17 @@ Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_c
 Meeting request responses include derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags. `responseDeadline` is required when creating a meeting request. It closes invitee availability submission and updates, but does not cancel the request. Once the deadline has passed, the organizer can confirm a final meeting time from the existing time options even if some invitees never responded.
 
 Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet. Availability submission after the response deadline returns `409`. The invitee detail endpoint is safe for the matching invitee or the request creator and returns only that invitee's response rows, not the full invitee list.
+
+`POST /:requestId/send-invitations` requires the request creator and sends one tokenized link per invitee after time options and invitees have been saved. Sending again rotates the invitation tokens. SMTP errors leave the meeting request intact so delivery can be retried. Confirming the final meeting sends a best-effort confirmation email to invitees whose invitations were delivered and returns `{ emailDelivery: { sentCount, failedCount } }`; confirmation is not rolled back if an email fails.
+
+### Public Invitations (`/api/public/invitations`)
+
+| Method | Path                   | Body                                             | Returns                                                   |
+| ------ | ---------------------- | ------------------------------------------------ | --------------------------------------------------------- |
+| GET    | `/:token`              | —                                                | `200 { meetingRequest, invitee, timeOptions, responses }` |
+| PUT    | `/:token/availability` | `{ responses: [{ timeOptionId, isAvailable }] }` | `200 { responses }`                                       |
+
+These endpoints do not require a user account. Invalid or expired tokens return `404`; closed requests and passed response deadlines return `409` when availability is submitted.
 
 ### Dashboard (`/api/dashboard`)
 

@@ -248,10 +248,11 @@ export const CreateMeetingWizard = ({
           throw new Error('Create the request before inviting participants')
         }
         await service.updateInvitees(meetingRequest.id, invitees)
+        const delivery = await service.sendInvitations(meetingRequest.id)
 
         if (!isResumeMode) {
           await onCreated()
-          setSuccessMessage('The invitations have been sent')
+          setSuccessMessage(`${delivery.sentCount} invitation(s) have been sent`)
           setIsInviteSentOpen(true)
           return
         }

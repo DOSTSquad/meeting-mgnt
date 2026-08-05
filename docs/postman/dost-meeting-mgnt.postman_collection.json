@@ -82,6 +82,10 @@
     {
       "key": "inviteeId",
       "value": ""
+    },
+    {
+      "key": "invitationToken",
+      "value": ""
     }
   ],
   "item": [
@@ -500,6 +504,58 @@
           }
         },
         {
+          "name": "Send meeting invitations",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/send-invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "send-invitations"]
+            },
+            "description": "Generates expiring per-invitee tokens and sends availability links through the configured SMTP relay. Returns `{ sentCount }`. Copy a token from the test mailbox into the `invitationToken` collection variable to exercise the public endpoints."
+          }
+        },
+        {
+          "name": "Get public invitation",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/public/invitations/{{invitationToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "invitations", "{{invitationToken}}"]
+            },
+            "description": "Returns invitee-safe request detail for a valid, unexpired email token without requiring a user account."
+          }
+        },
+        {
+          "name": "Submit public invitation availability",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/public/invitations/{{invitationToken}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["public", "invitations", "{{invitationToken}}", "availability"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"responses\": [\n    {\n      \"timeOptionId\": \"{{timeOptionId}}\",\n      \"isAvailable\": true\n    }\n  ]\n}"
+            },
+            "description": "Submits availability using the email token. Returns 404 for invalid or expired tokens and 409 after the response deadline or request closure."
+          }
+        },
+        {
           "name": "Get invitee meeting request",
           "request": {
             "method": "GET",
@@ -563,7 +619,8 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"timeOptionId\": \"{{timeOptionId}}\",\n  \"location\": \"Room 4.1\",\n  \"tag\": \"Operations\"\n}"
-            }
+            },
+            "description": "Creates the scheduled meeting and sends best-effort confirmation emails containing the Markdown agenda. Returns `{ meeting, meetingRequest, emailDelivery: { sentCount, failedCount } }`."
           },
           "event": [
             {

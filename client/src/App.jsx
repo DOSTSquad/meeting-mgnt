@@ -10,6 +10,7 @@ import { ActionItemsView } from './features/action-items/ActionItemsView.jsx'
 import { LoginView } from './features/auth/LoginView.jsx'
 import { DashboardView } from './features/dashboard/DashboardView.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
+import { InvitationResponseView } from './features/meetings/InvitationResponseView.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
 import { useMeetingDetailController } from './features/meetings/useMeetingDetailController.js'
 import { useNotificationActions } from './features/notifications/useNotificationActions.js'
@@ -492,6 +493,7 @@ const AppShell = ({ token, user, onLogout }) => {
 }
 
 function App() {
+  const location = useLocation()
   const [authState, setAuthState] = useState(() => {
     const token = localStorage.getItem('authToken')
     const userRaw = localStorage.getItem('authUser')
@@ -517,6 +519,10 @@ function App() {
     localStorage.removeItem('authToken')
     localStorage.removeItem('authUser')
     setAuthState(null)
+  }
+
+  if (location.pathname.startsWith('/invitations/')) {
+    return <InvitationResponseView />
   }
 
   if (!authState) {

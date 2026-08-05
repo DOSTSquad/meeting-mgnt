@@ -2,10 +2,13 @@ import {
   confirmRequestForUser,
   createRequestForUser,
   getInviteeRequestForUser,
+  getPublicInvitationByToken,
   getRequestForUser,
   replaceInviteesForRequest,
   replaceTimeOptionsForRequest,
+  sendInvitationsForRequest,
   submitAvailabilityForInvitee,
+  submitPublicAvailabilityByToken,
   terminateRequestForUser,
   updateRequestForUser,
 } from '../services/meeting-request-service.js'
@@ -58,6 +61,26 @@ export const getInviteeDetail = async (req, res, next) => {
   }
 }
 
+export const getPublicInvitation = async (req, res, next) => {
+  try {
+    const detail = await getPublicInvitationByToken(req.params.token)
+
+    res.json(detail)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const sendInvitations = async (req, res, next) => {
+  try {
+    const result = await sendInvitationsForRequest(req.params.requestId, req.user?.id)
+
+    res.json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const replaceTimeOptions = async (req, res, next) => {
   try {
     const { timeOptions } = await replaceTimeOptionsForRequest(
@@ -94,6 +117,16 @@ export const submitAvailability = async (req, res, next) => {
       req.body ?? {},
       req.user?.id
     )
+
+    res.json({ responses })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const submitPublicAvailability = async (req, res, next) => {
+  try {
+    const { responses } = await submitPublicAvailabilityByToken(req.params.token, req.body ?? {})
 
     res.json({ responses })
   } catch (error) {
