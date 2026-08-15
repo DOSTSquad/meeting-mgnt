@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { describe, beforeAll, beforeEach, afterAll, it, expect } from '@jest/globals'
+import { describe, beforeAll, beforeEach, afterAll, it, expect, jest } from '@jest/globals'
 import { parse } from 'dotenv'
 
 import { runMigrations } from '../db/migrate.js'
@@ -49,6 +49,7 @@ const buildRequest = ({
   params = {},
   query: queryParams = {},
   user,
+  app,
   baseUrl = '/api/meetings',
   reqPath = '/',
 } = {}) => ({
@@ -56,6 +57,7 @@ const buildRequest = ({
   params,
   query: queryParams,
   user,
+  app,
   protocol: 'http',
   baseUrl,
   path: reqPath,
@@ -140,10 +142,11 @@ const baseCreateBody = (overrides = {}) => ({
   ...overrides,
 })
 
-const createMeetingViaController = async (overrides = {}) => {
+const createMeetingViaController = async (overrides = {}, app) => {
   const req = buildRequest({
     body: baseCreateBody(overrides),
     user: { id: testUser.id },
+    app,
   })
   const { res, nextError } = await runHandler(create, req)
   expect(nextError).toBeUndefined()
@@ -168,6 +171,36 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(new Date(meeting.endsAt).toISOString()).toBe(
       new Date('2026-05-01T10:00:00+10:00').toISOString()
     )
+  })
+
+  it('delivers a sequence-zero calendar event after direct creation', async () => {
+    const deliverMeetingCalendar = jest.fn().mockResolvedValue({ sentCount: 1, failedCount: 0 })
+    const meeting = await createMeetingViaController({}, { locals: { deliverMeetingCalendar } })
+
+    expect(meeting.calendarSequence).toBe(0)
+    expect(deliverMeetingCalendar).toHaveBeenCalledWith({ meeting, action: 'created' })
+  })
+
+  it('keeps a created meeting when calendar delivery fails', async () => {
+    const deliveryError = Object.assign(new Error('provider unavailable'), {
+      code: 'EMAIL_PROVIDER_ERROR',
+    })
+    const deliverMeetingCalendar = jest.fn().mockRejectedValue(deliveryError)
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const meeting = await createMeetingViaController({}, { locals: { deliverMeetingCalendar } })
+
+      expect(meeting.id).toEqual(expect.any(String))
+      expect(consoleError).toHaveBeenCalledWith('Meeting calendar delivery failed', {
+        meetingId: meeting.id,
+        action: 'created',
+        code: 'EMAIL_PROVIDER_ERROR',
+        message: 'provider unavailable',
+      })
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('rejects creation when endsAt is not after startsAt', async () => {
@@ -576,8 +609,67 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     }
   })
 
+  it('increments calendar sequence only for material calendar updates', async () => {
+    const created = await createMeetingViaController()
+    const deliverMeetingCalendar = jest.fn().mockResolvedValue({ sentCount: 1, failedCount: 0 })
+    const app = { locals: { deliverMeetingCalendar } }
+
+    const titleUpdate = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { title: 'Updated Sprint Planning' },
+        user: { id: testUser.id },
+        app,
+      })
+    )
+
+    expect(titleUpdate.nextError).toBeUndefined()
+    expect(titleUpdate.res.body.meeting.calendarSequence).toBe(1)
+    expect(deliverMeetingCalendar).toHaveBeenLastCalledWith({
+      meeting: titleUpdate.res.body.meeting,
+      action: 'updated',
+    })
+
+    deliverMeetingCalendar.mockClear()
+    const sameTitleUpdate = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { title: 'Updated Sprint Planning' },
+        user: { id: testUser.id },
+        app,
+      })
+    )
+
+    expect(sameTitleUpdate.nextError).toBeUndefined()
+    expect(sameTitleUpdate.res.body.meeting.calendarSequence).toBe(1)
+    expect(deliverMeetingCalendar).not.toHaveBeenCalled()
+  })
+
+  it('rejects meeting updates from non-organizers', async () => {
+    const created = await createMeetingViaController()
+    const result = await runHandler(
+      update,
+      buildRequest({
+        params: { id: created.id },
+        body: { title: 'Unauthorized update' },
+        user: { id: outsiderUser.id },
+      })
+    )
+
+    expect(result.nextError).toEqual(
+      expect.objectContaining({
+        statusCode: 403,
+        message: 'Only meeting organizers can update this meeting',
+      })
+    )
+  })
+
   it('allows cancelling from scheduled and then archiving', async () => {
     const created = await createMeetingViaController()
+    const deliverMeetingCalendar = jest.fn().mockResolvedValue({ sentCount: 1, failedCount: 0 })
+    const app = { locals: { deliverMeetingCalendar } }
 
     const cancelRes = await runHandler(
       update,
@@ -585,11 +677,19 @@ dbDescribe('Meeting controller (DB-backed)', () => {
         params: { id: created.id },
         body: { status: 'cancelled' },
         user: { id: testUser.id },
+        app,
       })
     )
 
     expect(cancelRes.nextError).toBeUndefined()
     expect(cancelRes.res.body.meeting.status).toBe('cancelled')
+    expect(cancelRes.res.body.meeting.calendarSequence).toBe(1)
+    expect(deliverMeetingCalendar).toHaveBeenLastCalledWith({
+      meeting: cancelRes.res.body.meeting,
+      action: 'cancelled',
+    })
+
+    deliverMeetingCalendar.mockClear()
 
     const archiveRes = await runHandler(
       update,
@@ -597,11 +697,14 @@ dbDescribe('Meeting controller (DB-backed)', () => {
         params: { id: created.id },
         body: { status: 'archived' },
         user: { id: testUser.id },
+        app,
       })
     )
 
     expect(archiveRes.nextError).toBeUndefined()
     expect(archiveRes.res.body.meeting.status).toBe('archived')
+    expect(archiveRes.res.body.meeting.calendarSequence).toBe(1)
+    expect(deliverMeetingCalendar).not.toHaveBeenCalled()
   })
 
   it('rejects invalid status transitions with 400', async () => {

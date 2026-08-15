@@ -146,7 +146,11 @@ export const confirm = async (req, res, next) => {
 
 export const terminate = async (req, res, next) => {
   try {
-    const result = await terminateRequestForUser(req.params.requestId, req.user?.id)
+    const result = await terminateRequestForUser(
+      req.params.requestId,
+      req.user?.id,
+      req.app?.locals?.deliverMeetingCalendar
+    )
 
     res.json(result)
   } catch (error) {

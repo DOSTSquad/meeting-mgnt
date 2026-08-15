@@ -333,6 +333,22 @@ export const listEmailedInvitees = async (requestId) => {
   return result.rows.map(mapInvitee)
 }
 
+export const listEmailedInviteesByMeetingId = async (meetingId) => {
+  const result = await query(
+    `
+      SELECT mri.id, mri.meeting_request_id, mri.user_id, mri.email, mri.name,
+        mri.response_status, mri.invited_at, mri.responded_at
+      FROM meeting_request_invitees mri
+      JOIN meeting_requests mr ON mr.id = mri.meeting_request_id
+      WHERE mr.confirmed_meeting_id = $1 AND mri.email_sent_at IS NOT NULL
+      ORDER BY mri.invited_at ASC, mri.id ASC
+    `,
+    [meetingId]
+  )
+
+  return result.rows.map(mapInvitee)
+}
+
 export const findInvitee = async (requestId, inviteeId) => {
   const result = await query(
     `

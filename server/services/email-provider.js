@@ -20,19 +20,29 @@ export const createResendTransport = ({
   fetchImpl = globalThis.fetch,
   timeoutMs = RESEND_TIMEOUT_MS,
 }) => ({
-  sendMail: async ({ from, to, subject, text, html }) => {
+  sendMail: async ({ from, to, subject, text, html, icalEvent }) => {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     let response
 
     try {
+      const attachments = icalEvent
+        ? [
+            {
+              filename: icalEvent.filename,
+              content: Buffer.from(icalEvent.content).toString('base64'),
+              content_type: `text/calendar; charset=utf-8; method=${icalEvent.method}`,
+            },
+          ]
+        : undefined
+
       response = await fetchImpl(RESEND_EMAIL_URL, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ from, to, subject, text, html }),
+        body: JSON.stringify({ from, to, subject, text, html, attachments }),
         signal: controller.signal,
       })
     } catch (error) {

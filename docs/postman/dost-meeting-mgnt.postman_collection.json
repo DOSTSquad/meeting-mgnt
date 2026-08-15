@@ -206,7 +206,7 @@
               "mode": "raw",
               "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\"\n}"
             },
-            "description": "Creates a meeting. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
+            "description": "Creates a meeting and sends the organizer a best-effort `METHOD:REQUEST` calendar email with `SEQUENCE:0`. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
           },
           "event": [
             {
@@ -315,7 +315,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
             },
-            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames and `participantNames` is a short preview of up to three names."
+            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `calendarSequence` is the persistent ICS revision, `fileNames` lists uploaded filenames, and `participantNames` is a short preview of up to three names."
           }
         },
         {
@@ -337,7 +337,7 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"completed\",\n  \"location\": \"Room 5.2\"\n}"
             },
-            "description": "Partial update — send only the fields you want to change."
+            "description": "Organizer-only partial update. Changes to title, description, start/end, timezone, or location increment `calendarSequence` and send a best-effort `METHOD:REQUEST` ICS to participants and emailed external invitees. Cancellation increments the sequence and sends `METHOD:CANCEL`; same-value, tag-only, completion, and archival updates do not send calendar email."
           }
         },
         {
@@ -620,7 +620,7 @@
               "mode": "raw",
               "raw": "{\n  \"timeOptionId\": \"{{timeOptionId}}\",\n  \"location\": \"Room 4.1\",\n  \"tag\": \"Operations\"\n}"
             },
-            "description": "Creates the scheduled meeting and sends best-effort confirmation emails containing the Markdown agenda. Returns `{ meeting, meetingRequest, emailDelivery: { sentCount, failedCount } }`."
+            "description": "Creates the scheduled meeting and sends best-effort confirmation emails containing the Markdown agenda and a sequence-zero `METHOD:REQUEST` ICS to the organizer and previously emailed invitees. Returns `{ meeting, meetingRequest, emailDelivery: { sentCount, failedCount } }`."
           },
           "event": [
             {

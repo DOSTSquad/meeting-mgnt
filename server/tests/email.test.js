@@ -42,6 +42,7 @@ describe('meeting invitation email', () => {
 
     await emailService.sendMeetingConfirmation({
       invitee: { email: 'invitee@example.com', name: 'Alex Invitee' },
+      organizer: { email: 'organizer@example.com', name: 'Olivia Organizer' },
       meeting: {
         id: 'meeting-1',
         title: 'Quarterly review',
@@ -50,6 +51,7 @@ describe('meeting invitation email', () => {
         endsAt: '2026-08-12T01:00:00.000Z',
         timezoneName: 'Australia/Brisbane',
         location: 'Room 4.1',
+        calendarSequence: 0,
       },
     })
 
@@ -59,6 +61,51 @@ describe('meeting invitation email', () => {
         subject: 'Meeting confirmed: Quarterly review',
         text: expect.stringContaining('Agenda\n------\n- Delivery health\n- Next steps'),
         html: expect.stringMatching(/<h2>Agenda<\/h2>[\s\S]*<li>Delivery health<\/li>/),
+        icalEvent: expect.objectContaining({
+          filename: 'meeting.ics',
+          method: 'REQUEST',
+          content: expect.stringMatching(
+            /METHOD:REQUEST[\s\S]*UID:meeting-1@meeting-mgnt[\s\S]*SEQUENCE:0/
+          ),
+        }),
+      })
+    )
+  })
+
+  it('sends a calendar cancellation with the stable meeting UID', async () => {
+    const sendMail = jest.fn().mockResolvedValue({ messageId: 'message-3' })
+    const emailService = createEmailService({
+      transport: { sendMail },
+      from: 'Meeting Management <meetings@example.com>',
+      clientUrl: 'https://meetings.example.com',
+    })
+
+    await emailService.sendMeetingCalendarUpdate({
+      recipient: { email: 'invitee@example.com', name: 'Alex Invitee' },
+      organizer: { email: 'organizer@example.com', name: 'Olivia Organizer' },
+      action: 'cancelled',
+      meeting: {
+        id: 'meeting-1',
+        title: 'Quarterly review',
+        description: 'Review delivery health',
+        startsAt: '2026-08-12T00:00:00.000Z',
+        endsAt: '2026-08-12T01:00:00.000Z',
+        timezoneName: 'Australia/Brisbane',
+        location: 'Room 4.1',
+        status: 'cancelled',
+        calendarSequence: 2,
+      },
+    })
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Meeting cancelled: Quarterly review',
+        icalEvent: expect.objectContaining({
+          method: 'CANCEL',
+          content: expect.stringMatching(
+            /METHOD:CANCEL[\s\S]*UID:meeting-1@meeting-mgnt[\s\S]*SEQUENCE:2[\s\S]*STATUS:CANCELLED/
+          ),
+        }),
       })
     )
   })

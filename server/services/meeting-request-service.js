@@ -19,7 +19,7 @@ import {
   saveInvitationToken,
   updateMeetingRequest,
 } from '../repositories/meeting-request-repository.js'
-import { bulkUpsert } from '../repositories/participant-repository.js'
+import { bulkUpsert, listByMeeting } from '../repositories/participant-repository.js'
 import { findUserByEmail } from '../repositories/user-repository.js'
 import { createMeetingForUser, updateMeetingById } from './meeting-service.js'
 import { sendMeetingConfirmation, sendMeetingInvitation } from './email-service.js'
@@ -558,8 +558,16 @@ export const confirmRequestForUser = async (
   ])
 
   const emailedInvitees = await listEmailedInvitees(requestId)
+  const meetingParticipants = await listByMeeting(meeting.id)
+  const organizer = meetingParticipants.find((participant) => participant.userId === callerId)
+  const confirmationRecipients = [organizer, ...emailedInvitees].filter(Boolean)
+  const uniqueConfirmationRecipients = [
+    ...new Map(
+      confirmationRecipients.map((recipient) => [recipient.email.trim().toLowerCase(), recipient])
+    ).values(),
+  ]
   const emailResults = await Promise.allSettled(
-    emailedInvitees.map((invitee) => sendConfirmation({ meeting, invitee }))
+    uniqueConfirmationRecipients.map((invitee) => sendConfirmation({ meeting, invitee, organizer }))
   )
   const failedEmailCount = emailResults.filter((result) => result.status === 'rejected').length
 
@@ -574,18 +582,23 @@ export const confirmRequestForUser = async (
     meeting,
     meetingRequest: meetingRequestAfterConfirm,
     emailDelivery: {
-      sentCount: emailedInvitees.length - failedEmailCount,
+      sentCount: uniqueConfirmationRecipients.length - failedEmailCount,
       failedCount: failedEmailCount,
     },
   }
 }
 
-export const terminateRequestForUser = async (requestId, callerId) => {
+export const terminateRequestForUser = async (requestId, callerId, deliverCalendar) => {
   const meetingRequest = await loadRequestOrThrow(requestId)
   assertCreator(meetingRequest, callerId)
 
   if (meetingRequest.confirmedMeetingId) {
-    await updateMeetingById(meetingRequest.confirmedMeetingId, { status: 'cancelled' })
+    await updateMeetingById(
+      meetingRequest.confirmedMeetingId,
+      { status: 'cancelled' },
+      callerId,
+      deliverCalendar
+    )
   }
 
   const terminatedRequest = await confirmMeetingRequest({

@@ -27,6 +27,7 @@ import tagRouter from './routes/tag-routes.js'
 import userRouter from './routes/user-routes.js'
 import { fileRouter, meetingFileRouter } from './routes/file-routes.js'
 import { actionItemRouter, meetingActionItemRouter } from './routes/action-item-routes.js'
+import { deliverMeetingCalendar } from './services/meeting-calendar-service.js'
 
 const HEALTH_TIMEOUT_MS = 1500
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000
@@ -248,6 +249,8 @@ const getHealthChecks = async () => {
 
 export const createApp = () => {
   const app = express()
+
+  app.locals.deliverMeetingCalendar = deliverMeetingCalendar
 
   app.set('trust proxy', getTrustProxySetting())
   app.use(express.json())
