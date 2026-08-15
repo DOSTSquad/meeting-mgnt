@@ -61,6 +61,45 @@ const validateTimeRange = (startsAt, endsAt) => {
   }
 }
 
+const CALENDAR_FIELDS = ['title', 'description', 'startsAt', 'endsAt', 'timezoneName', 'location']
+
+const calendarValue = (field, value) => {
+  if (['startsAt', 'endsAt'].includes(field)) {
+    return toDate(value).toISOString()
+  }
+
+  if (field === 'title') {
+    return value?.trim()
+  }
+
+  return value ?? null
+}
+
+const hasCalendarChanges = (existing, updates) =>
+  CALENDAR_FIELDS.some(
+    (field) =>
+      updates[field] !== undefined &&
+      calendarValue(field, updates[field]) !== calendarValue(field, existing[field])
+  ) ||
+  (updates.status === 'cancelled' && existing.status !== 'cancelled')
+
+const deliverCalendarBestEffort = async (deliverCalendar, payload) => {
+  if (!deliverCalendar) {
+    return
+  }
+
+  try {
+    await deliverCalendar(payload)
+  } catch (error) {
+    console.error('Meeting calendar delivery failed', {
+      meetingId: payload.meeting.id,
+      action: payload.action,
+      code: error.code,
+      message: error.message,
+    })
+  }
+}
+
 const assertCanAccessMeeting = (meeting, callerId, participants) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
@@ -76,7 +115,7 @@ const assertCanAccessMeeting = (meeting, callerId, participants) => {
   }
 }
 
-export const createMeetingForUser = async (input, userId) => {
+export const createMeetingForUser = async (input, userId, deliverCalendar) => {
   if (!userId) {
     throw createHttpError('Authentication required', 401)
   }
@@ -134,6 +173,8 @@ export const createMeetingForUser = async (input, userId) => {
 
   await notifyMeetingCreated(meeting, [userId])
 
+  await deliverCalendarBestEffort(deliverCalendar, { meeting, action: 'created' })
+
   return meeting
 }
 
@@ -150,11 +191,23 @@ export const getMeetingById = async (id, callerId) => {
   return { ...meeting, participants }
 }
 
-export const updateMeetingById = async (id, input) => {
+export const updateMeetingById = async (id, input, callerId, deliverCalendar) => {
   const existing = await findMeetingById(id)
 
   if (!existing) {
     throw createHttpError('Meeting not found', 404)
+  }
+
+  const participants = await listByMeeting(id)
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const isOrganizer = participants.some(
+    (participant) => participant.userId === callerId && participant.role === 'organizer'
+  )
+  if (existing.createdBy !== callerId && !isOrganizer) {
+    throw createHttpError('Only meeting organizers can update this meeting', 403)
   }
 
   const updates = {}
@@ -212,7 +265,19 @@ export const updateMeetingById = async (id, input) => {
     updates.endsAt = toDate(updates.endsAt)
   }
 
-  return updateMeeting(id, updates)
+  const calendarChanged = hasCalendarChanges(existing, updates)
+  const meeting = await updateMeeting(id, updates, {
+    incrementCalendarSequence: calendarChanged,
+  })
+
+  if (calendarChanged) {
+    await deliverCalendarBestEffort(deliverCalendar, {
+      meeting,
+      action: meeting.status === 'cancelled' ? 'cancelled' : 'updated',
+    })
+  }
+
+  return meeting
 }
 
 export const deleteMeetingById = async (id) => {

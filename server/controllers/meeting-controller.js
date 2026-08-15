@@ -9,7 +9,11 @@ import {
 
 export const create = async (req, res, next) => {
   try {
-    const meeting = await createMeetingForUser(req.body ?? {}, req.user?.id)
+    const meeting = await createMeetingForUser(
+      req.body ?? {},
+      req.user?.id,
+      req.app?.locals?.deliverMeetingCalendar
+    )
 
     res.status(201).json({ meeting })
   } catch (error) {
@@ -53,7 +57,12 @@ export const getOne = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
-    const meeting = await updateMeetingById(req.params.id, req.body ?? {})
+    const meeting = await updateMeetingById(
+      req.params.id,
+      req.body ?? {},
+      req.user?.id,
+      req.app?.locals?.deliverMeetingCalendar
+    )
 
     res.json({ meeting })
   } catch (error) {

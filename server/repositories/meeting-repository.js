@@ -9,6 +9,7 @@ const MEETING_COLUMNS = `
   m.timezone_name,
   m.location,
   m.status,
+  m.calendar_sequence,
   m.tag_id,
   t.name AS tag_name,
   m.created_by,
@@ -46,6 +47,7 @@ const mapMeeting = (row) => {
     timezoneName: row.timezone_name,
     location: row.location,
     status: row.status,
+    calendarSequence: row.calendar_sequence,
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
     fileCount: Number(row.file_count ?? 0),
@@ -114,7 +116,7 @@ const FIELD_TO_COLUMN = {
   tagId: 'tag_id',
 }
 
-export const updateMeeting = async (id, updates) => {
+export const updateMeeting = async (id, updates, { incrementCalendarSequence = false } = {}) => {
   const setClauses = []
   const params = []
   let paramIndex = 1
@@ -129,6 +131,10 @@ export const updateMeeting = async (id, updates) => {
     setClauses.push(`${column} = $${paramIndex}`)
     params.push(typeof value === 'string' && field === 'title' ? value.trim() : value)
     paramIndex += 1
+  }
+
+  if (incrementCalendarSequence) {
+    setClauses.push('calendar_sequence = calendar_sequence + 1')
   }
 
   if (setClauses.length === 0) {

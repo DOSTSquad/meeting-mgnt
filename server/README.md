@@ -65,8 +65,15 @@ RESEND_API_KEY=<resend-api-key>
 The domain in `EMAIL_FROM` must be verified in Resend. Resend requests time out after 10 seconds.
 Invitation links use random credentials; only their SHA-256 hashes are stored. The link expires at
 the earlier of `INVITATION_TOKEN_TTL_DAYS` or the meeting request response deadline. Meeting
-confirmation emails include the request description as a Markdown agenda. Markdown raw HTML is
-disabled.
+confirmation, material update, and cancellation emails include a `meeting.ics` calendar event plus
+the meeting description as a Markdown agenda. Markdown raw HTML is disabled.
+
+Calendar events use the meeting UUID as a stable UID. New meetings start at `calendarSequence=0`.
+Changes to title, description, start/end, timezone, or location increment the sequence and send
+`METHOD:REQUEST`; cancellation increments it and sends `METHOD:CANCEL`. Same-value changes,
+tag-only changes, completion, and archival do not send calendar updates. Each recipient receives a
+recipient-specific ICS without other attendee email addresses. Delivery is best-effort after the
+database write and does not roll back a meeting when an email provider fails.
 
 ## Health Endpoints
 
@@ -102,9 +109,13 @@ All `/api/*` routes require a JWT bearer token except the auth endpoints and `/a
 
 Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `completed`, `cancelled`, `archived`.
 
-Meeting responses include `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
+Meeting responses include `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `calendarSequence` is the persistent revision used by calendar clients to apply ICS updates and cancellations. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
 `GET /api/meetings/:id` is available only to the meeting creator or meeting participants. Non-participants receive `403`, matching meeting file access rules.
+
+`POST /api/meetings` sends a best-effort calendar email to the organizer. `PUT /api/meetings/:id`
+is restricted to the meeting creator or an organizer and sends material calendar updates to
+registered participants plus emailed external invitees linked through a confirmed meeting request.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
@@ -143,7 +154,7 @@ Meeting request responses include derived `responseDeadlinePassed`, `availabilit
 
 Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet. Availability submission after the response deadline returns `409`. The invitee detail endpoint is safe for the matching invitee or the request creator and returns only that invitee's response rows, not the full invitee list.
 
-`POST /:requestId/send-invitations` requires the request creator and sends one tokenized link per invitee after time options and invitees have been saved. Sending again rotates the invitation tokens. Email provider errors leave the meeting request intact so delivery can be retried. Confirming the final meeting sends a best-effort confirmation email to invitees whose invitations were delivered and returns `{ emailDelivery: { sentCount, failedCount } }`; confirmation is not rolled back if an email fails.
+`POST /:requestId/send-invitations` requires the request creator and sends one tokenized link per invitee after time options and invitees have been saved. Sending again rotates the invitation tokens. Email provider errors leave the meeting request intact so delivery can be retried. Confirming the final meeting sends a best-effort confirmation email with a sequence-zero ICS to the organizer and invitees whose invitations were delivered, and returns `{ emailDelivery: { sentCount, failedCount } }`; confirmation is not rolled back if an email fails. Terminating a confirmed request sends a calendar cancellation.
 
 ### Public Invitations (`/api/public/invitations`)
 

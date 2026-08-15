@@ -163,6 +163,40 @@ describe('email provider', () => {
     )
   })
 
+  it('converts calendar events to Resend attachments', async () => {
+    const fetchImpl = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({ id: 'email-with-calendar' }),
+    })
+    const transport = createResendTransport({ apiKey: 'test-api-key', fetchImpl })
+
+    await transport.sendMail({
+      from: commonEnv.EMAIL_FROM,
+      to: 'invitee@example.com',
+      subject: 'Meeting confirmed',
+      text: 'Meeting details',
+      html: '<p>Meeting details</p>',
+      icalEvent: {
+        filename: 'meeting.ics',
+        method: 'REQUEST',
+        content: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n',
+      },
+    })
+
+    const request = fetchImpl.mock.calls[0][1]
+    expect(JSON.parse(request.body)).toEqual(
+      expect.objectContaining({
+        attachments: [
+          {
+            filename: 'meeting.ics',
+            content: Buffer.from('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n').toString('base64'),
+            content_type: 'text/calendar; charset=utf-8; method=REQUEST',
+          },
+        ],
+      })
+    )
+  })
+
   it('aborts a stalled Resend request', async () => {
     const fetchImpl = jest.fn((_url, { signal }) => {
       return new Promise((_resolve, reject) => {

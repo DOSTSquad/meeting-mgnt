@@ -25,6 +25,7 @@ import {
   getNotificationsData,
   getNotificationSummaryData,
 } from '../services/dashboard-service.js'
+import { deliverMeetingCalendar } from '../services/meeting-calendar-service.js'
 import { createMeetingForUser } from '../services/meeting-service.js'
 import {
   confirmRequestForUser,
@@ -408,14 +409,43 @@ describe('meeting request flow', () => {
       sendConfirmation
     )
 
-    expect(confirmationResult.emailDelivery).toEqual({ sentCount: 1, failedCount: 0 })
+    expect(confirmationResult.emailDelivery).toEqual({ sentCount: 2, failedCount: 0 })
+    expect(sendConfirmation).toHaveBeenCalledTimes(2)
     expect(sendConfirmation).toHaveBeenCalledWith(
       expect.objectContaining({
         invitee: expect.objectContaining({ email: 'external-invitee@example.test' }),
+        organizer: expect.objectContaining({
+          userId: creator.id,
+          email: creator.email,
+          role: 'organizer',
+        }),
         meeting: expect.objectContaining({
           title: 'External availability request',
           location: 'Room 4.1',
         }),
+      })
+    )
+
+    const sendCalendar = jest.fn().mockResolvedValue({ messageId: 'calendar-update' })
+    const delivery = await deliverMeetingCalendar({
+      meeting: confirmationResult.meeting,
+      action: 'updated',
+      sendCalendar,
+    })
+
+    expect(delivery).toEqual({ sentCount: 2, failedCount: 0 })
+    expect(sendCalendar).toHaveBeenCalledTimes(2)
+    expect(sendCalendar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient: expect.objectContaining({ email: creator.email }),
+        organizer: expect.objectContaining({ email: creator.email }),
+        action: 'updated',
+      })
+    )
+    expect(sendCalendar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient: expect.objectContaining({ email: 'external-invitee@example.test' }),
+        action: 'updated',
       })
     )
   })
