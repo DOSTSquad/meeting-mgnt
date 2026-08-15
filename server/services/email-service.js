@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it'
-import nodemailer from 'nodemailer'
+
+import { createEmailProvider } from './email-provider.js'
 
 const markdown = new MarkdownIt({ html: false, linkify: true })
 
@@ -65,46 +66,12 @@ export const createEmailService = ({ transport, from, clientUrl }) => ({
   },
 })
 
-const getRequiredEmailConfig = () => {
-  const host = process.env.SMTP_HOST
-  const from = process.env.SMTP_FROM
-  const clientUrl = process.env.CLIENT_URL
-
-  if (!host || !from || !clientUrl) {
-    const error = new Error('Email service is not configured')
-    error.statusCode = 503
-    throw error
-  }
-
-  return { host, from, clientUrl }
-}
+const getConfiguredEmailService = () => createEmailService(createEmailProvider())
 
 export const sendMeetingInvitation = async (invitation) => {
-  const { host, from, clientUrl } = getRequiredEmailConfig()
-  const user = process.env.SMTP_USER
-  const password = process.env.SMTP_PASSWORD
-  const transport = nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false',
-    auth: user && password ? { user, pass: password } : undefined,
-  })
-
-  return createEmailService({ transport, from, clientUrl }).sendMeetingInvitation(invitation)
+  return getConfiguredEmailService().sendMeetingInvitation(invitation)
 }
 
 export const sendMeetingConfirmation = async (confirmation) => {
-  const { host, from, clientUrl } = getRequiredEmailConfig()
-  const user = process.env.SMTP_USER
-  const password = process.env.SMTP_PASSWORD
-  const transport = nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    requireTLS: process.env.SMTP_REQUIRE_TLS !== 'false',
-    auth: user && password ? { user, pass: password } : undefined,
-  })
-
-  return createEmailService({ transport, from, clientUrl }).sendMeetingConfirmation(confirmation)
+  return getConfiguredEmailService().sendMeetingConfirmation(confirmation)
 }
