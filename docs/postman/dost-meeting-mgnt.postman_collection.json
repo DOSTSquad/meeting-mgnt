@@ -512,7 +512,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meeting-requests", "{{meetingRequestId}}", "send-invitations"]
             },
-            "description": "Generates expiring per-invitee tokens and sends availability links through the configured SMTP relay. Returns `{ sentCount }`. Copy a token from the test mailbox into the `invitationToken` collection variable to exercise the public endpoints."
+            "description": "Generates expiring per-invitee tokens and sends availability links through the configured email provider (SMTP or Resend). Returns `{ sentCount }`. Copy a token from the test mailbox into the `invitationToken` collection variable to exercise the public endpoints."
           }
         },
         {
