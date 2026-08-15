@@ -31,6 +31,8 @@ const getActivePage = (pathname) => {
   return 'dashboard'
 }
 
+const PUBLIC_INVITATION_PATH = '/invitations/'
+
 const AppShell = ({ token, user, onLogout }) => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -521,8 +523,9 @@ function App() {
     setAuthState(null)
   }
 
-  if (location.pathname.startsWith('/invitations/')) {
-    return <InvitationResponseView />
+  if (location.pathname.startsWith(PUBLIC_INVITATION_PATH)) {
+    const invitationToken = location.pathname.slice(PUBLIC_INVITATION_PATH.length)
+    return <InvitationResponseView token={invitationToken} />
   }
 
   if (!authState) {

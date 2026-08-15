@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
-import { useParams } from 'react-router-dom'
 
 import {
   getPublicInvitation,
@@ -8,8 +7,7 @@ import {
 } from '../../services/meetingRequestService.js'
 import { formatDateTimeInTimeZone } from '../../utils/timezone.js'
 
-export const InvitationResponseView = () => {
-  const { token } = useParams()
+export const InvitationResponseView = ({ token }) => {
   const [invitation, setInvitation] = useState(null)
   const [responses, setResponses] = useState({})
   const [isLoading, setIsLoading] = useState(true)
@@ -21,6 +19,12 @@ export const InvitationResponseView = () => {
     let isCancelled = false
 
     const loadInvitation = async () => {
+      if (!token) {
+        setErrorMessage('Invitation link is invalid')
+        setIsLoading(false)
+        return
+      }
+
       try {
         const detail = await getPublicInvitation(token)
         if (isCancelled) {
