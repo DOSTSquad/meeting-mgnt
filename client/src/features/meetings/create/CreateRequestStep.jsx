@@ -195,13 +195,13 @@ export const CreateRequestStep = ({ form, tags = [], onChange }) => {
       </div>
 
       <label className="block">
-        <span className="text-sm font-bold text-slate-800">Description (optional)</span>
+        <span className="text-sm font-bold text-slate-800">Agenda (Markdown supported)</span>
         <textarea
           rows={4}
           value={form.description}
           onChange={(event) => onChange({ description: event.target.value })}
           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          placeholder="Let's align on Q2 roadmap, timelines and key initiatives."
+          placeholder={'- Review Q2 roadmap\n- Confirm timelines\n- Assign next steps'}
         />
       </label>
 

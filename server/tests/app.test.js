@@ -1,6 +1,11 @@
 import { describe, expect, it } from '@jest/globals'
 
-import { createApiRateLimiter, getRateLimitConfig, isDevelopmentEnvironment } from '../app.js'
+import {
+  createApiRateLimiter,
+  createApp,
+  getRateLimitConfig,
+  isDevelopmentEnvironment,
+} from '../app.js'
 
 const buildRateLimitRequest = () => ({
   ip: '127.0.0.1',
@@ -118,5 +123,37 @@ describe('API rate limiting', () => {
       error: 'Too many requests, please try again later',
     })
     expect(secondResult.response.headers.ratelimit).toBeTruthy()
+  })
+})
+
+describe('invitation route boundaries', () => {
+  it('allows public invitation validation without a bearer token', async () => {
+    const server = createApp().listen(0)
+
+    try {
+      const { port } = server.address()
+      const response = await fetch(`http://127.0.0.1:${port}/api/public/invitations/invalid`)
+
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toMatchObject({ error: 'Validation failed' })
+    } finally {
+      await new Promise((resolve) => server.close(resolve))
+    }
+  })
+
+  it('requires organizer authentication to send invitations', async () => {
+    const server = createApp().listen(0)
+
+    try {
+      const { port } = server.address()
+      const response = await fetch(
+        `http://127.0.0.1:${port}/api/meeting-requests/00000000-0000-4000-8000-000000000000/send-invitations`,
+        { method: 'POST' }
+      )
+
+      expect(response.status).toBe(401)
+    } finally {
+      await new Promise((resolve) => server.close(resolve))
+    }
   })
 })

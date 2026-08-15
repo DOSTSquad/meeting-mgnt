@@ -319,6 +319,20 @@ export const listInvitees = async (requestId) => {
   return result.rows.map(mapInvitee)
 }
 
+export const listEmailedInvitees = async (requestId) => {
+  const result = await query(
+    `
+      SELECT id, meeting_request_id, user_id, email, name, response_status, invited_at, responded_at
+      FROM meeting_request_invitees
+      WHERE meeting_request_id = $1 AND email_sent_at IS NOT NULL
+      ORDER BY invited_at ASC, id ASC
+    `,
+    [requestId]
+  )
+
+  return result.rows.map(mapInvitee)
+}
+
 export const findInvitee = async (requestId, inviteeId) => {
   const result = await query(
     `
@@ -331,6 +345,43 @@ export const findInvitee = async (requestId, inviteeId) => {
   )
 
   return result.rows[0] ? mapInvitee(result.rows[0]) : null
+}
+
+export const findInviteeByInvitationTokenHash = async (tokenHash) => {
+  const result = await query(
+    `
+      SELECT id, meeting_request_id, user_id, email, name, response_status, invited_at, responded_at
+      FROM meeting_request_invitees
+      WHERE invitation_token_hash = $1
+        AND invitation_expires_at > NOW()
+      LIMIT 1
+    `,
+    [tokenHash]
+  )
+
+  return result.rows[0] ? mapInvitee(result.rows[0]) : null
+}
+
+export const saveInvitationToken = async (inviteeId, tokenHash, expiresAt) => {
+  await query(
+    `
+      UPDATE meeting_request_invitees
+      SET invitation_token_hash = $2, invitation_expires_at = $3, email_sent_at = NULL
+      WHERE id = $1
+    `,
+    [inviteeId, tokenHash, expiresAt]
+  )
+}
+
+export const markInvitationEmailSent = async (inviteeId) => {
+  await query(
+    `
+      UPDATE meeting_request_invitees
+      SET email_sent_at = NOW()
+      WHERE id = $1
+    `,
+    [inviteeId]
+  )
 }
 
 export const listInviteeResponses = async (inviteeId) => {

@@ -1,21 +1,28 @@
+import { createHash, randomBytes } from 'node:crypto'
+
 import {
   confirmMeetingRequest,
   createMeetingRequest,
   findInvitee,
+  findInviteeByInvitationTokenHash,
   findMeetingRequestById,
   findUserMeetingConflict,
   listInvitees,
+  listEmailedInvitees,
   listInviteeResponses,
   listTimeOptions,
+  markInvitationEmailSent,
   optionBelongsToRequest,
   replaceInviteeResponses,
   replaceInvitees,
   replaceTimeOptions,
+  saveInvitationToken,
   updateMeetingRequest,
 } from '../repositories/meeting-request-repository.js'
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { findUserByEmail } from '../repositories/user-repository.js'
 import { createMeetingForUser, updateMeetingById } from './meeting-service.js'
+import { sendMeetingConfirmation, sendMeetingInvitation } from './email-service.js'
 import {
   notifyMeetingCreated,
   notifyMeetingRequestConfirmed,
@@ -41,6 +48,16 @@ export const ALLOWED_MEETING_REQUEST_STATUSES = [
 const toDate = (value) => (value instanceof Date ? value : new Date(value))
 
 const normalizeEmail = (email) => String(email).trim().toLowerCase()
+
+const hashInvitationToken = (token) => createHash('sha256').update(token).digest('hex')
+
+const getInvitationExpiry = (responseDeadline) => {
+  const configuredDays = Number.parseInt(process.env.INVITATION_TOKEN_TTL_DAYS, 10)
+  const ttlDays = Number.isInteger(configuredDays) && configuredDays > 0 ? configuredDays : 7
+  const ttlExpiry = Date.now() + ttlDays * 24 * 60 * 60 * 1000
+
+  return new Date(Math.min(new Date(responseDeadline).getTime(), ttlExpiry))
+}
 
 const validateTimezone = (value) => {
   try {
@@ -181,6 +198,86 @@ export const getInviteeRequestForUser = async (requestId, inviteeId, callerId) =
   return { meetingRequest, invitee, timeOptions, responses }
 }
 
+const getInviteeRequestByToken = async (token) => {
+  const invitee = token ? await findInviteeByInvitationTokenHash(hashInvitationToken(token)) : null
+
+  if (!invitee) {
+    throw createHttpError('Invitation is invalid or has expired', 404)
+  }
+
+  const meetingRequest = await loadRequestOrThrow(invitee.meetingRequestId)
+  const timeOptions = await listTimeOptions(meetingRequest.id)
+  const responses = await listInviteeResponses(invitee.id)
+
+  return { meetingRequest, invitee, timeOptions, responses }
+}
+
+export const getPublicInvitationByToken = async (token) => {
+  const { meetingRequest, invitee, timeOptions, responses } = await getInviteeRequestByToken(token)
+
+  return {
+    meetingRequest: {
+      id: meetingRequest.id,
+      title: meetingRequest.title,
+      description: meetingRequest.description,
+      durationMinutes: meetingRequest.durationMinutes,
+      timezoneName: meetingRequest.timezoneName,
+      responseDeadline: meetingRequest.responseDeadline,
+      status: meetingRequest.status,
+      availabilityClosed: meetingRequest.availabilityClosed,
+    },
+    invitee: {
+      email: invitee.email,
+      name: invitee.name,
+      responseStatus: invitee.responseStatus,
+      respondedAt: invitee.respondedAt,
+    },
+    timeOptions: timeOptions.map(({ id, startsAt, endsAt, sortOrder }) => ({
+      id,
+      startsAt,
+      endsAt,
+      sortOrder,
+    })),
+    responses,
+  }
+}
+
+export const sendInvitationsForRequest = async (
+  requestId,
+  callerId,
+  sendInvitation = sendMeetingInvitation
+) => {
+  const meetingRequest = await loadRequestOrThrow(requestId)
+  assertCreator(meetingRequest, callerId)
+
+  if (['confirmed', 'cancelled'].includes(meetingRequest.status)) {
+    throw createHttpError('Closed meeting requests cannot send invitations', 409)
+  }
+
+  if (hasResponseDeadlinePassed(meetingRequest.responseDeadline)) {
+    throw createHttpError('Response deadline has passed', 409)
+  }
+
+  const timeOptions = await listTimeOptions(requestId)
+  const invitees = await listInvitees(requestId)
+  if (timeOptions.length === 0 || invitees.length === 0) {
+    throw createHttpError('Meeting requests require time options and invitees before sending', 409)
+  }
+
+  for (const invitee of invitees) {
+    const invitationToken = randomBytes(32).toString('base64url')
+    await saveInvitationToken(
+      invitee.id,
+      hashInvitationToken(invitationToken),
+      getInvitationExpiry(meetingRequest.responseDeadline)
+    )
+    await sendInvitation({ meetingRequest, invitee, invitationToken })
+    await markInvitationEmailSent(invitee.id)
+  }
+
+  return { sentCount: invitees.length }
+}
+
 export const updateRequestForUser = async (requestId, input, callerId) => {
   const meetingRequest = await loadRequestOrThrow(requestId)
   assertCreator(meetingRequest, callerId)
@@ -318,24 +415,9 @@ export const replaceInviteesForRequest = async (requestId, input, callerId) => {
   return { invitees: updatedInvitees }
 }
 
-export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, callerId) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  const meetingRequest = await loadRequestOrThrow(requestId)
-  const invitee = await findInvitee(requestId, inviteeId)
-
-  if (!invitee) {
-    throw createHttpError('Invitee not found', 404)
-  }
-
+const saveAvailability = async (meetingRequest, invitee, input) => {
   if (['confirmed', 'cancelled'].includes(meetingRequest.status)) {
     throw createHttpError('Closed meeting requests cannot accept availability', 409)
-  }
-
-  if (meetingRequest.createdBy !== callerId && invitee.userId !== callerId) {
-    throw createHttpError('Only the invitee or request creator can submit this availability', 403)
   }
 
   if (hasResponseDeadlinePassed(meetingRequest.responseDeadline)) {
@@ -363,7 +445,7 @@ export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, 
       continue
     }
 
-    const belongsToRequest = await optionBelongsToRequest(requestId, response.timeOptionId)
+    const belongsToRequest = await optionBelongsToRequest(meetingRequest.id, response.timeOptionId)
     if (!belongsToRequest) {
       throw createHttpError(`Unknown timeOptionId: ${response.timeOptionId}`, 400)
     }
@@ -375,12 +457,46 @@ export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, 
     })
   }
 
-  const availabilityResponses = await replaceInviteeResponses(requestId, inviteeId, normalized)
+  const availabilityResponses = await replaceInviteeResponses(
+    meetingRequest.id,
+    invitee.id,
+    normalized
+  )
 
   return { responses: availabilityResponses }
 }
 
-export const confirmRequestForUser = async (requestId, input, callerId) => {
+export const submitAvailabilityForInvitee = async (requestId, inviteeId, input, callerId) => {
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const meetingRequest = await loadRequestOrThrow(requestId)
+  const invitee = await findInvitee(requestId, inviteeId)
+
+  if (!invitee) {
+    throw createHttpError('Invitee not found', 404)
+  }
+
+  if (meetingRequest.createdBy !== callerId && invitee.userId !== callerId) {
+    throw createHttpError('Only the invitee or request creator can submit this availability', 403)
+  }
+
+  return saveAvailability(meetingRequest, invitee, input)
+}
+
+export const submitPublicAvailabilityByToken = async (token, input) => {
+  const { meetingRequest, invitee } = await getInviteeRequestByToken(token)
+
+  return saveAvailability(meetingRequest, invitee, input)
+}
+
+export const confirmRequestForUser = async (
+  requestId,
+  input,
+  callerId,
+  sendConfirmation = sendMeetingConfirmation
+) => {
   const meetingRequest = await loadRequestOrThrow(requestId)
   assertCreator(meetingRequest, callerId)
 
@@ -441,7 +557,27 @@ export const confirmRequestForUser = async (requestId, input, callerId) => {
     ...participantIds,
   ])
 
-  return { meeting, meetingRequest: meetingRequestAfterConfirm }
+  const emailedInvitees = await listEmailedInvitees(requestId)
+  const emailResults = await Promise.allSettled(
+    emailedInvitees.map((invitee) => sendConfirmation({ meeting, invitee }))
+  )
+  const failedEmailCount = emailResults.filter((result) => result.status === 'rejected').length
+
+  if (failedEmailCount > 0) {
+    console.error('Meeting confirmation email delivery failed', {
+      meetingRequestId: requestId,
+      failedCount: failedEmailCount,
+    })
+  }
+
+  return {
+    meeting,
+    meetingRequest: meetingRequestAfterConfirm,
+    emailDelivery: {
+      sentCount: emailedInvitees.length - failedEmailCount,
+      failedCount: failedEmailCount,
+    },
+  }
 }
 
 export const terminateRequestForUser = async (requestId, callerId) => {
