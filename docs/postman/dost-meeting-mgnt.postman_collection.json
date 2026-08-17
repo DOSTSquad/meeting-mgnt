@@ -620,7 +620,7 @@
               "mode": "raw",
               "raw": "{\n  \"timeOptionId\": \"{{timeOptionId}}\",\n  \"location\": \"Room 4.1\",\n  \"tag\": \"Operations\"\n}"
             },
-            "description": "Creates the scheduled meeting and sends best-effort confirmation emails containing the Markdown agenda and a sequence-zero `METHOD:REQUEST` ICS to the organizer and previously emailed invitees. Returns `{ meeting, meetingRequest, emailDelivery: { sentCount, failedCount } }`."
+            "description": "Allows the request creator to choose an existing time option and create the scheduled meeting before or after all invitees respond. Confirming closes outstanding availability voting and sends best-effort confirmation emails containing the Markdown agenda and a sequence-zero `METHOD:REQUEST` ICS to the organizer and previously emailed invitees. Returns `{ meeting, meetingRequest, emailDelivery: { sentCount, failedCount } }`."
           },
           "event": [
             {

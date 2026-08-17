@@ -1,0 +1,5 @@
+fastapi>=0.116,<1
+openai-whisper
+python-multipart>=0.0.20,<1
+torch>=2.7,<3
+uvicorn[standard]>=0.35,<1

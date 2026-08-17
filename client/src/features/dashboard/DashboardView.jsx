@@ -47,65 +47,6 @@ const getMeetingTrend = (meetings) => {
   })
 }
 
-const getActionItemBreakdown = (items) => {
-  const config = [
-    { id: 'todo', label: 'To-do', color: '#94a3b8', dotClass: 'bg-slate-400' },
-    { id: 'in_progress', label: 'In progress', color: '#3b82f6', dotClass: 'bg-blue-500' },
-    { id: 'completed', label: 'Completed', color: '#10b981', dotClass: 'bg-emerald-500' },
-  ]
-
-  return config.map((entry) => ({
-    ...entry,
-    count: items.filter((item) => item.status === entry.id).length,
-  }))
-}
-
-const getPriorityBreakdown = (items) => {
-  const trackedItems = items.filter((item) =>
-    ['todo', 'in_progress', 'completed'].includes(item.status)
-  )
-  const config = [
-    { id: 'high', label: 'High', color: '#f43f5e', dotClass: 'bg-rose-500' },
-    { id: 'medium', label: 'Medium', color: '#f59e0b', dotClass: 'bg-amber-500' },
-    { id: 'low', label: 'Low', color: '#38bdf8', dotClass: 'bg-sky-400' },
-  ]
-
-  return config.map((entry) => ({
-    ...entry,
-    count: trackedItems.filter((item) => item.priority === entry.id).length,
-  }))
-}
-
-const getDonutSegments = (breakdown, circumference) => {
-  const total = breakdown.reduce((sum, item) => sum + item.count, 0)
-
-  return breakdown.map((item, index) => {
-    const previousCount = breakdown
-      .slice(0, index)
-      .reduce((sum, previousItem) => sum + previousItem.count, 0)
-
-    return {
-      ...item,
-      segmentLength: total ? (item.count / total) * circumference : 0,
-      dashOffset: total ? -(previousCount / total) * circumference : 0,
-    }
-  })
-}
-
-const getDueSoonCount = (items) => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const sevenDaysFromToday = new Date(today)
-  sevenDaysFromToday.setDate(today.getDate() + 7)
-  sevenDaysFromToday.setHours(23, 59, 59, 999)
-
-  return items.filter((item) => {
-    if (!item.dueDate || !['todo', 'in_progress'].includes(item.status)) return false
-    const dueDate = new Date(item.dueDate)
-    return dueDate >= today && dueDate <= sevenDaysFromToday
-  }).length
-}
-
 const getDurationByTag = (meetings) => {
   const grouped = new Map()
 
@@ -138,6 +79,22 @@ const formatDuration = (minutes) => {
   const remainingMinutes = Math.round(minutes % 60)
   if (!hours) return `${remainingMinutes}m`
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`
+}
+
+const getMeetingDurationMinutes = (meeting) => {
+  if (!meeting.startsAt || !meeting.endsAt) return null
+  const duration = Math.round((new Date(meeting.endsAt) - new Date(meeting.startsAt)) / 60000)
+  return Number.isFinite(duration) && duration > 0 ? duration : null
+}
+
+const getAverageMeetingDuration = (meetings) => {
+  const durations = meetings
+    .filter((meeting) => meeting.status === 'completed')
+    .map(getMeetingDurationMinutes)
+    .filter((duration) => duration !== null)
+
+  if (!durations.length) return 0
+  return Math.round(durations.reduce((total, duration) => total + duration, 0) / durations.length)
 }
 
 const MeetingsTrendChart = ({ meetings }) => {
@@ -186,92 +143,169 @@ const MeetingsTrendChart = ({ meetings }) => {
   )
 }
 
-const ActionItemHealthChart = ({ items }) => {
-  const breakdown = getActionItemBreakdown(items)
-  const priorityBreakdown = getPriorityBreakdown(items)
-  const total = breakdown.reduce((sum, item) => sum + item.count, 0)
-  const completed = breakdown.find((item) => item.id === 'completed')?.count || 0
-  const completionRate = total ? Math.round((completed / total) * 100) : 0
-  const statusRadius = 56
-  const priorityRadius = 40
-  const statusCircumference = 2 * Math.PI * statusRadius
-  const priorityCircumference = 2 * Math.PI * priorityRadius
-  const statusSegments = getDonutSegments(breakdown, statusCircumference)
-  const prioritySegments = getDonutSegments(priorityBreakdown, priorityCircumference)
+const MeetingStatusOverview = ({ meetings, pendingRequestCount }) => {
+  const statusRows = [
+    { id: 'scheduled', label: 'Scheduled', colorClass: 'bg-blue-500' },
+    { id: 'completed', label: 'Completed', colorClass: 'bg-emerald-500' },
+    { id: 'cancelled', label: 'Cancelled', colorClass: 'bg-rose-400' },
+    { id: 'archived', label: 'Archived', colorClass: 'bg-slate-400' },
+  ].map((entry) => ({
+    ...entry,
+    count: meetings.filter((meeting) => meeting.status === entry.id).length,
+  }))
+  const maxCount = Math.max(1, ...statusRows.map((row) => row.count))
 
   return (
-    <div className="grid items-center gap-5 sm:grid-cols-[180px_1fr]">
-      <div className="relative mx-auto h-44 w-44">
-        <svg
-          viewBox="0 0 140 140"
-          className="h-full w-full -rotate-90"
-          role="img"
-          aria-label={`${completionRate}% action item completion rate, with status on the outer ring and priority on the inner ring`}
-        >
-          <circle cx="70" cy="70" r={statusRadius} fill="none" stroke="#e2e8f0" strokeWidth="12" />
-          {statusSegments.map((item) => (
-            <circle
-              key={item.id}
-              cx="70"
-              cy="70"
-              r={statusRadius}
-              fill="none"
-              stroke={item.color}
-              strokeWidth="12"
-              strokeDasharray={`${item.segmentLength} ${statusCircumference - item.segmentLength}`}
-              strokeDashoffset={item.dashOffset}
+    <div className="space-y-4">
+      {statusRows.map((row) => (
+        <div key={row.id}>
+          <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-bold">
+            <span className="text-slate-600">{row.label}</span>
+            <span className="text-slate-900">{row.count}</span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full ${row.colorClass}`}
+              style={{ width: `${(row.count / maxCount) * 100}%` }}
             />
-          ))}
-          <circle cx="70" cy="70" r={priorityRadius} fill="none" stroke="#f1f5f9" strokeWidth="8" />
-          {prioritySegments.map((item) => (
-            <circle
-              key={item.id}
-              cx="70"
-              cy="70"
-              r={priorityRadius}
-              fill="none"
-              stroke={item.color}
-              strokeWidth="8"
-              strokeDasharray={`${item.segmentLength} ${priorityCircumference - item.segmentLength}`}
-              strokeDashoffset={item.dashOffset}
-            />
-          ))}
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-extrabold text-slate-900">{completionRate}%</span>
-          <span className="text-xs font-bold text-slate-500">completed</span>
+          </div>
+        </div>
+      ))}
+      <div className="rounded-xl bg-amber-50 px-3 py-2.5">
+        <p className="text-xl font-extrabold text-amber-700">{pendingRequestCount}</p>
+        <p className="text-xs font-bold text-slate-500">pending scheduling requests</p>
+      </div>
+    </div>
+  )
+}
+
+const ActionItemCompletionChart = ({ actionItems, meetings }) => {
+  const trackedItems = actionItems.filter((item) => item.status !== 'cancelled')
+  const completedCount = trackedItems.filter((item) => item.status === 'completed').length
+  const completionRate = trackedItems.length
+    ? Math.round((completedCount / trackedItems.length) * 100)
+    : 0
+  const meetingsById = new Map(meetings.map((meeting) => [meeting.id, meeting]))
+  const groupedByTag = new Map()
+
+  trackedItems.forEach((item) => {
+    const tag = meetingsById.get(item.meetingId)?.tag?.trim() || 'Untagged'
+    const group = groupedByTag.get(tag) || { tag, total: 0, completed: 0, overdue: 0 }
+    group.total += 1
+    group.completed += item.status === 'completed' ? 1 : 0
+    group.overdue += isOverdueActionItem(item) ? 1 : 0
+    groupedByTag.set(tag, group)
+  })
+
+  const tagRows = [...groupedByTag.values()]
+    .sort((left, right) => right.total - left.total)
+    .slice(0, 5)
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-3xl font-extrabold text-slate-900">{completionRate}%</p>
+            <p className="text-xs font-bold text-slate-500">
+              {completedCount} of {trackedItems.length} completed
+            </p>
+          </div>
+          <p className="text-xs font-bold text-slate-500">Overall completion</p>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-emerald-500"
+            style={{ width: `${completionRate}%` }}
+          />
         </div>
       </div>
-      <div className="space-y-3">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
-          Status · outer ring
+
+      <div className="border-t border-slate-100 pt-4">
+        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+          Progress by meeting tag
         </p>
-        {breakdown.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-              <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
-              {item.label}
-            </span>
-            <span className="text-sm font-extrabold text-slate-900">{item.count}</span>
+        <div className="space-y-3">
+          {tagRows.map((row) => {
+            const rate = row.total ? Math.round((row.completed / row.total) * 100) : 0
+            return (
+              <div key={row.tag}>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-extrabold text-slate-700">{row.tag}</p>
+                    <p className="text-[10px] font-semibold text-slate-500">
+                      {row.completed}/{row.total} completed
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-extrabold text-emerald-700">{rate}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-500"
+                    style={{ width: `${rate}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+          {tagRows.length === 0 ? (
+            <p className="text-sm text-slate-500">Action item progress will appear here.</p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const OverdueActionItemChart = ({ actionItems }) => {
+  const overdueItems = actionItems.filter(isOverdueActionItem)
+  const priorityRows = [
+    { id: 'high', label: 'High priority', colorClass: 'bg-rose-500' },
+    { id: 'medium', label: 'Medium priority', colorClass: 'bg-amber-500' },
+    { id: 'low', label: 'Low priority', colorClass: 'bg-sky-400' },
+  ].map((entry) => ({
+    ...entry,
+    count: overdueItems.filter((item) => item.priority === entry.id).length,
+  }))
+  const maxCount = Math.max(1, ...priorityRows.map((row) => row.count))
+  const todoCount = overdueItems.filter((item) => item.status === 'todo').length
+  const inProgressCount = overdueItems.filter((item) => item.status === 'in_progress').length
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-end justify-between gap-3 rounded-xl bg-rose-50 p-3">
+        <div>
+          <p className="text-3xl font-extrabold text-rose-700">{overdueItems.length}</p>
+          <p className="text-xs font-bold text-slate-500">overdue action items</p>
+        </div>
+        <div className="text-right text-[11px] font-bold text-slate-500">
+          <p>{todoCount} to-do</p>
+          <p>{inProgressCount} in progress</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {priorityRows.map((row) => (
+          <div key={row.id}>
+            <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-bold">
+              <span className="text-slate-600">{row.label}</span>
+              <span className="text-slate-900">{row.count}</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full ${row.colorClass}`}
+                style={{ width: `${(row.count / maxCount) * 100}%` }}
+              />
+            </div>
           </div>
         ))}
-        <div className="border-t border-slate-100 pt-3">
-          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
-            Priority · inner ring
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {priorityBreakdown.map((item) => (
-              <span
-                key={item.id}
-                className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600"
-              >
-                <span className={`h-2 w-2 rounded-full ${item.dotClass}`} />
-                {item.label} {item.count}
-              </span>
-            ))}
-          </div>
-        </div>
       </div>
+
+      {overdueItems.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-3 text-sm font-semibold text-emerald-700">
+          No overdue action items.
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -341,15 +375,21 @@ export const DashboardView = ({
   onOpenMeetingRequest,
   onOpenAvailabilityRequest,
   onViewAllMeetings,
-  onViewAllActionItems,
 }) => {
+  const completedMeetings = meetings.filter((meeting) => meeting.status === 'completed').length
+  const upcomingMeetings = meetings.filter(
+    (meeting) => meeting.status === 'scheduled' && new Date(meeting.startsAt) >= new Date()
+  ).length
+  const averageDuration = getAverageMeetingDuration(meetings)
+  const pendingMeetingRequests = data?.pendingMeetingRequests?.length || 0
   const dashboardActionItems = data?.myActionItems ?? []
   const chartActionItems = allActionItems.length ? allActionItems : dashboardActionItems
-  const overdueCount = chartActionItems.filter(isOverdueActionItem).length
-  const dueSoonCount = getDueSoonCount(chartActionItems)
-  const completionCount = chartActionItems.filter((item) => item.status === 'completed').length
-  const completionRate = chartActionItems.length
-    ? Math.round((completionCount / chartActionItems.length) * 100)
+  const trackedActionItems = chartActionItems.filter((item) => item.status !== 'cancelled')
+  const completedActionItems = trackedActionItems.filter(
+    (item) => item.status === 'completed'
+  ).length
+  const actionItemCompletionRate = trackedActionItems.length
+    ? Math.round((completedActionItems / trackedActionItems.length) * 100)
     : 0
 
   return (
@@ -366,24 +406,28 @@ export const DashboardView = ({
         <main className="min-w-0 space-y-5">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <article className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-              <CalendarDays className="h-5 w-5 text-blue-600" aria-hidden="true" />
-              <p className="mt-3 text-3xl font-extrabold text-slate-900">{meetings.length}</p>
-              <p className="text-xs font-bold text-slate-500">Accessible meetings</p>
+              <CheckCircle2 className="h-5 w-5 text-blue-600" aria-hidden="true" />
+              <p className="mt-3 text-3xl font-extrabold text-slate-900">{completedMeetings}</p>
+              <p className="text-xs font-bold text-slate-500">Total meetings held</p>
             </article>
             <article className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-              <p className="mt-3 text-3xl font-extrabold text-slate-900">{completionRate}%</p>
-              <p className="text-xs font-bold text-slate-500">Action items completed</p>
+              <Clock3 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+              <p className="mt-3 text-3xl font-extrabold text-slate-900">
+                {formatDuration(averageDuration)}
+              </p>
+              <p className="text-xs font-bold text-slate-500">Average meeting duration</p>
             </article>
-            <article className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
-              <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
-              <p className="mt-3 text-3xl font-extrabold text-slate-900">{overdueCount}</p>
-              <p className="text-xs font-bold text-slate-500">Overdue action items</p>
+            <article className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+              <CalendarClock className="h-5 w-5 text-violet-600" aria-hidden="true" />
+              <p className="mt-3 text-3xl font-extrabold text-slate-900">{upcomingMeetings}</p>
+              <p className="text-xs font-bold text-slate-500">Upcoming meetings</p>
             </article>
             <article className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-              <CalendarClock className="h-5 w-5 text-amber-600" aria-hidden="true" />
-              <p className="mt-3 text-3xl font-extrabold text-slate-900">{dueSoonCount}</p>
-              <p className="text-xs font-bold text-slate-500">Due in the next 7 days</p>
+              <ListTodo className="h-5 w-5 text-amber-600" aria-hidden="true" />
+              <p className="mt-3 text-3xl font-extrabold text-slate-900">
+                {actionItemCompletionRate}%
+              </p>
+              <p className="text-xs font-bold text-slate-500">Action item completion</p>
             </article>
           </div>
 
@@ -404,14 +448,17 @@ export const DashboardView = ({
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-extrabold text-slate-800">Action item health</h2>
+                  <h2 className="text-lg font-extrabold text-slate-800">Meeting status</h2>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    Workload by current status
+                    Scheduled, completed, cancelled, and archived
                   </p>
                 </div>
-                <ListTodo className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+                <CalendarCheck className="h-5 w-5 text-blue-600" aria-hidden="true" />
               </div>
-              <ActionItemHealthChart items={chartActionItems} />
+              <MeetingStatusOverview
+                meetings={meetings}
+                pendingRequestCount={pendingMeetingRequests}
+              />
             </article>
 
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -428,14 +475,42 @@ export const DashboardView = ({
             </article>
           </div>
 
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onViewAllActionItems}
-              className="inline-flex items-center gap-1 text-xs font-bold text-blue-700"
-            >
-              Open Action Item Tracker <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
+          <div>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-600">
+                  Action item progress
+                </p>
+                <h2 className="mt-1 text-xl font-extrabold text-slate-900">Follow-up health</h2>
+              </div>
+              <ListTodo className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+            </div>
+            <div className="grid gap-5 lg:grid-cols-2">
+              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-lg font-extrabold text-slate-800">Completion by meeting tag</h3>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Completed workload across meeting categories
+                </p>
+                <div className="mt-5">
+                  <ActionItemCompletionChart actionItems={chartActionItems} meetings={meetings} />
+                </div>
+              </article>
+
+              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-800">Overdue breakdown</h3>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      Outstanding tasks grouped by priority
+                    </p>
+                  </div>
+                  <AlertTriangle className="h-5 w-5 text-rose-500" aria-hidden="true" />
+                </div>
+                <div className="mt-5">
+                  <OverdueActionItemChart actionItems={chartActionItems} />
+                </div>
+              </article>
+            </div>
           </div>
         </main>
 
