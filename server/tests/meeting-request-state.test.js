@@ -5,7 +5,7 @@ import { getMeetingRequestDerivedState } from '../utils/meeting-requests.js'
 const NOW = new Date('2026-05-20T04:00:00.000Z')
 
 describe('meeting request derived state', () => {
-  it('keeps availability open before the response deadline', () => {
+  it('keeps availability open while allowing the owner to confirm before the deadline', () => {
     expect(
       getMeetingRequestDerivedState(
         {
@@ -17,7 +17,7 @@ describe('meeting request derived state', () => {
     ).toEqual({
       responseDeadlinePassed: false,
       availabilityClosed: false,
-      canConfirm: false,
+      canConfirm: true,
     })
   })
 

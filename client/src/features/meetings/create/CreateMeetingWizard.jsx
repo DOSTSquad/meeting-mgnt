@@ -142,6 +142,9 @@ export const CreateMeetingWizard = ({
   const selectedOption = savedTimeOptions.find((option) => option.id === selectedTimeOptionId)
   const canConfirmMeetingRequest =
     meetingRequest?.canConfirm || meetingRequest?.status === 'ready_to_confirm'
+  const hasPendingResponses = savedInvitees.some(
+    (invitee) => invitee.responseStatus !== 'submitted'
+  )
   const isReviewWaiting = stepIndex === 2 && !canConfirmMeetingRequest
 
   const reset = () => {
@@ -441,7 +444,9 @@ export const CreateMeetingWizard = ({
       ? 'Send Invitations'
       : stepIndex === 2
         ? canConfirmMeetingRequest
-          ? 'Continue'
+          ? hasPendingResponses
+            ? 'Confirm without waiting'
+            : 'Continue'
           : 'Done'
         : stepIndex === 3
           ? 'Confirm Meeting'

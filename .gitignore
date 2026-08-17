@@ -140,3 +140,10 @@ vite.config.ts.timestamp-*
 
 # systemlog
 .DS_Store
+
+# Python / AI service
+ai-service/.venv/
+ai-service/__pycache__/
+ai-service/**/__pycache__/
+ai-service/.pytest_cache/
+ai-service/*.egg-info/

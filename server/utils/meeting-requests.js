@@ -9,9 +9,7 @@ export const getMeetingRequestDerivedState = (meetingRequest, now = new Date()) 
     availabilityClosed: ['confirmed', 'cancelled'].includes(meetingRequest.status)
       ? true
       : responseDeadlinePassed,
-    canConfirm:
-      meetingRequest.status === 'ready_to_confirm' ||
-      (meetingRequest.status === 'collecting_availability' && responseDeadlinePassed),
+    canConfirm: ['collecting_availability', 'ready_to_confirm'].includes(meetingRequest.status),
   }
 }
 

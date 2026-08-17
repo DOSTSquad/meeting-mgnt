@@ -179,6 +179,7 @@ describe('meeting request flow', () => {
         total: 1,
       },
       timeOptionCount: 1,
+      canConfirm: true,
     })
 
     const inviteeDashboard = await getDashboardData(invitee.id)
