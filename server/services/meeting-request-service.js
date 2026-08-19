@@ -94,6 +94,16 @@ const validateFutureDateTime = (value, fieldName) => {
   }
 }
 
+const validateTimeOptionsAfterDeadline = (timeOptions, responseDeadline) => {
+  const deadline = toDate(responseDeadline)
+
+  timeOptions.forEach((option, index) => {
+    if (toDate(option.startsAt) <= deadline) {
+      throw createHttpError(`timeOptions[${index}].startsAt must be after responseDeadline`, 400)
+    }
+  })
+}
+
 const assertCreator = (meetingRequest, callerId) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
@@ -270,6 +280,7 @@ export const sendInvitationsForRequest = async (
   if (timeOptions.length === 0 || invitees.length === 0) {
     throw createHttpError('Meeting requests require time options and invitees before sending', 409)
   }
+  validateTimeOptionsAfterDeadline(timeOptions, meetingRequest.responseDeadline)
 
   for (const invitee of invitees) {
     const invitationToken = randomBytes(32).toString('base64url')
@@ -325,6 +336,7 @@ export const updateRequestForUser = async (requestId, input, callerId) => {
 
   validateTimezone(timezoneName)
   validateFutureDateTime(responseDeadline, 'responseDeadline')
+  validateTimeOptionsAfterDeadline(await listTimeOptions(requestId), responseDeadline)
 
   const updatedRequest = await updateMeetingRequest(requestId, {
     title: title.trim(),
@@ -367,6 +379,8 @@ export const replaceTimeOptionsForRequest = async (requestId, input, callerId) =
       sortOrder: Number.isInteger(option.sortOrder) ? option.sortOrder : index,
     }
   })
+
+  validateTimeOptionsAfterDeadline(normalized, meetingRequest.responseDeadline)
 
   for (const [index, option] of normalized.entries()) {
     const conflict = await findUserMeetingConflict(callerId, option.startsAt, option.endsAt)

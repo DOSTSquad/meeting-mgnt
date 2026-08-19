@@ -3,7 +3,11 @@ import { format, isBefore, startOfToday } from 'date-fns'
 import { CalendarDays, Check, ChevronDown, Clock3, Globe2 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
-import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
+import {
+  getDateValueInTimeZone,
+  MEETING_TIMEZONE_OPTIONS,
+  zonedDateTimeToUtcDate,
+} from '../../../utils/timezone.js'
 
 const getDeadlineParts = (value) => {
   if (!value) {
@@ -77,6 +81,20 @@ const timeOptions = getTimeOptions()
 const isPastDateTime = (dateValue, timeValue, timezoneName) =>
   zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) < new Date()
 
+const isDeadlineAtOrAfterCandidate = (
+  dateValue,
+  timeValue,
+  timezoneName,
+  earliestCandidateStartsAt
+) =>
+  Boolean(
+    dateValue &&
+    timeValue &&
+    earliestCandidateStartsAt &&
+    zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) >=
+      new Date(earliestCandidateStartsAt)
+  )
+
 const RequiredLabel = ({ children }) => (
   <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-800">
     {children}
@@ -91,6 +109,7 @@ export const CreateRequestStep = ({
   tags = [],
   users = [],
   isOwnerLocked = false,
+  earliestCandidateStartsAt,
   onChange,
 }) => {
   const [isDeadlineCalendarOpen, setIsDeadlineCalendarOpen] = useState(false)
@@ -102,6 +121,12 @@ export const CreateRequestStep = ({
   const deadline = getDeadlineParts(form.responseDeadline)
   const deadlineDate = toDateFromValue(deadline.date)
   const today = startOfToday()
+  const earliestCandidateDate = earliestCandidateStartsAt
+    ? getDateValueInTimeZone(earliestCandidateStartsAt, form.timezoneName)
+    : ''
+  const isDeadlineDateDisabled = (date) =>
+    isBefore(date, today) ||
+    Boolean(earliestCandidateDate && toDateValue(date) > earliestCandidateDate)
   const activeTimeWindow =
     TIME_WINDOWS.find((window) => window.id === activeTimeWindowId) ?? TIME_WINDOWS[1]
   const visibleTimeOptions = getTimeOptions(activeTimeWindow)
@@ -348,16 +373,25 @@ export const CreateRequestStep = ({
               <DayPicker
                 mode="single"
                 selected={deadlineDate}
-                disabled={{ before: today }}
+                disabled={isDeadlineDateDisabled}
                 onSelect={(date) => {
-                  if (!date || isBefore(date, today)) {
+                  if (!date || isDeadlineDateDisabled(date)) {
                     return
                   }
 
+                  const dateValue = toDateValue(date)
+                  const time = isDeadlineAtOrAfterCandidate(
+                    dateValue,
+                    deadline.time,
+                    form.timezoneName,
+                    earliestCandidateStartsAt
+                  )
+                    ? ''
+                    : deadline.time
                   onChange({
                     responseDeadline: getDeadlineValue({
-                      date: toDateValue(date),
-                      time: deadline.time,
+                      date: dateValue,
+                      time,
                     }),
                   })
                 }}
@@ -411,12 +445,19 @@ export const CreateRequestStep = ({
                   <div className="grid max-h-44 gap-2 overflow-auto pr-1 sm:grid-cols-2">
                     {visibleTimeOptions.map((option) => {
                       const isPast = isPastDateTime(deadline.date, option.value, form.timezoneName)
+                      const isAtOrAfterCandidate = isDeadlineAtOrAfterCandidate(
+                        deadline.date,
+                        option.value,
+                        form.timezoneName,
+                        earliestCandidateStartsAt
+                      )
+                      const isDisabled = isPast || isAtOrAfterCandidate
 
                       return (
                         <button
                           key={option.value}
                           type="button"
-                          disabled={isPast}
+                          disabled={isDisabled}
                           onClick={() => {
                             onChange({
                               responseDeadline: getDeadlineValue({
@@ -427,14 +468,18 @@ export const CreateRequestStep = ({
                             setIsDeadlineCalendarOpen(false)
                           }}
                           className={`h-9 rounded-lg border text-sm font-bold ${
-                            isPast
+                            isDisabled
                               ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-50 grayscale'
                               : deadline.time === option.value
                                 ? 'border-blue-600 bg-blue-600 text-white'
                                 : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50'
                           }`}
                         >
-                          {isPast ? `${option.label} passed` : option.label}
+                          {isPast
+                            ? `${option.label} passed`
+                            : isAtOrAfterCandidate
+                              ? `${option.label} too late`
+                              : option.label}
                         </button>
                       )
                     })}

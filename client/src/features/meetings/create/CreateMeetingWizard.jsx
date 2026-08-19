@@ -73,6 +73,13 @@ const getRequestPayload = (requestForm) => ({
   ownerId: requestForm.ownerId,
 })
 
+const getEarliestTimeOptionStart = (timeOptions) =>
+  timeOptions.reduce(
+    (earliest, option) =>
+      !earliest || new Date(option.startsAt) < new Date(earliest) ? option.startsAt : earliest,
+    ''
+  )
+
 const updateTimeOptionsForMeetingTime = (options, { startTime, durationMinutes, timezoneName }) =>
   options.map((option) => {
     const date = getDateValueInTimeZone(option.startsAt, timezoneName)
@@ -236,11 +243,17 @@ export const CreateMeetingWizard = ({
       if (stepIndex === 0) {
         const payload = getRequestPayload(requestForm)
         let savedMeetingRequest
+        let saved
 
         if (!meetingRequest?.id) {
           savedMeetingRequest = await service.createRequest(payload)
+          saved = await service.updateTimeOptions(savedMeetingRequest.id, timeOptions)
+        } else if (new Date(payload.responseDeadline) > new Date(meetingRequest.responseDeadline)) {
+          saved = await service.updateTimeOptions(meetingRequest.id, timeOptions)
+          savedMeetingRequest = await service.updateRequest(meetingRequest.id, payload)
         } else {
           savedMeetingRequest = await service.updateRequest(meetingRequest.id, payload)
+          saved = await service.updateTimeOptions(savedMeetingRequest.id, timeOptions)
         }
         setMeetingRequest(savedMeetingRequest)
 
@@ -253,7 +266,6 @@ export const CreateMeetingWizard = ({
           )
         }
 
-        const saved = await service.updateTimeOptions(savedMeetingRequest.id, timeOptions)
         setSavedTimeOptions(saved)
         setSelectedTimeOptionId((prev) => prev || saved[0]?.id || '')
       }
@@ -344,9 +356,18 @@ export const CreateMeetingWizard = ({
     })
     const endsAt = new Date(startsAt.getTime() + requestForm.durationMinutes * 60 * 1000)
     const startsAtIso = startsAt.toISOString()
+    const responseDeadline = toIsoFromWallTime(
+      requestForm.responseDeadline,
+      requestForm.timezoneName
+    )
 
     if (startsAt < new Date()) {
       setErrorMessage('Choose a future start time')
+      return
+    }
+
+    if (responseDeadline && startsAt <= new Date(responseDeadline)) {
+      setErrorMessage('Candidate times must start after the response deadline')
       return
     }
 
@@ -442,12 +463,21 @@ export const CreateMeetingWizard = ({
     requestForm.meetingTag.trim() &&
     requestForm.ownerId &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
+  const responseDeadlineIso = toIsoFromWallTime(
+    requestForm.responseDeadline,
+    requestForm.timezoneName
+  )
+  const areTimeOptionsAfterDeadline = timeOptions.every(
+    (option) => responseDeadlineIso && new Date(option.startsAt) > new Date(responseDeadlineIso)
+  )
+  const earliestCandidateStartsAt = getEarliestTimeOptionStart(timeOptions)
 
   const canContinue =
     (stepIndex === 0 &&
       isRequestStepComplete &&
       requestForm.durationMinutes > 0 &&
-      timeOptions.length > 0) ||
+      timeOptions.length > 0 &&
+      areTimeOptionsAfterDeadline) ||
     (stepIndex === 1 && invitees.length > 0) ||
     (stepIndex === 2 && savedTimeOptions.length > 0) ||
     (stepIndex === 3 && selectedTimeOptionId)
@@ -537,6 +567,7 @@ export const CreateMeetingWizard = ({
                 tags={tags}
                 users={users}
                 isOwnerLocked={Boolean(meetingRequest?.id)}
+                earliestCandidateStartsAt={earliestCandidateStartsAt}
                 onChange={updateRequestForm}
               />
               <AddTimeOptionsStep
@@ -545,6 +576,7 @@ export const CreateMeetingWizard = ({
                 startTime={requestForm.startTime}
                 endTime={requestForm.endTime}
                 timezoneName={requestForm.timezoneName}
+                responseDeadline={responseDeadlineIso}
                 blockedMeetings={meetings}
                 onMeetingTimeChange={updateRequestForm}
                 onAddOption={addTimeOption}
