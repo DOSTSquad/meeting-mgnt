@@ -13,6 +13,7 @@ permissions:
 
 env:
   CODEX_CAGE_REF: 20ff421193b339034293f51133d29bf4d7544759
+  CODEX_CLI_VERSION: '0.125.0'
   ISSUE_NUMBER: ${{ github.event.issue.number }}
   ISSUE_URL: ${{ github.event.issue.html_url }}
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -69,6 +70,9 @@ jobs:
           npm ci --prefix .tools/codex-cage
           npm run build --prefix .tools/codex-cage
 
+      - name: Install Codex CLI
+        run: npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
+
       - name: Write Codex Cage credentials
         env:
           CODEX_CAGE_GITHUB_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
@@ -82,7 +86,7 @@ jobs:
 
       - name: Run Codex Cage
         env:
-          CODEX_CAGE_EXECUTION: docker
+          CODEX_CAGE_EXECUTION: direct
         run: >-
           node .tools/codex-cage/dist/src/cli.js run "$ISSUE_URL"
           --repo "$GITHUB_REPOSITORY"
