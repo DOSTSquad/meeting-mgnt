@@ -13,6 +13,7 @@ import {
   create as createActionItemHandler,
   getOne as getActionItemHandler,
   list as listActionItemsHandler,
+  listMine as listMyActionItemsHandler,
   remove as removeActionItemHandler,
   update as updateActionItemHandler,
 } from '../controllers/action-item-controller.js'
@@ -227,6 +228,33 @@ dbDescribe('Action item controller (DB-backed)', () => {
     expect(nextError).toBeUndefined()
     expect(res.body.actionItems).toHaveLength(1)
     expect(res.body.actionItems[0].title).toBe('Write proposal')
+  })
+
+  it('separates owner-wide action items from the personal assignee list', async () => {
+    await addAttendee(baseMeeting.id, aliceUser.id, organizerUser.id)
+    await runHandler(
+      createActionItemHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { title: 'Alice owned-meeting task', assigneeId: aliceUser.id },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    const owned = await runHandler(
+      listMyActionItemsHandler,
+      buildRequest({ query: { scope: 'owned' }, user: { id: organizerUser.id } })
+    )
+    const mine = await runHandler(
+      listMyActionItemsHandler,
+      buildRequest({ user: { id: organizerUser.id } })
+    )
+
+    expect(owned.nextError).toBeUndefined()
+    expect(owned.res.body.actionItems.map((item) => item.title)).toContain(
+      'Alice owned-meeting task'
+    )
+    expect(mine.res.body.actionItems).toHaveLength(0)
   })
 
   it('returns one action item detail for meeting participants', async () => {

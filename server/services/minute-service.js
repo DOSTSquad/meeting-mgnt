@@ -37,7 +37,7 @@ const assertAuthenticated = (callerId) => {
 const assertCanAccessMeeting = async (meeting, callerId) => {
   assertAuthenticated(callerId)
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 
@@ -52,7 +52,7 @@ const assertCanAccessMeeting = async (meeting, callerId) => {
 const assertCanManageMinutes = async (meeting, callerId) => {
   assertAuthenticated(callerId)
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 

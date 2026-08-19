@@ -39,7 +39,7 @@ const getDurationMinutes = (startTime, endTime) => {
   return endHour * 60 + endMinute - (startHour * 60 + startMinute)
 }
 
-const getInitialRequestForm = () => ({
+const getInitialRequestForm = (ownerId = '') => ({
   title: '',
   meetingTag: '',
   description: '',
@@ -48,6 +48,7 @@ const getInitialRequestForm = () => ({
   endTime: getTimeValueAfterDuration(DEFAULT_START_TIME, 60),
   timezoneName: MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: '',
+  ownerId,
 })
 
 const getInitialTimeDraft = () => ({ date: '', time: '' })
@@ -69,6 +70,7 @@ const getRequestPayload = (requestForm) => ({
   durationMinutes: requestForm.durationMinutes,
   timezoneName: requestForm.timezoneName,
   responseDeadline: toIsoFromWallTime(requestForm.responseDeadline, requestForm.timezoneName),
+  ownerId: requestForm.ownerId,
 })
 
 const updateTimeOptionsForMeetingTime = (options, { startTime, durationMinutes, timezoneName }) =>
@@ -92,6 +94,7 @@ const getRequestFormFromMeetingRequest = (request) => ({
   endTime: getTimeValueAfterDuration(DEFAULT_START_TIME, request.durationMinutes ?? 60),
   timezoneName: request.timezoneName ?? MEETING_TIMEZONE_OPTIONS[0].value,
   responseDeadline: request.responseDeadline ? request.responseDeadline.slice(0, 16) : '',
+  ownerId: request.ownerId ?? request.createdBy ?? '',
 })
 
 const getResumeStepIndex = ({ meetingRequest, timeOptions, invitees }) => {
@@ -118,7 +121,7 @@ export const CreateMeetingWizard = ({
   currentUserId,
 }) => {
   const [stepIndex, setStepIndex] = useState(0)
-  const [requestForm, setRequestForm] = useState(getInitialRequestForm)
+  const [requestForm, setRequestForm] = useState(() => getInitialRequestForm(currentUserId))
   const [meetingRequest, setMeetingRequest] = useState(null)
   const [timeDraft, setTimeDraft] = useState(getInitialTimeDraft)
   const [timeOptions, setTimeOptions] = useState([])
@@ -149,7 +152,7 @@ export const CreateMeetingWizard = ({
 
   const reset = () => {
     setStepIndex(0)
-    setRequestForm(getInitialRequestForm())
+    setRequestForm(getInitialRequestForm(currentUserId))
     setMeetingRequest(null)
     setTimeDraft(getInitialTimeDraft())
     setTimeOptions([])
@@ -240,6 +243,15 @@ export const CreateMeetingWizard = ({
           savedMeetingRequest = await service.updateRequest(meetingRequest.id, payload)
         }
         setMeetingRequest(savedMeetingRequest)
+
+        const owner = users.find((user) => user.id === savedMeetingRequest.ownerId)
+        if (owner && owner.id !== currentUserId) {
+          setInvitees((current) =>
+            current.some((invitee) => invitee.email === owner.email)
+              ? current
+              : [...current, { email: owner.email, name: owner.name }]
+          )
+        }
 
         const saved = await service.updateTimeOptions(savedMeetingRequest.id, timeOptions)
         setSavedTimeOptions(saved)
@@ -428,6 +440,7 @@ export const CreateMeetingWizard = ({
   const isRequestStepComplete =
     requestForm.title.trim() &&
     requestForm.meetingTag.trim() &&
+    requestForm.ownerId &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(requestForm.responseDeadline)
 
   const canContinue =
@@ -519,7 +532,13 @@ export const CreateMeetingWizard = ({
           ) : null}
           {!isLoadingRequest && stepIndex === 0 ? (
             <div className="space-y-6">
-              <CreateRequestStep form={requestForm} tags={tags} onChange={updateRequestForm} />
+              <CreateRequestStep
+                form={requestForm}
+                tags={tags}
+                users={users}
+                isOwnerLocked={Boolean(meetingRequest?.id)}
+                onChange={updateRequestForm}
+              />
               <AddTimeOptionsStep
                 options={timeOptions}
                 durationMinutes={requestForm.durationMinutes}
@@ -545,6 +564,7 @@ export const CreateMeetingWizard = ({
               onManualEmailChange={setManualEmail}
               onAddUser={addUserInvitee}
               onAddEmail={addEmailInvitee}
+              ownerEmail={users.find((user) => user.id === requestForm.ownerId)?.email}
               onRemoveInvitee={(email) =>
                 setInvitees((prev) => prev.filter((invitee) => invitee.email !== email))
               }

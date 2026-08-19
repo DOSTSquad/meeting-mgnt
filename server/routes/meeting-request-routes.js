@@ -54,6 +54,7 @@ meetingRequestRouter.post(
       .isISO8601({ strict: true })
       .withMessage('responseDeadline must be a valid ISO 8601 datetime')
       .toDate(),
+    body('ownerId').optional().isUUID().withMessage('ownerId must be a UUID'),
   ],
   handleValidationErrors,
   create

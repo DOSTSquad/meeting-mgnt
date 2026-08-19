@@ -54,9 +54,10 @@ beforeEach(async () => {
         starts_at,
         ends_at,
         timezone_name,
+        owner_id,
         created_by
       )
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5, $5)
       RETURNING *
     `,
     [

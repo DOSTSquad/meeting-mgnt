@@ -10,7 +10,7 @@ export const deliverMeetingCalendar = async ({
   const participants = await listByMeeting(meeting.id)
   const emailedInvitees = await listEmailedInviteesByMeetingId(meeting.id)
   const organizer =
-    participants.find((participant) => participant.userId === meeting.createdBy) ??
+    participants.find((participant) => participant.userId === meeting.ownerId) ??
     participants.find((participant) => participant.role === 'organizer')
 
   if (!organizer) {

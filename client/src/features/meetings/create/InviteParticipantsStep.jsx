@@ -10,6 +10,7 @@ export const InviteParticipantsStep = ({
   onAddUser,
   onAddEmail,
   onRemoveInvitee,
+  ownerEmail,
 }) => (
   <div className="mx-auto w-full max-w-xl space-y-4">
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -70,14 +71,20 @@ export const InviteParticipantsStep = ({
               <p className="text-sm font-bold text-slate-800">{invitee.name || invitee.email}</p>
               <p className="text-xs text-slate-500">{invitee.email}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => onRemoveInvitee(invitee.email)}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600"
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-              Remove
-            </button>
+            {invitee.email === ownerEmail ? (
+              <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-bold text-blue-700">
+                Owner
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onRemoveInvitee(invitee.email)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Remove
+              </button>
+            )}
           </div>
         ))}
         {invitees.length === 0 ? (

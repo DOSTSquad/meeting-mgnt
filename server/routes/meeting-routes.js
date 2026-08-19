@@ -49,6 +49,7 @@ meetingRouter.post(
       .trim()
       .isLength({ max: 100 })
       .withMessage('tag must be at most 100 characters'),
+    body('ownerId').optional().isUUID().withMessage('ownerId must be a UUID'),
   ],
   handleValidationErrors,
   create

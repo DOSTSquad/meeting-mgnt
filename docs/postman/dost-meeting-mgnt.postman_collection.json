@@ -204,9 +204,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\"\n}"
+              "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"ownerId\": \"<owner-user-uuid>\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\"\n}"
             },
-            "description": "Creates a meeting and sends the organizer a best-effort `METHOD:REQUEST` calendar email with `SEQUENCE:0`. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
+            "description": "Creates a meeting with an immutable registered-user `ownerId` and sends the organizer a best-effort `METHOD:REQUEST` calendar email with `SEQUENCE:0`. `ownerId` defaults to the caller for backwards compatibility; the owner and creator are both organizers when they differ. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
           },
           "event": [
             {
@@ -349,7 +349,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
             },
-            "description": "Hard delete. Returns 204 on success, 404 if not found."
+            "description": "Hard delete for the meeting owner or an organizer. Returns 204 on success, 403 for other callers, or 404 if not found."
           }
         }
       ]
@@ -374,9 +374,9 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"tag\": \"Operations\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"tag\": \"Operations\",\n  \"ownerId\": \"<owner-user-uuid>\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
             },
-            "description": "Creates a meeting request. `responseDeadline` is required, must be a future ISO 8601 datetime, and controls when invitee availability submission closes."
+            "description": "Creates a meeting request with an immutable registered-user `ownerId`. A distinct owner is retained in the invitation list and becomes an organizer when confirmed. `ownerId` defaults to the caller for backwards compatibility. `responseDeadline` is required, must be a future ISO 8601 datetime, and controls when invitee availability submission closes."
           },
           "event": [
             {
@@ -1199,6 +1199,35 @@
       "name": "Action items",
       "description": "Create, list, update, and delete action items attached to a meeting. Any meeting participant (including the creator) can CRUD action items.",
       "item": [
+        {
+          "name": "List personal or owned-meeting action items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/action-items?scope=mine",
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items"],
+              "query": [
+                {
+                  "key": "scope",
+                  "value": "mine",
+                  "description": "mine returns caller-assigned items; owned returns every item in meetings owned by the caller"
+                },
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "disabled": true
+                },
+                {
+                  "key": "priority",
+                  "value": "high",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns `{ actionItems }`. Scope defaults to `mine`; use `owned` for the meeting-owner Overall view, including other assignees and unassigned items."
+          }
+        },
         {
           "name": "Create action item",
           "request": {

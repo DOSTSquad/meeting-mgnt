@@ -72,7 +72,7 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    await deleteMeetingById(req.params.id)
+    await deleteMeetingById(req.params.id, req.user?.id)
 
     res.status(204).end()
   } catch (error) {

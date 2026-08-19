@@ -106,6 +106,35 @@ export const listByAssignee = async (assigneeId, { status, priority } = {}) => {
   return result.rows.map(mapActionItem)
 }
 
+export const listByMeetingOwner = async (ownerId, { status, priority } = {}) => {
+  const filters = ['meeting_id IN (SELECT id FROM meetings WHERE owner_id = $1)']
+  const params = [ownerId]
+  let paramIndex = 2
+
+  if (status) {
+    filters.push(`status = $${paramIndex}`)
+    params.push(status)
+    paramIndex += 1
+  }
+
+  if (priority) {
+    filters.push(`priority = $${paramIndex}`)
+    params.push(priority)
+  }
+
+  const result = await query(
+    `
+      SELECT ${ACTION_ITEM_COLUMNS}
+      FROM action_items
+      WHERE ${filters.join(' AND ')}
+      ORDER BY due_date ASC NULLS LAST, created_at DESC
+    `,
+    params
+  )
+
+  return result.rows.map(mapActionItem)
+}
+
 export const findById = async (id) => {
   const result = await query(
     `

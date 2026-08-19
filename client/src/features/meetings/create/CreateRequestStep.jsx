@@ -86,7 +86,13 @@ const RequiredLabel = ({ children }) => (
   </span>
 )
 
-export const CreateRequestStep = ({ form, tags = [], onChange }) => {
+export const CreateRequestStep = ({
+  form,
+  tags = [],
+  users = [],
+  isOwnerLocked = false,
+  onChange,
+}) => {
   const [isDeadlineCalendarOpen, setIsDeadlineCalendarOpen] = useState(false)
   const [isTimezoneMenuOpen, setIsTimezoneMenuOpen] = useState(false)
   const [activeTimeWindowId, setActiveTimeWindowId] = useState(TIME_WINDOWS[1].id)
@@ -124,6 +130,36 @@ export const CreateRequestStep = ({ form, tags = [], onChange }) => {
           className="mt-2 h-12 w-full rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           placeholder="Project Sync - Q2 Planning"
         />
+      </label>
+
+      <label className="block">
+        <RequiredLabel>Meeting Owner</RequiredLabel>
+        <div className="relative mt-2">
+          <select
+            value={form.ownerId}
+            disabled={isOwnerLocked}
+            onChange={(event) => onChange({ ownerId: event.target.value })}
+            className="h-12 w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 pr-10 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="" disabled>
+              Select the accountable meeting owner
+            </option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} - {user.email}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+            aria-hidden="true"
+          />
+        </div>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          {isOwnerLocked
+            ? 'The owner is locked because this meeting request has already been created.'
+            : 'The owner will be invited automatically and cannot be changed after creation.'}
+        </p>
       </label>
 
       <div className="block">

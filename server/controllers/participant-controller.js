@@ -7,7 +7,7 @@ import {
 
 export const list = async (req, res, next) => {
   try {
-    const { participants } = await listParticipantsForMeeting(req.params.meetingId)
+    const { participants } = await listParticipantsForMeeting(req.params.meetingId, req.user?.id)
 
     res.json({ participants })
   } catch (error) {

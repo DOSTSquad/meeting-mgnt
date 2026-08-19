@@ -1,5 +1,5 @@
-export const listActionItems = async (client) => {
-  const response = await client.get('/api/action-items')
+export const listActionItems = async (client, scope = 'mine') => {
+  const response = await client.get('/api/action-items', { params: { scope } })
   return response.data?.actionItems || []
 }
 

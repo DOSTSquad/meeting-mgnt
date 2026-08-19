@@ -46,7 +46,7 @@ const assertCanManageRecording = async (meeting, callerId) => {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 
@@ -65,7 +65,7 @@ const assertCanViewRecording = async (meeting, callerId) => {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 

@@ -6,6 +6,7 @@ import {
   insert,
   listByAssignee,
   listByMeeting,
+  listByMeetingOwner,
   remove as removeActionItemRow,
   updateOne,
 } from '../repositories/action-item-repository.js'
@@ -38,7 +39,7 @@ const assertIsParticipant = (meeting, callerId, participants) => {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 
@@ -54,7 +55,7 @@ const assertCanUpdateActionItem = (actionItem, meeting, callerId, participants, 
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.createdBy || participants.some((p) => p.userId === callerId)) {
+  if (callerId === meeting.ownerId || participants.some((p) => p.userId === callerId)) {
     return
   }
 
@@ -76,7 +77,7 @@ const assertCanViewActionItem = (actionItem, meeting, callerId, participants) =>
 
   if (
     callerId === actionItem.assigneeId ||
-    callerId === meeting.createdBy ||
+    callerId === meeting.ownerId ||
     participants.some((participant) => participant.userId === callerId)
   ) {
     return
@@ -132,7 +133,7 @@ export const listActionItems = async (meetingId, { status, assigneeId } = {}, ca
   return { actionItems }
 }
 
-export const listMyActionItems = async (callerId, { status, priority } = {}) => {
+export const listMyActionItems = async (callerId, { status, priority, scope = 'mine' } = {}) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
   }
@@ -145,7 +146,14 @@ export const listMyActionItems = async (callerId, { status, priority } = {}) => 
     throw createHttpError(`Invalid priority: ${priority}`, 400)
   }
 
-  const actionItems = await listByAssignee(callerId, { status, priority })
+  if (!['mine', 'owned'].includes(scope)) {
+    throw createHttpError(`Invalid scope: ${scope}`, 400)
+  }
+
+  const actionItems =
+    scope === 'owned'
+      ? await listByMeetingOwner(callerId, { status, priority })
+      : await listByAssignee(callerId, { status, priority })
 
   return { actionItems }
 }
@@ -274,7 +282,7 @@ export const updateActionItem = async (itemId, input, callerId) => {
 
   if (status !== undefined) {
     if (!ALLOWED_STATUSES.includes(status)) {
-      throw createHttpError(`Invalid status: ${status}`, 400)
+      throw createHttpError('Invalid status', 400)
     }
 
     updates.status = status

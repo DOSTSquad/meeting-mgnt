@@ -420,6 +420,48 @@ dbDescribe('Participant controller (DB-backed)', () => {
     expect(removeRes.nextError.message).toMatch(/last organizer/)
   })
 
+  it('cannot demote or remove the owner when another organizer exists', async () => {
+    await runHandler(
+      addParticipantsHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        body: { userIds: [aliceUser.id], role: 'organizer' },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    const demote = await runHandler(
+      updateParticipantHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id, userId: organizerUser.id },
+        body: { role: 'attendee' },
+        user: { id: organizerUser.id },
+      })
+    )
+    const removeResult = await runHandler(
+      removeParticipantHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id, userId: organizerUser.id },
+        user: { id: organizerUser.id },
+      })
+    )
+
+    expect(demote.nextError?.message).toMatch(/owner must remain an organizer/)
+    expect(removeResult.nextError?.message).toMatch(/owner cannot be removed/)
+  })
+
+  it('prevents outsiders from listing participant details', async () => {
+    const result = await runHandler(
+      listParticipantsHandler,
+      buildRequest({
+        params: { meetingId: baseMeeting.id },
+        user: { id: bobUser.id },
+      })
+    )
+
+    expect(result.nextError?.statusCode).toBe(403)
+  })
+
   it('GET /api/meetings/:id includes participants array', async () => {
     await runHandler(
       addParticipantsHandler,
