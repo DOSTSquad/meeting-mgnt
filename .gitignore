@@ -157,3 +157,6 @@ ai-service/*.egg-info/
 .agent/
 .codex/
 .playwright-mcp/
+.claude/
+.doc/slides/
+recap.md
