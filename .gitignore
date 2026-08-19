@@ -152,3 +152,8 @@ ai-service/*.egg-info/
 .codex-cage.env
 .codex-cage/runs/
 .codex-cage/*.sqlite
+
+# Local agent tooling
+.agent/
+.codex/
+.playwright-mcp/
