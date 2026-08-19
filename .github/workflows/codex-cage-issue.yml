@@ -50,6 +50,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Start test services
+        run: |
+          docker compose --project-directory "$GITHUB_WORKSPACE" \
+            -f .codex-cage/docker-compose.yml up -d --wait
+
       - name: Check out Codex Cage
         uses: actions/checkout@v6
         with:
@@ -143,6 +148,12 @@ jobs:
           if [ -f .tools/codex-cage/dist/src/cli.js ]; then
             node .tools/codex-cage/dist/src/cli.js cleanup --all || true
           fi
+
+      - name: Stop test services
+        if: always()
+        run: |
+          docker compose --project-directory "$GITHUB_WORKSPACE" \
+            -f .codex-cage/docker-compose.yml down -v
 
       - name: Clear in-progress label
         if: always()
