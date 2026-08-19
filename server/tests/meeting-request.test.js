@@ -136,6 +136,7 @@ describe('meeting request flow', () => {
     )
     expect(createResult.nextError).toBeUndefined()
     expect(createResult.res.statusCode).toBe(201)
+    expect(createResult.res.body.meetingRequest.ownerId).toBe(creator.id)
     const requestId = createResult.res.body.meetingRequest.id
 
     const optionsResult = await runHandler(
@@ -257,6 +258,71 @@ describe('meeting request flow', () => {
     )
     expect(participants.rows.map((row) => row.user_id).sort()).toEqual(
       [creator.id, invitee.id].sort()
+    )
+  })
+
+  it('retains a distinct owner in the invitee list', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Owner-led review',
+          tag: 'Operations',
+          ownerId: outsider.id,
+          responseDeadline: dateFromNow(2),
+        },
+      })
+    )
+    const requestId = createResult.res.body.meetingRequest.id
+    const optionsResult = await runHandler(
+      replaceTimeOptions,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: {
+          timeOptions: [{ startsAt: dateFromNow(7), endsAt: dateFromNow(7, 1) }],
+        },
+      })
+    )
+    const inviteesResult = await runHandler(
+      replaceInvitees,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: { invitees: [{ email: invitee.email }] },
+      })
+    )
+
+    expect(createResult.res.body.meetingRequest.ownerId).toBe(outsider.id)
+    expect(inviteesResult.res.body.invitees.map((item) => item.userId)).toEqual(
+      expect.arrayContaining([invitee.id, outsider.id])
+    )
+
+    const confirmResult = await runHandler(
+      confirm,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: { timeOptionId: optionsResult.res.body.timeOptions[0].id },
+      })
+    )
+    const participants = await query(
+      'SELECT user_id, role FROM meeting_participants WHERE meeting_id = $1',
+      [confirmResult.res.body.meeting.id]
+    )
+
+    expect(confirmResult.nextError).toBeUndefined()
+    expect(confirmResult.res.body.meeting.ownerId).toBe(outsider.id)
+    expect(participants.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ user_id: creator.id, role: 'organizer' }),
+        expect.objectContaining({ user_id: outsider.id, role: 'organizer' }),
+      ])
     )
   })
 

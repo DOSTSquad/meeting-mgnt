@@ -8,6 +8,7 @@ import {
 import { bulkUpsert } from '../repositories/participant-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
 import { createTag, findTagByName } from '../repositories/tag-repository.js'
+import { findUserById } from '../repositories/user-repository.js'
 import { notifyMeetingCreated } from './notification-service.js'
 
 const createHttpError = (message, statusCode) => {
@@ -105,7 +106,7 @@ const assertCanAccessMeeting = (meeting, callerId, participants) => {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 
@@ -129,6 +130,7 @@ export const createMeetingForUser = async (input, userId, deliverCalendar) => {
     location,
     status,
     tag,
+    ownerId = userId,
   } = input
 
   if (!title || !title.trim()) {
@@ -146,6 +148,11 @@ export const createMeetingForUser = async (input, userId, deliverCalendar) => {
     throw createHttpError(`Invalid status: ${status}`, 400)
   }
 
+  const owner = await findUserById(ownerId)
+  if (!owner) {
+    throw createHttpError('Unknown ownerId', 400)
+  }
+
   let tagId = null
   if (tag !== undefined && tag !== null && String(tag).trim()) {
     const existingTag = await findTagByName(String(tag))
@@ -161,17 +168,18 @@ export const createMeetingForUser = async (input, userId, deliverCalendar) => {
     location: location ?? null,
     status: status ?? 'scheduled',
     tagId,
+    ownerId,
     createdBy: userId,
   })
 
   await bulkUpsert({
     meetingId: meeting.id,
-    userIds: [userId],
+    userIds: [...new Set([userId, ownerId])],
     role: 'organizer',
     addedBy: userId,
   })
 
-  await notifyMeetingCreated(meeting, [userId])
+  await notifyMeetingCreated(meeting, [...new Set([userId, ownerId])])
 
   await deliverCalendarBestEffort(deliverCalendar, { meeting, action: 'created' })
 
@@ -206,7 +214,7 @@ export const updateMeetingById = async (id, input, callerId, deliverCalendar) =>
   const isOrganizer = participants.some(
     (participant) => participant.userId === callerId && participant.role === 'organizer'
   )
-  if (existing.createdBy !== callerId && !isOrganizer) {
+  if (existing.ownerId !== callerId && !isOrganizer) {
     throw createHttpError('Only meeting organizers can update this meeting', 403)
   }
 
@@ -280,7 +288,24 @@ export const updateMeetingById = async (id, input, callerId, deliverCalendar) =>
   return meeting
 }
 
-export const deleteMeetingById = async (id) => {
+export const deleteMeetingById = async (id, callerId) => {
+  const meeting = await findMeetingById(id)
+  if (!meeting) {
+    throw createHttpError('Meeting not found', 404)
+  }
+
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const participants = await listByMeeting(id)
+  const isOrganizer = participants.some(
+    (participant) => participant.userId === callerId && participant.role === 'organizer'
+  )
+  if (meeting.ownerId !== callerId && !isOrganizer) {
+    throw createHttpError('Only the meeting owner or an organizer can delete this meeting', 403)
+  }
+
   const removed = await deleteMeeting(id)
 
   if (!removed) {

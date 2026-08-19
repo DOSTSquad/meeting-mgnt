@@ -24,7 +24,7 @@ const assertManagePermission = (meeting, callerId, participants) => {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.createdBy) {
+  if (callerId === meeting.ownerId) {
     return
   }
 
@@ -47,10 +47,20 @@ const loadMeetingOrThrow = async (meetingId) => {
   return meeting
 }
 
-export const listParticipantsForMeeting = async (meetingId) => {
-  await loadMeetingOrThrow(meetingId)
+export const listParticipantsForMeeting = async (meetingId, callerId) => {
+  const meeting = await loadMeetingOrThrow(meetingId)
 
   const participants = await listByMeeting(meetingId)
+  if (!callerId) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const canView =
+    meeting.ownerId === callerId ||
+    participants.some((participant) => participant.userId === callerId)
+  if (!canView) {
+    throw createHttpError('Only meeting participants can view participants', 403)
+  }
 
   return { participants }
 }
@@ -127,6 +137,10 @@ export const updateParticipant = async (meetingId, userId, input, callerId) => {
     }
   }
 
+  if (target.userId === meeting.ownerId && role !== 'organizer') {
+    throw createHttpError('The meeting owner must remain an organizer', 400)
+  }
+
   const participant = await updateOne(meetingId, userId, { role })
 
   return { participant }
@@ -150,6 +164,10 @@ export const removeParticipant = async (meetingId, userId, callerId) => {
     if (organizerCount === 1) {
       throw createHttpError('Cannot remove the last organizer', 400)
     }
+  }
+
+  if (target.userId === meeting.ownerId) {
+    throw createHttpError('The meeting owner cannot be removed', 400)
   }
 
   await removeParticipantRow(meetingId, userId)

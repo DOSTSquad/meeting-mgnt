@@ -96,7 +96,7 @@ export const archiveReadNotificationsForUser = async (userId) => {
   return { archivedCount: await archiveReadNotifications(userId) }
 }
 
-export const notifyMeetingCreated = async (meeting, recipientUserIds = [meeting?.createdBy]) => {
+export const notifyMeetingCreated = async (meeting, recipientUserIds = [meeting?.ownerId]) => {
   const recipients = uniqueUserIds(recipientUserIds)
 
   return createNotifications(

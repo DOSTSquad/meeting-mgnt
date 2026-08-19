@@ -20,7 +20,7 @@ import {
   updateMeetingRequest,
 } from '../repositories/meeting-request-repository.js'
 import { bulkUpsert, listByMeeting } from '../repositories/participant-repository.js'
-import { findUserByEmail } from '../repositories/user-repository.js'
+import { findUserByEmail, findUserById } from '../repositories/user-repository.js'
 import { createMeetingForUser, updateMeetingById } from './meeting-service.js'
 import { sendMeetingConfirmation, sendMeetingInvitation } from './email-service.js'
 import {
@@ -134,6 +134,7 @@ export const createRequestForUser = async (input, callerId) => {
     durationMinutes = 60,
     timezoneName = 'UTC',
     responseDeadline,
+    ownerId = callerId,
   } = input ?? {}
 
   if (!title || !title.trim()) {
@@ -156,6 +157,11 @@ export const createRequestForUser = async (input, callerId) => {
   validateTimezone(timezoneName)
   validateFutureDateTime(responseDeadline, 'responseDeadline')
 
+  const owner = await findUserById(ownerId)
+  if (!owner) {
+    throw createHttpError('Unknown ownerId', 400)
+  }
+
   const meetingRequest = await createMeetingRequest({
     title,
     description: description ?? null,
@@ -163,6 +169,7 @@ export const createRequestForUser = async (input, callerId) => {
     durationMinutes: numericDuration,
     timezoneName,
     responseDeadline: toDate(responseDeadline),
+    ownerId,
     createdBy: callerId,
   })
 
@@ -284,6 +291,10 @@ export const updateRequestForUser = async (requestId, input, callerId) => {
 
   if (['confirmed', 'cancelled'].includes(meetingRequest.status)) {
     throw createHttpError('Closed meeting requests cannot be changed', 409)
+  }
+
+  if (input?.ownerId !== undefined && input.ownerId !== meetingRequest.ownerId) {
+    throw createHttpError('Meeting owner cannot be changed', 409)
   }
 
   const {
@@ -408,6 +419,18 @@ export const replaceInviteesForRequest = async (requestId, input, callerId) => {
     })
   }
 
+  if (
+    meetingRequest.ownerId !== meetingRequest.createdBy &&
+    !normalized.some((invitee) => invitee.userId === meetingRequest.ownerId)
+  ) {
+    const owner = await findUserById(meetingRequest.ownerId)
+    if (!owner) {
+      throw createHttpError('Meeting owner not found', 400)
+    }
+
+    normalized.push({ userId: owner.id, email: owner.email, name: owner.name })
+  }
+
   const updatedInvitees = await replaceInvitees(requestId, normalized)
 
   await notifyMeetingRequestInvited(meetingRequest, updatedInvitees)
@@ -526,6 +549,7 @@ export const confirmRequestForUser = async (
       location: location ?? null,
       tag: tag ?? meetingRequest.tag ?? null,
       status: 'scheduled',
+      ownerId: meetingRequest.ownerId,
     },
     callerId
   )
@@ -559,7 +583,9 @@ export const confirmRequestForUser = async (
 
   const emailedInvitees = await listEmailedInvitees(requestId)
   const meetingParticipants = await listByMeeting(meeting.id)
-  const organizer = meetingParticipants.find((participant) => participant.userId === callerId)
+  const organizer =
+    meetingParticipants.find((participant) => participant.userId === meeting.ownerId) ??
+    meetingParticipants.find((participant) => participant.userId === callerId)
   const confirmationRecipients = [organizer, ...emailedInvitees].filter(Boolean)
   const uniqueConfirmationRecipients = [
     ...new Map(
@@ -596,7 +622,7 @@ export const terminateRequestForUser = async (requestId, callerId, deliverCalend
     await updateMeetingById(
       meetingRequest.confirmedMeetingId,
       { status: 'cancelled' },
-      callerId,
+      meetingRequest.ownerId,
       deliverCalendar
     )
   }

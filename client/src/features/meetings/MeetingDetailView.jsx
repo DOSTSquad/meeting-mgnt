@@ -86,6 +86,7 @@ export const MeetingDetailView = ({
   onGenerateMinutesFromRecording,
   onDownloadMeetingFile,
   onPreview,
+  canManageMeeting = false,
 }) => {
   const [isDragOverMaterialFiles, setIsDragOverMaterialFiles] = useState(false)
   const [isDragOverRecording, setIsDragOverRecording] = useState(false)
@@ -215,7 +216,9 @@ export const MeetingDetailView = ({
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Title and location/meeting link save when the field loses focus.
+            {canManageMeeting
+              ? 'Title and location/meeting link save when the field loses focus.'
+              : 'Meeting information is read-only for participants.'}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="block">
@@ -224,6 +227,7 @@ export const MeetingDetailView = ({
               </span>
               <input
                 value={detail.meeting.title || ''}
+                disabled={!canManageMeeting}
                 onChange={(event) => onChange('title', event.target.value)}
                 onBlur={() => onSaveMeetingField('title')}
                 onKeyDown={(event) => saveOnEnter(event, 'title')}
@@ -237,6 +241,7 @@ export const MeetingDetailView = ({
               </span>
               <input
                 value={detail.meeting.location || ''}
+                disabled={!canManageMeeting}
                 onChange={(event) => onChange('location', event.target.value)}
                 onBlur={() => onSaveMeetingField('location')}
                 onKeyDown={(event) => saveOnEnter(event, 'location')}
@@ -277,6 +282,7 @@ export const MeetingDetailView = ({
           <textarea
             rows={4}
             value={detail.meeting.description || ''}
+            disabled={!canManageMeeting}
             onChange={(event) => onChange('description', event.target.value)}
             onBlur={() => onSaveMeetingField('description')}
             onKeyDown={(event) => saveTextareaOnShortcut(event, 'description')}
@@ -306,6 +312,7 @@ export const MeetingDetailView = ({
               </span>
               <select
                 value={detail.minutes?.status || 'draft'}
+                disabled={!canManageMeeting}
                 onChange={(event) => {
                   onMinutesChange('status', event.target.value)
                   onSaveMinutes({ status: event.target.value })
@@ -323,6 +330,7 @@ export const MeetingDetailView = ({
               </span>
               <select
                 value={detail.minutes?.facilitatorId || ''}
+                disabled={!canManageMeeting}
                 onChange={(event) => {
                   const facilitatorId = event.target.value || null
                   onMinutesChange('facilitatorId', facilitatorId)
@@ -344,6 +352,7 @@ export const MeetingDetailView = ({
               </span>
               <select
                 value={detail.minutes?.recorderId || ''}
+                disabled={!canManageMeeting}
                 onChange={(event) => {
                   const recorderId = event.target.value || null
                   onMinutesChange('recorderId', recorderId)
@@ -368,6 +377,7 @@ export const MeetingDetailView = ({
             <textarea
               rows={7}
               value={detail.minutes?.content || ''}
+              disabled={!canManageMeeting}
               onChange={(event) => onMinutesChange('content', event.target.value)}
               onBlur={() => onSaveMinutes({ content: detail.minutes?.content || '' })}
               onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'content')}
@@ -384,6 +394,7 @@ export const MeetingDetailView = ({
               <textarea
                 rows={5}
                 value={detail.minutes?.keyDiscussions || ''}
+                disabled={!canManageMeeting}
                 onChange={(event) => onMinutesChange('keyDiscussions', event.target.value)}
                 onBlur={() =>
                   onSaveMinutes({ keyDiscussions: detail.minutes?.keyDiscussions || '' })
@@ -400,6 +411,7 @@ export const MeetingDetailView = ({
               <textarea
                 rows={5}
                 value={detail.minutes?.decisions || ''}
+                disabled={!canManageMeeting}
                 onChange={(event) => onMinutesChange('decisions', event.target.value)}
                 onBlur={() => onSaveMinutes({ decisions: detail.minutes?.decisions || '' })}
                 onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'decisions')}
@@ -456,37 +468,39 @@ export const MeetingDetailView = ({
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onGenerateMinutesFromRecording}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
-                    >
-                      Test generation
-                    </button>
-                    <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
-                      Replace
-                      <input
-                        type="file"
-                        accept=".mp3,.wav,.m4a,audio/*"
-                        className="sr-only"
-                        onChange={(event) => {
-                          onUploadRecording(event.target.files, { replace: true })
-                          event.target.value = ''
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={onRemoveRecording}
-                      className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  {canManageMeeting ? (
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={onGenerateMinutesFromRecording}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
+                      >
+                        Test generation
+                      </button>
+                      <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                        Replace
+                        <input
+                          type="file"
+                          accept=".mp3,.wav,.m4a,audio/*"
+                          className="sr-only"
+                          onChange={(event) => {
+                            onUploadRecording(event.target.files, { replace: true })
+                            event.target.value = ''
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={onRemoveRecording}
+                        className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            ) : (
+            ) : canManageMeeting ? (
               <label
                 className={`mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
                   isDragOverRecording
@@ -519,6 +533,10 @@ export const MeetingDetailView = ({
                   }}
                 />
               </label>
+            ) : (
+              <p className="mt-4 rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">
+                No recording has been uploaded.
+              </p>
             )}
 
             {pendingRecordingFile ? (

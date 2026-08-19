@@ -39,6 +39,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const [dashboardData, setDashboardData] = useState(null)
   const [meetings, setMeetings] = useState([])
   const [actionItems, setActionItems] = useState([])
+  const [ownedMeetingActionItems, setOwnedMeetingActionItems] = useState([])
   const [notifications, setNotifications] = useState([])
   const [notificationCount, setNotificationCount] = useState(0)
   const [notificationNextCursor, setNotificationNextCursor] = useState(null)
@@ -87,7 +88,12 @@ const AppShell = ({ token, user, onLogout }) => {
   const reloadActionItemsData = useCallback(async () => {
     try {
       const client = getApiClient(token)
-      setActionItems(await listActionItems(client))
+      const [mine, owned] = await Promise.all([
+        listActionItems(client),
+        listActionItems(client, 'owned'),
+      ])
+      setActionItems(mine)
+      setOwnedMeetingActionItems(owned)
     } catch (error) {
       if (error.response?.status === 401) {
         onLogout()
@@ -227,8 +233,9 @@ const AppShell = ({ token, user, onLogout }) => {
     const load = async () => {
       try {
         const client = getApiClient(token)
-        const [loadedActionItems, loadedMeetings] = await Promise.all([
+        const [loadedActionItems, loadedOwnedActionItems, loadedMeetings] = await Promise.all([
           listActionItems(client),
+          listActionItems(client, 'owned'),
           listMeetings(client, { limit: 100 }),
         ])
 
@@ -237,6 +244,7 @@ const AppShell = ({ token, user, onLogout }) => {
         }
 
         setActionItems(loadedActionItems)
+        setOwnedMeetingActionItems(loadedOwnedActionItems)
         setMeetings(loadedMeetings)
       } catch (error) {
         if (isCancelled) {
@@ -348,6 +356,12 @@ const AppShell = ({ token, user, onLogout }) => {
     removeRecording,
     generateMinutesFromActiveRecording,
   } = meetingDetail
+  const canManageSelectedMeeting = Boolean(
+    selectedMeetingDetail?.meeting?.ownerId === user.id ||
+    selectedMeetingDetail?.participants?.some(
+      (participant) => participant.userId === user.id && participant.role === 'organizer'
+    )
+  )
 
   const moveActionItemStatus = async (actionItemId, nextStatus) => {
     const previousActionItems = actionItems
@@ -444,6 +458,7 @@ const AppShell = ({ token, user, onLogout }) => {
                     onGenerateMinutesFromRecording={generateMinutesFromActiveRecording}
                     onDownloadMeetingFile={openUploadedFile}
                     onPreview={() => setIsPreviewOpen(true)}
+                    canManageMeeting={canManageSelectedMeeting}
                   />
                 ) : (
                   <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
@@ -457,6 +472,7 @@ const AppShell = ({ token, user, onLogout }) => {
               element={
                 <ActionItemsView
                   actionItems={actionItems}
+                  summaryActionItems={ownedMeetingActionItems}
                   meetings={meetings}
                   users={users}
                   selectedActionItemId={selectedActionItemIdFromQuery}

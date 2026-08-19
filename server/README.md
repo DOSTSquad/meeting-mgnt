@@ -99,23 +99,24 @@ All `/api/*` routes require a JWT bearer token except the auth endpoints and `/a
 
 ### Meetings (`/api/meetings`)
 
-| Method | Path   | Body / Query                                                                   | Returns                                               |
-| ------ | ------ | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| POST   | `/`    | `{ title, description?, startsAt, endsAt, timezoneName?, location?, status? }` | `201 { meeting }`                                     |
-| GET    | `/`    | `?page=&limit=&from=&to=&status=&q=`                                           | `200 { meetings }` + `Link` & `X-Total-Count` headers |
-| GET    | `/:id` | —                                                                              | `200 { meeting }` or `404`                            |
-| PUT    | `/:id` | partial subset of POST body fields                                             | `200 { meeting }` or `404`                            |
-| DELETE | `/:id` | —                                                                              | `204` or `404`                                        |
+| Method | Path   | Body / Query                                                                             | Returns                                               |
+| ------ | ------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| POST   | `/`    | `{ title, description?, startsAt, endsAt, ownerId?, timezoneName?, location?, status? }` | `201 { meeting }`                                     |
+| GET    | `/`    | `?page=&limit=&from=&to=&status=&q=`                                                     | `200 { meetings }` + `Link` & `X-Total-Count` headers |
+| GET    | `/:id` | —                                                                                        | `200 { meeting }` or `404`                            |
+| PUT    | `/:id` | partial subset of POST body fields                                                       | `200 { meeting }` or `404`                            |
+| DELETE | `/:id` | —                                                                                        | `204` or `404`                                        |
 
 Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g. `2026-05-01T09:00:00+10:00`); Postgres stores them as UTC. `timezoneName` is an IANA zone name (default `'UTC'`) preserved verbatim for client-side display. Allowed `status` values: `scheduled`, `completed`, `cancelled`, `archived`.
 
-Meeting responses include `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `calendarSequence` is the persistent revision used by calendar clients to apply ICS updates and cancellations. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
+Meeting responses include immutable `ownerId` and audit-only `createdBy`, plus `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `ownerId` defaults to the caller for backwards compatibility. The creator and owner are both added as organizers when they differ. `calendarSequence` is the persistent revision used by calendar clients to apply ICS updates and cancellations. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
-`GET /api/meetings/:id` is available only to the meeting creator or meeting participants. Non-participants receive `403`, matching meeting file access rules.
+`GET /api/meetings/:id` is available only to the meeting owner or meeting participants. Non-participants receive `403`, matching meeting file access rules.
 
 `POST /api/meetings` sends a best-effort calendar email to the organizer. `PUT /api/meetings/:id`
-is restricted to the meeting creator or an organizer and sends material calendar updates to
+is restricted to the meeting owner or an organizer and sends material calendar updates to
 registered participants plus emailed external invitees linked through a confirmed meeting request.
+`DELETE /api/meetings/:id` is restricted to the meeting owner or an organizer.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
@@ -135,22 +136,22 @@ Updating `status` to the same value is a no-op. `archived` is terminal. Any othe
 
 Meeting requests support the scheduling flow before a confirmed meeting exists. Confirmed meetings still live in `/api/meetings`.
 
-| Method | Path                                           | Body / Query                                                                      | Returns                                                   |
-| ------ | ---------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| POST   | `/`                                            | `{ title, tag, responseDeadline, description?, durationMinutes?, timezoneName? }` | `201 { meetingRequest }`                                  |
-| GET    | `/:requestId`                                  | —                                                                                 | `200 { meetingRequest, timeOptions, invitees }`           |
-| PUT    | `/:requestId`                                  | `{ title, tag, responseDeadline, description?, durationMinutes?, timezoneName? }` | `200 { meetingRequest }`                                  |
-| GET    | `/:requestId/invitees/:inviteeId`              | —                                                                                 | `200 { meetingRequest, invitee, timeOptions, responses }` |
-| PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                             | `200 { timeOptions }`                                     |
-| PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                                | `200 { invitees }`                                        |
-| POST   | `/:requestId/send-invitations`                 | —                                                                                 | `200 { sentCount }`                                       |
-| PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                                  | `200 { responses }`                                       |
-| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                               | `201 { meeting, meetingRequest, emailDelivery }`          |
-| DELETE | `/:requestId`                                  | —                                                                                 | `200 { meetingRequest }`                                  |
+| Method | Path                                           | Body / Query                                                                                | Returns                                                   |
+| ------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| POST   | `/`                                            | `{ title, tag, responseDeadline, ownerId?, description?, durationMinutes?, timezoneName? }` | `201 { meetingRequest }`                                  |
+| GET    | `/:requestId`                                  | —                                                                                           | `200 { meetingRequest, timeOptions, invitees }`           |
+| PUT    | `/:requestId`                                  | `{ title, tag, responseDeadline, description?, durationMinutes?, timezoneName? }`           | `200 { meetingRequest }`                                  |
+| GET    | `/:requestId/invitees/:inviteeId`              | —                                                                                           | `200 { meetingRequest, invitee, timeOptions, responses }` |
+| PUT    | `/:requestId/time-options`                     | `{ timeOptions: [{ startsAt, endsAt, sortOrder? }] }`                                       | `200 { timeOptions }`                                     |
+| PUT    | `/:requestId/invitees`                         | `{ invitees: [{ email, name? }] }`                                                          | `200 { invitees }`                                        |
+| POST   | `/:requestId/send-invitations`                 | —                                                                                           | `200 { sentCount }`                                       |
+| PUT    | `/:requestId/invitees/:inviteeId/availability` | `{ responses: [{ timeOptionId, isAvailable }] }`                                            | `200 { responses }`                                       |
+| POST   | `/:requestId/confirm`                          | `{ timeOptionId, location?, tag? }`                                                         | `201 { meeting, meetingRequest, emailDelivery }`          |
+| DELETE | `/:requestId`                                  | —                                                                                           | `200 { meetingRequest }`                                  |
 
 Allowed request `status` values: `draft`, `collecting_availability`, `ready_to_confirm`, `confirmed`, `cancelled`.
 
-Meeting request responses include derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags. `responseDeadline` is required when creating a meeting request. It closes invitee availability submission and updates, but does not cancel the request. The request creator can confirm a final meeting time from the existing time options at any point after invitations are sent, including before all invitees respond. Confirming early closes the request and any outstanding availability voting.
+Meeting request responses include immutable `ownerId` plus derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags. `ownerId` must identify a registered user and defaults to the caller for backwards compatibility. A distinct owner is automatically retained in the invitee list and becomes an organizer with the request creator when the meeting is confirmed. `responseDeadline` is required when creating a meeting request. It closes invitee availability submission and updates, but does not cancel the request. The request creator can confirm a final meeting time from the existing time options at any point after invitations are sent, including before all invitees respond. Confirming early closes the request and any outstanding availability voting.
 
 Time options are scoped to a meeting request. The same wall-clock time offered in two different requests is stored as two different `meeting_time_options` rows, because selection state and availability counts belong to that request. Time options cannot overlap with the request creator's existing non-cancelled/non-archived meetings; conflicts return `409`. Availability is binary: `isAvailable=true` or `false`; missing response rows mean the invitee has not responded yet. Availability submission after the response deadline returns `409`. The invitee detail endpoint is safe for the matching invitee or the request creator and returns only that invitee's response rows, not the full invitee list.
 
@@ -198,7 +199,7 @@ Notifications are table-backed lifecycle records. New rows are created for meeti
 
 `GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId`, `recorderId`, and `generatedFromTranscriptId` are nullable UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
 
-Any meeting participant can read minutes. Only the meeting creator or a participant with `role='organizer'` can update minutes.
+Any meeting participant can read minutes. Only the meeting owner or a participant with `role='organizer'` can update minutes.
 
 ### Meeting Recording (`/api/meetings/:meetingId/recording`)
 
@@ -211,7 +212,7 @@ Meeting recordings are the dedicated audio source for transcript/minutes generat
 | DELETE | `/`                 | —                                                       | `204`                                             |
 | POST   | `/generate-minutes` | —                                                       | `202 { recording, transcript, generationStatus }` |
 
-Any meeting participant can read recording metadata and transcript status. Only the meeting creator or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+Any meeting participant can read recording metadata and transcript status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
 `POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
@@ -227,7 +228,7 @@ Any meeting participant can read recording metadata and transcript status. Only 
 Allowed `role` values: `organizer`, `attendee`, `optional` (default `attendee`).
 
 `POST` is idempotent — re-adding an existing participant is a no-op (use `PATCH` to change role).
-Only the meeting creator or a participant with `role='organizer'` can add, update, or remove participants. The last organizer cannot be demoted or removed.
+Only the meeting owner or a participant with `role='organizer'` can add, update, or remove participants. The last organizer cannot be demoted or removed, and the immutable owner cannot be removed or downgraded. Participant details are visible only to the owner and meeting participants.
 
 `GET /api/meetings/:id` now includes a `participants` array alongside the meeting.
 
@@ -244,7 +245,7 @@ Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, Markdown, and a
 
 Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
 
-Any meeting participant (creator or any role) can upload, list, and request download URLs. Only the meeting creator or a participant with `role='organizer'` can delete files. Non-participants receive `403`.
+Any meeting participant (including the owner or any participant role) can upload, list, and request download URLs. Only the meeting owner or a participant with `role='organizer'` can delete files. Non-participants receive `403`.
 
 ### Action Items (`/api/meetings/:meetingId/action-items` and `/api/action-items`)
 
@@ -252,6 +253,7 @@ Any meeting participant (creator or any role) can upload, list, and request down
 | ------ | ----------------------------------- | --------------------------------------------------------------------------------------------- | --------------------- |
 | POST   | `/meetings/:meetingId/action-items` | `{ title, description?, assigneeId?, dueDate?, priority? }`                                   | `201 { actionItem }`  |
 | GET    | `/meetings/:meetingId/action-items` | `?status=...&assigneeId=...` (both optional)                                                  | `200 { actionItems }` |
+| GET    | `/action-items`                     | `?scope=mine\|owned&status=...&priority=...`                                                  | `200 { actionItems }` |
 | GET    | `/action-items/:id`                 | —                                                                                             | `200 { actionItem }`  |
 | PUT    | `/action-items/:id`                 | partial: `{ title?, description?, assigneeId?, dueDate?, status?, priority? }` (at least one) | `200 { actionItem }`  |
 | DELETE | `/action-items/:id`                 | —                                                                                             | `204`                 |
@@ -259,7 +261,8 @@ Any meeting participant (creator or any role) can upload, list, and request down
 - `status` — one of `todo` (default), `in_progress`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
 - `isOverdue` and `dueState` are derived from `dueDate` and workflow `status`; they are not persisted statuses. `dueState` is one of `none`, `upcoming`, `overdue`, or `closed`.
 - `priority` — one of `low`, `medium` (default), `high`.
-- Any meeting participant (including the creator) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
+- Any meeting participant (including the owner) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
+- `/action-items` defaults to `scope=mine`, which returns only items assigned to the caller. `scope=owned` returns every item attached to meetings whose `ownerId` is the caller, including items assigned to others and unassigned items.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
 
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).

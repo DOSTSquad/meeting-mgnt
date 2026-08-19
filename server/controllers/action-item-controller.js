@@ -12,6 +12,7 @@ export const listMine = async (req, res, next) => {
     const { actionItems } = await listMyActionItems(req.user?.id, {
       status: req.query.status,
       priority: req.query.priority,
+      scope: req.query.scope,
     })
 
     res.json({ actionItems })
@@ -60,11 +61,7 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
-    const { actionItem } = await updateActionItem(
-      req.params.id,
-      req.body ?? {},
-      req.user?.id
-    )
+    const { actionItem } = await updateActionItem(req.params.id, req.body ?? {}, req.user?.id)
 
     res.json({ actionItem })
   } catch (error) {

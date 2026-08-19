@@ -162,6 +162,7 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(meeting.title).toBe('Sprint Planning')
     expect(meeting.timezoneName).toBe('Australia/Brisbane')
     expect(meeting.createdBy).toBe(testUser.id)
+    expect(meeting.ownerId).toBe(testUser.id)
     expect(meeting.status).toBe('scheduled')
     expect(meeting.fileCount).toBe(0)
 
@@ -170,6 +171,23 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     )
     expect(new Date(meeting.endsAt).toISOString()).toBe(
       new Date('2026-05-01T10:00:00+10:00').toISOString()
+    )
+  })
+
+  it('supports a distinct owner and makes both owner and creator organizers', async () => {
+    const meeting = await createMeetingViaController({ ownerId: outsiderUser.id })
+    const participants = await query(
+      'SELECT user_id, role FROM meeting_participants WHERE meeting_id = $1 ORDER BY user_id',
+      [meeting.id]
+    )
+
+    expect(meeting.createdBy).toBe(testUser.id)
+    expect(meeting.ownerId).toBe(outsiderUser.id)
+    expect(participants.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ user_id: testUser.id, role: 'organizer' }),
+        expect.objectContaining({ user_id: outsiderUser.id, role: 'organizer' }),
+      ])
     )
   })
 
@@ -788,6 +806,20 @@ dbDescribe('Meeting controller (DB-backed)', () => {
 
     expect(fetchRes.nextError).toBeDefined()
     expect(fetchRes.nextError.statusCode).toBe(404)
+  })
+
+  it('prevents an outsider from deleting a meeting', async () => {
+    const created = await createMeetingViaController()
+    const result = await runHandler(
+      remove,
+      buildRequest({ params: { id: created.id }, user: { id: outsiderUser.id } })
+    )
+
+    expect(result.nextError?.statusCode).toBe(403)
+    expect(await query('SELECT id FROM meetings WHERE id = $1', [created.id])).toHaveProperty(
+      'rowCount',
+      1
+    )
   })
 
   it('eagerly creates minutes for a meeting and updates moved minutes fields', async () => {

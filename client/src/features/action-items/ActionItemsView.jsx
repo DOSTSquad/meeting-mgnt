@@ -229,6 +229,7 @@ export const ActionItemDetailModal = ({
 
 export const ActionItemsView = ({
   actionItems,
+  summaryActionItems = [],
   meetings = [],
   users = [],
   selectedActionItemId: selectedActionItemIdProp = null,
@@ -334,7 +335,11 @@ export const ActionItemsView = ({
       <PageHeader
         eyebrow="Personal workflow"
         title="Action Items"
-        description="Track every follow-up without losing sight of what is due next."
+        description={
+          viewMode === 'summary'
+            ? 'Monitor completion, priority, and deadlines across meetings you own.'
+            : 'Track action items assigned to you without losing sight of what is due next.'
+        }
         icon={ListChecks}
         accent="emerald"
         action={
@@ -374,7 +379,7 @@ export const ActionItemsView = ({
       />
 
       {viewMode === 'summary' ? (
-        <ActionItemsSummary actionItems={actionItems} />
+        <ActionItemsSummary actionItems={summaryActionItems} />
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">

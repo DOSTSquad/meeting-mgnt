@@ -12,6 +12,7 @@ const MEETING_COLUMNS = `
   m.calendar_sequence,
   m.tag_id,
   t.name AS tag_name,
+  m.owner_id,
   m.created_by,
   m.created_at,
   m.updated_at
@@ -50,6 +51,7 @@ const mapMeeting = (row) => {
     calendarSequence: row.calendar_sequence,
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
+    ownerId: row.owner_id,
     fileCount: Number(row.file_count ?? 0),
     fileNames: row.file_names ?? [],
     participantCount: Number(row.participant_count ?? 0),
@@ -69,18 +71,30 @@ export const createMeeting = async ({
   location = null,
   status = 'scheduled',
   tagId = null,
+  ownerId,
   createdBy,
 }) => {
   const result = await query(
     `
       INSERT INTO meetings (
         title, description, starts_at, ends_at, timezone_name,
-        location, status, tag_id, created_by
+        location, status, tag_id, owner_id, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING id
     `,
-    [title.trim(), description, startsAt, endsAt, timezoneName, location, status, tagId, createdBy]
+    [
+      title.trim(),
+      description,
+      startsAt,
+      endsAt,
+      timezoneName,
+      location,
+      status,
+      tagId,
+      ownerId,
+      createdBy,
+    ]
   )
 
   return findMeetingById(result.rows[0].id)

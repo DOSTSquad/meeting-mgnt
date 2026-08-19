@@ -10,10 +10,7 @@ import {
   update,
 } from '../controllers/action-item-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
-import {
-  ALLOWED_PRIORITIES,
-  ALLOWED_STATUSES,
-} from '../services/action-item-service.js'
+import { ALLOWED_PRIORITIES, ALLOWED_STATUSES } from '../services/action-item-service.js'
 
 // Mounted at /api/meetings/:meetingId/action-items (mergeParams: true)
 export const meetingActionItemRouter = Router({ mergeParams: true })
@@ -42,9 +39,19 @@ meetingActionItemRouter.post(
       .withMessage('title is required')
       .isLength({ max: 255 })
       .withMessage('title must be 255 characters or fewer'),
-    body('description').optional({ nullable: true }).isString().withMessage('description must be a string'),
-    body('assigneeId').optional({ nullable: true }).isUUID().withMessage('assigneeId must be a UUID'),
-    body('dueDate').optional({ nullable: true }).isISO8601().withMessage('dueDate must be ISO 8601').toDate(),
+    body('description')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('description must be a string'),
+    body('assigneeId')
+      .optional({ nullable: true })
+      .isUUID()
+      .withMessage('assigneeId must be a UUID'),
+    body('dueDate')
+      .optional({ nullable: true })
+      .isISO8601()
+      .withMessage('dueDate must be ISO 8601')
+      .toDate(),
     body('priority').optional().isIn(ALLOWED_PRIORITIES).withMessage('Invalid priority'),
   ],
   handleValidationErrors,
@@ -59,6 +66,7 @@ actionItemRouter.get(
   [
     query('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
     query('priority').optional().isIn(ALLOWED_PRIORITIES).withMessage('Invalid priority'),
+    query('scope').optional().isIn(['mine', 'owned']).withMessage('Invalid scope'),
   ],
   handleValidationErrors,
   listMine
@@ -85,9 +93,19 @@ actionItemRouter.put(
       .withMessage('title must be non-empty')
       .isLength({ max: 255 })
       .withMessage('title must be 255 characters or fewer'),
-    body('description').optional({ nullable: true }).isString().withMessage('description must be a string'),
-    body('assigneeId').optional({ nullable: true }).isUUID().withMessage('assigneeId must be a UUID'),
-    body('dueDate').optional({ nullable: true }).isISO8601().withMessage('dueDate must be ISO 8601').toDate(),
+    body('description')
+      .optional({ nullable: true })
+      .isString()
+      .withMessage('description must be a string'),
+    body('assigneeId')
+      .optional({ nullable: true })
+      .isUUID()
+      .withMessage('assigneeId must be a UUID'),
+    body('dueDate')
+      .optional({ nullable: true })
+      .isISO8601()
+      .withMessage('dueDate must be ISO 8601')
+      .toDate(),
     body('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
     body('priority').optional().isIn(ALLOWED_PRIORITIES).withMessage('Invalid priority'),
   ],
