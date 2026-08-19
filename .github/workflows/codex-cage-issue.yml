@@ -1,0 +1,149 @@
+name: Codex Cage issue run
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: codex-cage-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CODEX_CAGE_REF: 20ff421193b339034293f51133d29bf4d7544759
+  ISSUE_NUMBER: ${{ github.event.issue.number }}
+  ISSUE_URL: ${{ github.event.issue.html_url }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  run:
+    if: github.event.label.name == 'codex-cage:run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Mark issue in progress
+        env:
+          GH_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'codex-cage:run' \
+            --add-label 'codex-cage:in-progress'
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'codex-cage:blocked' || true
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'codex-cage:ready-for-review' || true
+
+      - name: Validate credentials
+        env:
+          CODEX_CAGE_GITHUB_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          test -n "$CODEX_CAGE_GITHUB_TOKEN" || { echo 'Missing CODEX_CAGE_GITHUB_TOKEN'; exit 1; }
+          test -n "$OPENAI_API_KEY" || { echo 'Missing OPENAI_API_KEY'; exit 1; }
+
+      - name: Check out target repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check out Codex Cage
+        uses: actions/checkout@v6
+        with:
+          repository: jhowliu/codex-cage
+          ref: ${{ env.CODEX_CAGE_REF }}
+          path: .tools/codex-cage
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: .tools/codex-cage/package-lock.json
+
+      - name: Build Codex Cage
+        run: |
+          npm ci --prefix .tools/codex-cage
+          npm run build --prefix .tools/codex-cage
+
+      - name: Write Codex Cage credentials
+        env:
+          CODEX_CAGE_GITHUB_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          {
+            printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            printf 'GITHUB_TOKEN=%s\n' "$CODEX_CAGE_GITHUB_TOKEN"
+          } > .codex-cage.env
+          chmod 600 .codex-cage.env
+
+      - name: Run Codex Cage
+        env:
+          CODEX_CAGE_EXECUTION: docker
+        run: >-
+          node .tools/codex-cage/dist/src/cli.js run "$ISSUE_URL"
+          --repo "$GITHUB_REPOSITORY"
+          --verbose
+          --result-json "$RUNNER_TEMP/codex-cage-result.json"
+
+      - name: Mark issue ready for review
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'codex-cage:blocked' || true
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --add-label 'codex-cage:ready-for-review'
+
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
+        run: |
+          FAILURE_CODE=$(jq -r '.failureCode // "unknown"' "$RUNNER_TEMP/codex-cage-result.json" 2>/dev/null || echo unknown)
+          BODY="Codex Cage run failed (\`${FAILURE_CODE}\`). [View workflow run](${RUN_URL})."
+          SUMMARY_FILE=''
+          for candidate in .codex-cage/runs/*/summary.md; do
+            if [ -f "$candidate" ]; then
+              SUMMARY_FILE=$candidate
+              break
+            fi
+          done
+          if [ -n "$SUMMARY_FILE" ]; then
+            BODY="${BODY}"$'\n\n'"$(cat "$SUMMARY_FILE")"
+          fi
+          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'codex-cage:ready-for-review' || true
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --add-label 'codex-cage:blocked'
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-cage-run-${{ github.event.issue.number }}
+          path: |
+            .codex-cage/runs/
+            ${{ runner.temp }}/codex-cage-result.json
+          if-no-files-found: ignore
+
+      - name: Clean up Codex Cage resources
+        if: always()
+        run: |
+          rm -f .codex-cage.env
+          if [ -f .tools/codex-cage/dist/src/cli.js ]; then
+            node .tools/codex-cage/dist/src/cli.js cleanup --all || true
+          fi
+
+      - name: Clear in-progress label
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.CODEX_CAGE_GITHUB_TOKEN }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'codex-cage:in-progress' || true

@@ -147,3 +147,8 @@ ai-service/__pycache__/
 ai-service/**/__pycache__/
 ai-service/.pytest_cache/
 ai-service/*.egg-info/
+
+# Codex Cage local credentials and run state
+.codex-cage.env
+.codex-cage/runs/
+.codex-cage/*.sqlite

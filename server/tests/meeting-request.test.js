@@ -249,7 +249,7 @@ describe('meeting request flow', () => {
     expect(confirmResult.nextError).toBeUndefined()
     expect(confirmResult.res.statusCode).toBe(201)
     expect(confirmResult.res.body.meeting.title).toBe('Quarterly review')
-    expect(confirmResult.res.body.meeting.tag).toBe('operations')
+    expect(confirmResult.res.body.meeting.tag).toBe('Operations')
     expect(confirmResult.res.body.meetingRequest.status).toBe('confirmed')
 
     const participants = await query(
