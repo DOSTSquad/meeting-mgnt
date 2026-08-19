@@ -40,6 +40,13 @@ const isActiveMeeting = (meeting) => !['cancelled', 'archived'].includes(meeting
 const isPastSlot = (dateValue, timeValue, timezoneName) =>
   zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) < new Date()
 
+const isSlotAtOrBeforeDeadline = (dateValue, timeValue, timezoneName, responseDeadline) =>
+  Boolean(
+    responseDeadline &&
+    zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) <=
+      new Date(responseDeadline)
+  )
+
 const findBlockedMeeting = ({ date, time, durationMinutes, timezoneName, blockedMeetings }) => {
   const startsAt = zonedDateTimeToUtcDate({ date, time, timeZone: timezoneName })
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000)
@@ -62,6 +69,7 @@ export const AddTimeOptionsStep = ({
   startTime,
   endTime,
   timezoneName,
+  responseDeadline,
   blockedMeetings = [],
   onMeetingTimeChange,
   onAddOption,
@@ -78,6 +86,12 @@ export const AddTimeOptionsStep = ({
   const isPendingDatePast = pendingDateValue
     ? isPastSlot(pendingDateValue, startTime, timezoneName)
     : false
+  const isPendingDateAtOrBeforeDeadline = pendingDateValue
+    ? isSlotAtOrBeforeDeadline(pendingDateValue, startTime, timezoneName, responseDeadline)
+    : false
+  const hasInvalidDeadlineOption = options.some(
+    (option) => responseDeadline && new Date(option.startsAt) <= new Date(responseDeadline)
+  )
   const pendingBlockedMeeting = pendingDateValue
     ? findBlockedMeeting({
         date: pendingDateValue,
@@ -92,6 +106,7 @@ export const AddTimeOptionsStep = ({
     hasValidTimeRange &&
     !isPendingDateSelected &&
     !isPendingDatePast &&
+    !isPendingDateAtOrBeforeDeadline &&
     !pendingBlockedMeeting
 
   const chooseDate = (date) => {
@@ -117,6 +132,10 @@ export const AddTimeOptionsStep = ({
     }
 
     const dateValue = toDateValue(date)
+    if (isSlotAtOrBeforeDeadline(dateValue, startTime, timezoneName, responseDeadline)) {
+      return true
+    }
+
     const isAlreadySelected = options.some(
       (option) => option.startsAt === getSlotIso(dateValue, startTime, timezoneName)
     )
@@ -217,10 +236,15 @@ export const AddTimeOptionsStep = ({
                 ? `Duration: ${formatDuration(durationMinutes)}`
                 : 'End time must be later than start time.'}
             </p>
+            {hasInvalidDeadlineOption ? (
+              <p className="mt-2 text-xs font-semibold text-rose-600">
+                Remove or reschedule candidate times that do not start after the response deadline.
+              </p>
+            ) : null}
 
             <div className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs font-semibold leading-5 text-blue-700">
-              Select a date in the calendar, then confirm it with the button below. Unavailable
-              dates are disabled automatically.
+              Select a date in the calendar, then confirm it with the button below. Candidate times
+              must start after the response deadline. Unavailable dates are disabled automatically.
             </div>
             <p className="mt-4 text-sm font-bold text-slate-800">
               {pendingDate ? format(pendingDate, 'EEEE, MMMM d, yyyy') : 'No date selected'}

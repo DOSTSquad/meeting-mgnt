@@ -1,0 +1,44 @@
+setup:
+  - npm ci
+  - cp .codex-cage/test.env .env
+  - node .codex-cage/wait-for-tcp.mjs postgres 5432
+  - node .codex-cage/wait-for-tcp.mjs redis 6379
+  - curl -fsS --retry 60 --retry-all-errors --retry-delay 1 http://minio:9000/minio/health/live
+  - npm run migrate --workspace=server
+
+verify:
+  - npm run lint
+  - npm run build --workspace=client
+  - npm run test:db --workspace=server
+
+services:
+  compose: .codex-cage/docker-compose.yml
+  ready: []
+
+runtime:
+  image: ghcr.io/jhowliu/codex-cage/base:0.1.1
+  dockerfile: null
+
+agent:
+  model: gpt-5.6
+  max_iterations: 5
+  max_review_cycles: 2
+
+timeouts:
+  total_minutes: 90
+  command_minutes: 20
+  idle_minutes: 10
+
+pr:
+  draft: false
+
+git:
+  base: main
+  author_name: Codex Cage
+  author_email: codex-cage@users.noreply.github.com
+
+issue:
+  comments: 10
+
+guards:
+  max_secret_fix_attempts: 2

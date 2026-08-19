@@ -56,6 +56,64 @@ Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migra
 | Seed local demo data       | `npm run seed --workspace=server`    |
 | Build client               | `npm run build --workspace=client`   |
 
+## Codex Cage
+
+This repository is configured for issue-driven development with [Codex Cage](https://github.com/jhowliu/codex-cage). Codex Cage clones the repository into a disposable Docker workspace, starts isolated PostgreSQL, Redis, and MinIO services, runs implementation and independent review agents, verifies the result, scans the diff for secrets, and opens a pull request only after all gates pass.
+
+Requirements:
+
+- Node.js 22 or later
+- Docker
+- Codex Cage installed from its repository
+- Codex OAuth or `OPENAI_API_KEY`
+- A fine-grained `GITHUB_TOKEN` with repository Contents read/write, Issues read, Pull requests read/write, and Metadata read permissions
+
+Copy `.codex-cage.env.example` to `.codex-cage.env` and add local credentials. The real file and all local run state are ignored by Git.
+
+Run a GitHub issue:
+
+```bash
+codex-cage run https://github.com/DOSTSquad/meeting-mgnt/issues/123
+```
+
+Run a Linear issue by specifying this repository:
+
+```bash
+codex-cage run https://linear.app/ORG/issue/DOS-123/title --repo DOSTSquad/meeting-mgnt
+```
+
+Inspect or clean up runs:
+
+```bash
+codex-cage runs list
+codex-cage runs show <run-id>
+codex-cage cleanup
+```
+
+Codex Cage uses `.codex-cage/test.env` only for disposable test services. Real application and provider credentials must remain in the local `.env` or `.codex-cage.env` files.
+
+### GitHub Actions
+
+The `Codex Cage issue run` workflow starts when an issue receives the `codex-cage:run` label. It runs Codex Cage in Docker mode, opens a pull request after verification and independent review pass, uploads run artifacts, and updates the issue labels to show the result.
+
+Configure these repository secrets before triggering the workflow:
+
+| Name                      | Purpose                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `OPENAI_API_KEY`          | Codex authentication for implementation and review agents                                                          |
+| `CODEX_CAGE_GITHUB_TOKEN` | Fine-grained token with Contents read/write, Issues read/write, Pull requests read/write, and Metadata read access |
+
+The workflow uses these issue labels:
+
+| Label                         | Purpose                                |
+| ----------------------------- | -------------------------------------- |
+| `codex-cage:run`              | Trigger a run                          |
+| `codex-cage:in-progress`      | A run is active                        |
+| `codex-cage:ready-for-review` | The run opened a verified pull request |
+| `codex-cage:blocked`          | The run failed and needs attention     |
+
+The Codex Cage source revision is pinned in `.github/workflows/codex-cage-issue.yml`. Update `CODEX_CAGE_REF` deliberately after testing a newer revision.
+
 ## Caddy Deployment
 
 [`deploy/Caddyfile`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/deploy/Caddyfile) serves the built React app and proxies API traffic to the Express server.

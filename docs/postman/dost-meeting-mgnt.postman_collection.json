@@ -376,7 +376,7 @@
               "mode": "raw",
               "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"tag\": \"Operations\",\n  \"ownerId\": \"<owner-user-uuid>\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
             },
-            "description": "Creates a meeting request with an immutable registered-user `ownerId`. A distinct owner is retained in the invitation list and becomes an organizer when confirmed. `ownerId` defaults to the caller for backwards compatibility. `responseDeadline` is required, must be a future ISO 8601 datetime, and controls when invitee availability submission closes."
+            "description": "Creates a meeting request with an immutable registered-user `ownerId`. A distinct owner is retained in the invitation list and becomes an organizer when confirmed. `ownerId` defaults to the caller for backwards compatibility. `responseDeadline` is required, must be a future ISO 8601 datetime, controls when invitee availability submission closes, and must remain strictly earlier than every candidate time option."
           },
           "event": [
             {
@@ -412,7 +412,7 @@
               "mode": "raw",
               "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"tag\": \"Operations\",\n  \"description\": \"Review delivery health and updated risks\",\n  \"durationMinutes\": 90,\n  \"timezoneName\": \"Asia/Manila\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+08:00\"\n}"
             },
-            "description": "Updates editable meeting request details before the request is closed. Used when the organizer goes back in the creation wizard and changes duration, timezone, title, tag, description, or response deadline."
+            "description": "Updates editable meeting request details before the request is closed. Used when the organizer goes back in the creation wizard and changes duration, timezone, title, tag, description, or response deadline. The response deadline must remain strictly earlier than every existing candidate time option; invalid updates return 400."
           }
         },
         {
@@ -434,7 +434,7 @@
               "mode": "raw",
               "raw": "{\n  \"timeOptions\": [\n    {\n      \"startsAt\": \"2026-05-12T09:00:00+10:00\",\n      \"endsAt\": \"2026-05-12T10:00:00+10:00\"\n    },\n    {\n      \"startsAt\": \"2026-05-12T11:00:00+10:00\",\n      \"endsAt\": \"2026-05-12T12:00:00+10:00\"\n    }\n  ]\n}"
             },
-            "description": "Replaces candidate time options. Returns 409 if any option overlaps the request creator's existing non-cancelled/non-archived meetings."
+            "description": "Replaces candidate time options. Every option must start strictly after the response deadline; earlier or equal starts return 400. Returns 409 if any option overlaps the request creator's existing non-cancelled/non-archived meetings."
           },
           "event": [
             {

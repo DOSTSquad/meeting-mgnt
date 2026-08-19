@@ -249,7 +249,7 @@ describe('meeting request flow', () => {
     expect(confirmResult.nextError).toBeUndefined()
     expect(confirmResult.res.statusCode).toBe(201)
     expect(confirmResult.res.body.meeting.title).toBe('Quarterly review')
-    expect(confirmResult.res.body.meeting.tag).toBe('operations')
+    expect(confirmResult.res.body.meeting.tag).toBe('Operations')
     expect(confirmResult.res.body.meetingRequest.status).toBe('confirmed')
 
     const participants = await query(
@@ -975,6 +975,92 @@ describe('meeting request flow', () => {
 
     expect(optionsResult.nextError.statusCode).toBe(400)
     expect(optionsResult.nextError.message).toBe('startsAt must be in the future')
+  })
+
+  it.each([
+    ['before', -24 * 60 * 60 * 1000],
+    ['equal to', 0],
+  ])('rejects candidate time options %s the response deadline', async (_, offsetMs) => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const responseDeadline = dateFromNow(2)
+    const startsAt = new Date(new Date(responseDeadline).getTime() + offsetMs).toISOString()
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Deadline constrained request',
+          tag: 'Operations',
+          responseDeadline,
+        },
+      })
+    )
+    const endsAt = new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString()
+
+    const optionsResult = await runHandler(
+      replaceTimeOptions,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId: createResult.res.body.meetingRequest.id },
+        body: { timeOptions: [{ startsAt, endsAt }] },
+      })
+    )
+
+    expect(optionsResult.nextError.statusCode).toBe(400)
+    expect(optionsResult.nextError.message).toBe(
+      'timeOptions[0].startsAt must be after responseDeadline'
+    )
+  })
+
+  it('rejects a response deadline at or after an existing candidate time', async () => {
+    if (!runDatabaseTests) {
+      return
+    }
+
+    const createResult = await runHandler(
+      create,
+      buildRequest({
+        user: { id: creator.id },
+        body: {
+          title: 'Deadline update request',
+          tag: 'Planning',
+          responseDeadline: dateFromNow(1),
+        },
+      })
+    )
+    const requestId = createResult.res.body.meetingRequest.id
+    const startsAt = dateFromNow(3)
+    const endsAt = dateFromNow(3, 1)
+
+    await runHandler(
+      replaceTimeOptions,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: { timeOptions: [{ startsAt, endsAt }] },
+      })
+    )
+
+    const updateResult = await runHandler(
+      update,
+      buildRequest({
+        user: { id: creator.id },
+        params: { requestId },
+        body: {
+          title: 'Deadline update request',
+          tag: 'Planning',
+          responseDeadline: startsAt,
+        },
+      })
+    )
+
+    expect(updateResult.nextError.statusCode).toBe(400)
+    expect(updateResult.nextError.message).toBe(
+      'timeOptions[0].startsAt must be after responseDeadline'
+    )
   })
 
   it('rejects response deadlines in the past', async () => {
