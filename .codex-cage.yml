@@ -1,9 +1,9 @@
 setup:
   - npm ci
   - cp .codex-cage/test.env .env
-  - node .codex-cage/wait-for-tcp.mjs postgres 5432
-  - node .codex-cage/wait-for-tcp.mjs redis 6379
-  - curl -fsS --retry 60 --retry-all-errors --retry-delay 1 http://minio:9000/minio/health/live
+  - node .codex-cage/wait-for-tcp.mjs 127.0.0.1 5432
+  - node .codex-cage/wait-for-tcp.mjs 127.0.0.1 6379
+  - curl -fsS --retry 60 --retry-all-errors --retry-delay 1 http://127.0.0.1:9000/minio/health/live
   - npm run migrate --workspace=server
 
 verify:
