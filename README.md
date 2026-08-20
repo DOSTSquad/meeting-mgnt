@@ -306,3 +306,7 @@ Current notable frames include:
 - Persisted notifications with read/unread API state are planned in [issue #25](https://github.com/DOSTSquad/meeting-mgnt/issues/25).
 - AI-generated minutes are scaffolded but not configured yet; the client currently supports manual minutes editing for demos.
 - Notification delivery channels such as email, push, Slack, and Teams are out of scope for the current local app.
+
+## Smoke Test
+
+This section verifies the Codex Cage issue-to-PR pipeline end-to-end.
