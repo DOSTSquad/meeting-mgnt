@@ -53,7 +53,9 @@ jobs:
       - name: Start test services
         run: |
           docker compose --project-directory "$GITHUB_WORKSPACE" \
-            -f .codex-cage/docker-compose.yml up -d
+            -f .codex-cage/docker-compose.yml up -d --wait postgres redis minio
+          docker compose --project-directory "$GITHUB_WORKSPACE" \
+            -f .codex-cage/docker-compose.yml up -d minio-init
           docker compose --project-directory "$GITHUB_WORKSPACE" \
             -f .codex-cage/docker-compose.yml wait minio-init
 
