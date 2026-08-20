@@ -1,5 +1,7 @@
 import { query } from '../db/postgres.js'
 
+const executor = (db) => db ?? { query }
+
 const RECORDING_COLUMNS = `
   id,
   meeting_id,
@@ -58,17 +60,21 @@ export const findActiveRecordingByMeetingId = async (meetingId) => {
   return mapRecording(result.rows[0])
 }
 
-export const createRecording = async ({
-  id,
-  meetingId,
-  uploadedBy,
-  fileName,
-  mimeType,
-  sizeBytes,
-  bucketName,
-  objectKey,
-}) => {
-  const result = await query(
+export const createRecording = async (
+  {
+    id,
+    meetingId,
+    uploadedBy,
+    fileName,
+    mimeType,
+    sizeBytes,
+    bucketName,
+    objectKey,
+    status = 'uploaded',
+  },
+  db
+) => {
+  const result = await executor(db).query(
     `
       INSERT INTO meeting_recordings (
         id,
@@ -78,19 +84,20 @@ export const createRecording = async ({
         mime_type,
         size_bytes,
         bucket_name,
-        object_key
+        object_key,
+        status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING ${RECORDING_COLUMNS}
     `,
-    [id, meetingId, uploadedBy, fileName, mimeType, sizeBytes, bucketName, objectKey]
+    [id, meetingId, uploadedBy, fileName, mimeType, sizeBytes, bucketName, objectKey, status]
   )
 
   return mapRecording(result.rows[0])
 }
 
-export const archiveRecording = async (id) => {
-  const result = await query(
+export const archiveRecording = async (id, db) => {
+  const result = await executor(db).query(
     `
       UPDATE meeting_recordings
       SET archived_at = NOW()

@@ -23,6 +23,23 @@ Run database migrations with `npm run migrate --workspace=server`.
 
 Migrations are located in `server/db/migrations` and tracked in `schema_migrations`.
 
+## Recording Workflow Queue
+
+When `AI_PIPELINE_ENABLED=true`, the API starts a workflow outbox dispatcher that polls PostgreSQL
+and publishes durable recording workflows to BullMQ. Redis is used for delivery, retries, locks,
+and flow dependencies only; PostgreSQL remains the source of truth for user-visible workflow state.
+
+```env
+REDIS_URL=redis://localhost:6379
+AI_PIPELINE_ENABLED=true
+RECORDING_TRANSCRIPTION_QUEUE_NAME=recording-transcription
+RECORDING_ANALYSIS_QUEUE_NAME=recording-analysis
+WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS=5000
+WORKFLOW_OUTBOX_DISPATCH_LIMIT=25
+WORKFLOW_OUTBOX_LEASE_SECONDS=60
+WORKFLOW_OUTBOX_RETRY_DELAY_SECONDS=30
+```
+
 ## Email Delivery
 
 Meeting invitations and confirmations use the provider selected by `EMAIL_PROVIDER`. The default
@@ -207,12 +224,14 @@ Meeting recordings are the dedicated audio source for transcript/minutes generat
 
 | Method | Path                | Body / Query                                            | Returns                                           |
 | ------ | ------------------- | ------------------------------------------------------- | ------------------------------------------------- |
-| GET    | `/`                 | —                                                       | `200 { recording, transcript }`                   |
-| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript }`                   |
+| GET    | `/`                 | —                                                       | `200 { recording, transcript, analysisRun }`      |
+| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript, analysisRun }`      |
 | DELETE | `/`                 | —                                                       | `204`                                             |
 | POST   | `/generate-minutes` | —                                                       | `202 { recording, transcript, generationStatus }` |
 
-Any meeting participant can read recording metadata and transcript status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+Any meeting participant can read recording metadata, transcript status, and analysis-run status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+
+When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The background outbox dispatcher publishes an idempotent BullMQ flow with a transcription child job and an analysis parent job; job payloads contain identifiers only. PostgreSQL statuses are the user-visible source of truth. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
 
 `POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 

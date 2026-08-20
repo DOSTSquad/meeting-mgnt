@@ -42,6 +42,16 @@
       "type": "string"
     },
     {
+      "key": "transcriptId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "analysisRunId",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "participantUserId",
       "value": "",
       "type": "string"
@@ -923,7 +933,7 @@
     },
     {
       "name": "Recordings",
-      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio.",
+      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio. When `AI_PIPELINE_ENABLED=true`, upload returns persisted transcript and analysis-run workflow state while a background PostgreSQL outbox dispatcher publishes the BullMQ flow.",
       "item": [
         {
           "name": "Get active recording",
@@ -934,7 +944,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording"]
             },
-            "description": "Returns `{ recording, transcript }`. Both are null when no active recording exists. Any meeting participant can read recording metadata and transcript status."
+            "description": "Returns `{ recording, transcript, analysisRun }`. All are null when no active recording exists. Any meeting participant can read recording metadata, transcript status, and analysis-run status."
           },
           "event": [
             {
@@ -945,6 +955,8 @@
                   "if (pm.response.code === 200) {",
                   "  const data = pm.response.json();",
                   "  if (data.recording && data.recording.id) pm.collectionVariables.set('recordingId', data.recording.id);",
+                  "  if (data.transcript && data.transcript.id) pm.collectionVariables.set('transcriptId', data.transcript.id);",
+                  "  if (data.analysisRun && data.analysisRun.id) pm.collectionVariables.set('analysisRunId', data.analysisRun.id);",
                   "}"
                 ]
               }
@@ -977,7 +989,7 @@
                 }
               ]
             },
-            "description": "Uploads the one active recording used for minutes generation. Without `replace=true`, a second active recording returns 409."
+            "description": "Uploads the one active recording used for minutes generation. Returns `{ recording, transcript, analysisRun }`. Without `replace=true`, a second active recording returns 409. With `AI_PIPELINE_ENABLED=true`, the transcript is `processing` and the analysis run is `queued`; otherwise both are null. Redis dispatch happens asynchronously from the durable workflow outbox."
           },
           "event": [
             {
@@ -988,6 +1000,8 @@
                   "if (pm.response.code === 201) {",
                   "  const data = pm.response.json();",
                   "  if (data.recording && data.recording.id) pm.collectionVariables.set('recordingId', data.recording.id);",
+                  "  if (data.transcript && data.transcript.id) pm.collectionVariables.set('transcriptId', data.transcript.id);",
+                  "  if (data.analysisRun && data.analysisRun.id) pm.collectionVariables.set('analysisRunId', data.analysisRun.id);",
                   "}"
                 ]
               }

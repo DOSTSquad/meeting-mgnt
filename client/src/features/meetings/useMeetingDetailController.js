@@ -422,6 +422,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
                 ...prev,
                 recording: result.recording,
                 transcript: result.transcript,
+                analysisRun: result.analysisRun,
               }
             : prev
         )
@@ -448,6 +449,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
               ...prev,
               recording: null,
               transcript: null,
+              analysisRun: null,
             }
           : prev
       )
@@ -470,6 +472,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
               ...prev,
               recording: result.recording,
               transcript: result.transcript,
+              analysisRun: result.analysisRun ?? prev.analysisRun,
             }
           : prev
       )

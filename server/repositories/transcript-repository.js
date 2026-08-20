@@ -1,5 +1,7 @@
 import { query } from '../db/postgres.js'
 
+const executor = (db) => db ?? { query }
+
 const TRANSCRIPT_COLUMNS = `
   id,
   meeting_id,
@@ -55,18 +57,21 @@ export const findLatestTranscriptByRecordingId = async (recordingId) => {
   return mapTranscript(result.rows[0])
 }
 
-export const createTranscript = async ({
-  meetingId,
-  recordingId,
-  createdBy,
-  status = 'processing',
-  transcriptText = null,
-  segments = [],
-  durationSeconds = null,
-  errorMessage = null,
-  completedAt = null,
-}) => {
-  const result = await query(
+export const createTranscript = async (
+  {
+    meetingId,
+    recordingId,
+    createdBy,
+    status = 'processing',
+    transcriptText = null,
+    segments = [],
+    durationSeconds = null,
+    errorMessage = null,
+    completedAt = null,
+  },
+  db
+) => {
+  const result = await executor(db).query(
     `
       INSERT INTO meeting_transcripts (
         meeting_id,

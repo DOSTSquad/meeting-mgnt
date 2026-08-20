@@ -134,7 +134,20 @@ export const MeetingDetailView = ({
     }[recordingStatus] || recordingStatus
   const transcriptMessage =
     detail.transcript?.errorMessage ||
-    (detail.transcript?.status === 'completed' ? 'Transcript is ready.' : null)
+    (detail.transcript?.status === 'completed'
+      ? 'Transcript is ready.'
+      : detail.transcript?.status === 'processing'
+        ? 'Transcription is queued.'
+        : null)
+  const analysisMessage =
+    detail.analysisRun?.errorMessage ||
+    (detail.analysisRun?.status === 'queued'
+      ? 'Analysis is queued.'
+      : detail.analysisRun?.status === 'running'
+        ? 'Analysis is running.'
+        : detail.analysisRun?.status === 'completed'
+          ? 'Analysis is complete.'
+          : null)
   const minuteStatusClass =
     {
       draft: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -465,6 +478,17 @@ export const MeetingDetailView = ({
                         }`}
                       >
                         {transcriptMessage}
+                      </p>
+                    ) : null}
+                    {analysisMessage ? (
+                      <p
+                        className={`mt-1 text-xs font-semibold ${
+                          detail.analysisRun?.status === 'failed'
+                            ? 'text-amber-700'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {analysisMessage}
                       </p>
                     ) : null}
                   </div>
