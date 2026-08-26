@@ -1,0 +1,22 @@
+[Unit]
+Description=DOST Meeting Management Worker Runtime
+Wants=network-online.target
+After=network-online.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=meeting-mgnt
+Group=meeting-mgnt
+WorkingDirectory=/srv/meeting-mgnt
+EnvironmentFile=/srv/meeting-mgnt/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server/worker.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

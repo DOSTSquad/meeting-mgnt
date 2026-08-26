@@ -933,7 +933,7 @@
     },
     {
       "name": "Recordings",
-      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio. When `AI_PIPELINE_ENABLED=true`, upload returns an `uploaded` recording, a `processing` transcript, and a `queued` analysis run while a background PostgreSQL outbox dispatcher publishes the BullMQ flow.",
+      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio. When `AI_PIPELINE_ENABLED=true`, upload returns an `uploaded` recording, a `processing` transcript, and a `queued` analysis run while the separate worker runtime publishes the BullMQ flow from the PostgreSQL outbox.",
       "item": [
         {
           "name": "Get active recording",
@@ -989,7 +989,7 @@
                 }
               ]
             },
-            "description": "Uploads the one active recording used for minutes generation. Returns `{ recording, transcript, analysisRun }`. Without `replace=true`, a second active recording returns 409. With `AI_PIPELINE_ENABLED=true`, the recording remains `uploaded`, the transcript is `processing`, and the analysis run is `queued`; otherwise transcript and analysisRun are null. Redis dispatch happens asynchronously from the durable workflow outbox; later workers move the recording to `transcribing` only when transcription actually starts."
+            "description": "Uploads the one active recording used for minutes generation. Returns `{ recording, transcript, analysisRun }`. Without `replace=true`, a second active recording returns 409. With `AI_PIPELINE_ENABLED=true`, the recording remains `uploaded`, the transcript is `processing`, and the analysis run is `queued`; otherwise transcript and analysisRun are null. Redis dispatch happens asynchronously from the durable workflow outbox in the worker runtime; later workers move the recording to `transcribing` only when transcription actually starts."
           },
           "event": [
             {

@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "NODE_ENV=development node --watch index.js",
+    "worker": "node worker.js",
+    "worker:dev": "NODE_ENV=development node --watch worker.js",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js",

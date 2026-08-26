@@ -26,11 +26,15 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 4. Apply database migrations with `npm run migrate --workspace=server`.
 5. Optional: seed local demo data with `npm run seed --workspace=server`.
 6. Start the API with `npm run dev --workspace=server`.
-7. Start the client with `npm run dev --workspace=client`.
+7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
+8. Start the client with `npm run dev --workspace=client`.
 
 The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
+
+When the AI workflow is enabled, keep the API and worker runtime in separate processes. The API
+handles HTTP; the worker owns outbox dispatch and BullMQ workflow publication.
 
 ## Database Migrations
 
@@ -42,19 +46,20 @@ Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migra
 
 ## Common Commands
 
-| Task                       | Command                              |
-| -------------------------- | ------------------------------------ |
-| Lint all workspaces        | `npm run lint`                       |
-| Test all workspaces        | `npm run test`                       |
-| Format check               | `npm run format`                     |
-| Format write               | `npm run format:fix`                 |
-| Run server                 | `npm run dev --workspace=server`     |
-| Run client                 | `npm run dev --workspace=client`     |
-| Run server tests (Jest)    | `npm run test --workspace=server`    |
-| Run DB-backed server tests | `npm run test:db --workspace=server` |
-| Run server migrations      | `npm run migrate --workspace=server` |
-| Seed local demo data       | `npm run seed --workspace=server`    |
-| Build client               | `npm run build --workspace=client`   |
+| Task                       | Command                                 |
+| -------------------------- | --------------------------------------- |
+| Lint all workspaces        | `npm run lint`                          |
+| Test all workspaces        | `npm run test`                          |
+| Format check               | `npm run format`                        |
+| Format write               | `npm run format:fix`                    |
+| Run server                 | `npm run dev --workspace=server`        |
+| Run worker runtime         | `npm run worker:dev --workspace=server` |
+| Run client                 | `npm run dev --workspace=client`        |
+| Run server tests (Jest)    | `npm run test --workspace=server`       |
+| Run DB-backed server tests | `npm run test:db --workspace=server`    |
+| Run server migrations      | `npm run migrate --workspace=server`    |
+| Seed local demo data       | `npm run seed --workspace=server`       |
+| Build client               | `npm run build --workspace=client`      |
 
 ## Codex Cage
 

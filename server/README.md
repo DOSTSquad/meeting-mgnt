@@ -4,6 +4,8 @@ Express API for DOST Meeting Management System.
 
 Start the API with `npm run dev --workspace=server`.
 
+Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
+
 The default port is `3001`, configurable through `PORT` in `.env`.
 
 ## Rate Limiting
@@ -25,9 +27,10 @@ Migrations are located in `server/db/migrations` and tracked in `schema_migratio
 
 ## Recording Workflow Queue
 
-When `AI_PIPELINE_ENABLED=true`, the API starts a workflow outbox dispatcher that polls PostgreSQL
-and publishes durable recording workflows to BullMQ. Redis is used for delivery, retries, locks,
-and flow dependencies only; PostgreSQL remains the source of truth for user-visible workflow state.
+When `AI_PIPELINE_ENABLED=true`, run the API and worker runtime as separate processes. The API writes
+durable workflow outbox events in PostgreSQL; the worker runtime owns the outbox dispatcher and
+publishes recording workflows to BullMQ. Redis is used for delivery, retries, locks, and flow
+dependencies only; PostgreSQL remains the source of truth for user-visible workflow state.
 
 ```env
 REDIS_URL=redis://localhost:6379
@@ -38,6 +41,22 @@ WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS=5000
 WORKFLOW_OUTBOX_DISPATCH_LIMIT=25
 WORKFLOW_OUTBOX_LEASE_SECONDS=60
 WORKFLOW_OUTBOX_RETRY_DELAY_SECONDS=30
+```
+
+The API process must not start the dispatcher or hold BullMQ producer/worker connections. Future
+workflow status streaming should use `GET /api/meetings/:meetingId/workflow/events` from the API,
+with any API-side Redis connection limited to status subscription.
+
+Redis used by BullMQ must run with `maxmemory-policy noeviction`; evicting queue keys can corrupt
+workflow delivery semantics. Fixture providers are blocked in production unless
+`ALLOW_UNSAFE_FIXTURE_PROVIDERS=true` is set explicitly.
+
+Production runs the API and worker as independent systemd units:
+
+```sh
+sudo systemctl restart meeting-mgnt-server.service
+sudo systemctl restart meeting-mgnt-worker.service
+sudo systemctl status meeting-mgnt-server.service meeting-mgnt-worker.service
 ```
 
 ## Email Delivery
@@ -231,7 +250,7 @@ Meeting recordings are the dedicated audio source for transcript/minutes generat
 
 Any meeting participant can read recording metadata, transcript status, and analysis-run status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
-When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates an `uploaded` recording, a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The background outbox dispatcher publishes an idempotent BullMQ flow with a transcription child job and an analysis parent job; job payloads contain identifiers only. PostgreSQL statuses are the user-visible source of truth. The recording changes to `transcribing` only when a later worker actually starts transcription. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
+When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates an `uploaded` recording, a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The separate worker runtime publishes an idempotent BullMQ flow with a transcription child job and an analysis parent job; job payloads contain identifiers only. PostgreSQL statuses are the user-visible source of truth. The recording changes to `transcribing` only when a later worker actually starts transcription. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
 
 `POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
