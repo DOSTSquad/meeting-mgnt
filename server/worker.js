@@ -3,9 +3,11 @@ import { fileURLToPath } from 'node:url'
 
 import { config as loadDotenv } from 'dotenv'
 
+// Do not override: systemd injects NODE_ENV=production and the real environment
+// must win over .env, otherwise the production fixture-provider guard in
+// worker-runtime.js can be silently disabled by a stale NODE_ENV in .env.
 loadDotenv({
   path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env'),
-  override: true,
 })
 
 const { createWorkerRuntime } = await import('./worker-runtime.js')

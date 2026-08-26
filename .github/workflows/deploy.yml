@@ -14,29 +14,19 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  deploy:
-    name: Deploy to VPS
+  build:
+    name: Build client bundle
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    environment: production
 
-    env:
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
-      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/meeting-mgnt' }}
-      SERVICE_NAME: ${{ vars.DEPLOY_SERVICE_NAME || 'meeting-mgnt-server.service' }}
-
+    # No deployment secrets are declared here on purpose. This job runs `npm ci`,
+    # which executes third-party install scripts, so it must not have access to
+    # DEPLOY_SSH_KEY.
     steps:
-      - name: Check deployment configuration
-        run: |
-          set -euo pipefail
-          test -n "${DEPLOY_HOST}" || { echo "Missing DEPLOY_HOST secret"; exit 1; }
-          test -n "${DEPLOY_USER}" || { echo "Missing DEPLOY_USER secret"; exit 1; }
-          test -n "${DEPLOY_SSH_KEY}" || { echo "Missing DEPLOY_SSH_KEY secret"; exit 1; }
-
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -53,6 +43,43 @@ jobs:
           set -euo pipefail
           npm ci --no-audit --no-fund
           VITE_API_BASE_URL=/ npm run build --workspace=client
+
+      - name: Upload client bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist
+          retention-days: 1
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/meeting-mgnt' }}
+      SERVICE_NAME: ${{ vars.DEPLOY_SERVICE_NAME || 'meeting-mgnt-server.service' }}
+      WORKER_SERVICE_NAME: ${{ vars.DEPLOY_WORKER_SERVICE_NAME || 'meeting-mgnt-worker.service' }}
+
+    steps:
+      - name: Check deployment configuration
+        run: |
+          set -euo pipefail
+          test -n "${DEPLOY_HOST}" || { echo "Missing DEPLOY_HOST secret"; exit 1; }
+          test -n "${DEPLOY_USER}" || { echo "Missing DEPLOY_USER secret"; exit 1; }
+          test -n "${DEPLOY_SSH_KEY}" || { echo "Missing DEPLOY_SSH_KEY secret"; exit 1; }
+
+      - name: Download client bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist
 
       - name: Configure SSH
         run: |
@@ -104,13 +131,30 @@ jobs:
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' bash -s" <<'REMOTE'
+            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' WORKER_SERVICE_NAME='${WORKER_SERVICE_NAME}' bash -s" <<'REMOTE'
           set -euo pipefail
 
           cd "${APP_DIR}"
           npm run migrate --workspace=server
 
           sudo systemctl restart "${SERVICE_NAME}"
+
+          if systemctl list-unit-files --no-legend "${WORKER_SERVICE_NAME}" | grep -q .; then
+            sudo systemctl restart "${WORKER_SERVICE_NAME}"
+
+            # The worker exits 0 when AI_PIPELINE_ENABLED is not true, so systemd
+            # reports it inactive rather than failed. Only a failed unit is a
+            # deployment failure.
+            if systemctl is-failed --quiet "${WORKER_SERVICE_NAME}"; then
+              echo "Worker unit ${WORKER_SERVICE_NAME} failed to start."
+              sudo systemctl status "${WORKER_SERVICE_NAME}" --no-pager
+              exit 1
+            fi
+
+            echo "Worker unit ${WORKER_SERVICE_NAME} is $(systemctl is-active "${WORKER_SERVICE_NAME}" || true)."
+          else
+            echo "Worker unit ${WORKER_SERVICE_NAME} is not installed; skipping worker restart."
+          fi
 
           for attempt in $(seq 1 20); do
             if curl -fsS http://127.0.0.1:3001/health/live; then
