@@ -139,11 +139,13 @@ Optional repository variables:
 | `DEPLOY_PATH`         | `/srv/meeting-mgnt`   |
 | `DEPLOY_SERVICE_NAME` | `meeting-mgnt-server` |
 
-The VPS deploy user must be able to run `git fetch`, `npm ci`,
-`npm run migrate --workspace=server`,
-`VITE_API_BASE_URL=/ npm run build --workspace=client`, and
-`sudo systemctl restart meeting-mgnt-server`. If the deploy user is not root,
-allow passwordless sudo only for restarting that service.
+The client bundle is built on the GitHub runner and copied to the VPS with
+`rsync`, so the VPS never installs devDependencies or runs Vite. The VPS deploy
+user must be able to run `git fetch`, `npm ci --omit=dev`,
+`npm run migrate --workspace=server`, and
+`sudo systemctl restart meeting-mgnt-server`, and `rsync` must be installed
+(`sudo apt install rsync`). If the deploy user is not root, allow passwordless
+sudo only for restarting that service.
 
 Run the Express API as a private service on the VPS:
 
