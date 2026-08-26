@@ -5,12 +5,12 @@ CREATE TABLE IF NOT EXISTS analysis_runs (
   transcript_id UUID REFERENCES meeting_transcripts(id) ON DELETE SET NULL,
   created_by    UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   status        TEXT NOT NULL DEFAULT 'queued'
-                CHECK (status IN ('queued','running','completed','failed','cancelled')),
+                CHECK (status IN ('queued','processing','ready_for_review','failed','cancelled')),
   error_message TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at  TIMESTAMPTZ,
-  CHECK (completed_at IS NULL OR status = 'completed')
+  CHECK (completed_at IS NULL OR status = 'ready_for_review')
 );
 
 CREATE INDEX IF NOT EXISTS analysis_runs_meeting_idx
@@ -25,12 +25,12 @@ CREATE INDEX IF NOT EXISTS analysis_runs_recording_idx
 CREATE UNIQUE INDEX IF NOT EXISTS analysis_runs_one_processing_recording_idx
   ON analysis_runs (recording_id)
   WHERE recording_id IS NOT NULL
-    AND status IN ('queued','running');
+    AND status IN ('queued','processing');
 
 CREATE UNIQUE INDEX IF NOT EXISTS analysis_runs_one_processing_transcript_idx
   ON analysis_runs (transcript_id)
   WHERE transcript_id IS NOT NULL
-    AND status IN ('queued','running');
+    AND status IN ('queued','processing');
 
 CREATE TABLE IF NOT EXISTS analysis_action_item_suggestions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS analysis_action_item_suggestions (
   due_date        TIMESTAMPTZ,
   priority        TEXT NOT NULL DEFAULT 'medium'
                   CHECK (priority IN ('low','medium','high')),
-  status          TEXT NOT NULL DEFAULT 'pending'
-                  CHECK (status IN ('pending','accepted','rejected')),
+  status          TEXT NOT NULL DEFAULT 'proposed'
+                  CHECK (status IN ('proposed','accepted','rejected')),
   source_ref      TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()

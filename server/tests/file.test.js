@@ -427,7 +427,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       expect(nextError).toBeUndefined()
       expect(res.statusCode).toBe(201)
-      expect(res.body.recording.status).toBe('transcribing')
+      expect(res.body.recording.status).toBe('uploaded')
       expect(res.body.transcript).toMatchObject({
         meetingId: baseMeeting.id,
         recordingId: res.body.recording.id,
@@ -526,6 +526,75 @@ dbDescribe('File controller (DB-backed)', () => {
         'meeting-audio',
         expect.stringMatching(new RegExp(`^meetings/${baseMeeting.id}/recordings/[0-9a-f-]{36}$`))
       )
+    })
+
+    it('preserves the database error when cleanup of a failed upload object also fails', async () => {
+      const loggerSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      mockRemoveObject.mockRejectedValueOnce(new Error('MinIO cleanup failed'))
+
+      const { nextError } = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'too-large-cleanup-fail.mp3',
+            mimetype: 'audio/mpeg',
+            size: 524288001,
+          }),
+        })
+      )
+
+      expect(nextError).toBeDefined()
+      expect(nextError.message).toMatch(/meeting_recordings/)
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Failed to remove newly uploaded recording after database error',
+        expect.objectContaining({
+          bucketName: 'meeting-audio',
+          message: 'MinIO cleanup failed',
+        })
+      )
+
+      loggerSpy.mockRestore()
+    })
+
+    it('keeps replacement upload successful when old object cleanup fails', async () => {
+      const loggerSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const first = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({ originalname: 'first-cleanup.mp3', mimetype: 'audio/mpeg' }),
+        })
+      )
+      expect(first.nextError).toBeUndefined()
+
+      mockRemoveObject.mockRejectedValueOnce(new Error('old object unavailable'))
+
+      const replace = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({ originalname: 'second-cleanup.mp3', mimetype: 'audio/mpeg' }),
+          body: { replace: 'true' },
+        })
+      )
+
+      expect(replace.nextError).toBeUndefined()
+      expect(replace.res.statusCode).toBe(201)
+      expect(replace.res.body.recording.fileName).toBe('second-cleanup.mp3')
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Failed to remove replaced recording object',
+        expect.objectContaining({
+          bucketName: 'meeting-audio',
+          message: 'old object unavailable',
+        })
+      )
+
+      loggerSpy.mockRestore()
     })
 
     it('replays a failed outbox event with the same workflow identifiers', async () => {

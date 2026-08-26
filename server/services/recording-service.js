@@ -39,6 +39,38 @@ const assertAudioFile = (file) => {
 
 const isAiPipelineEnabled = () => process.env.AI_PIPELINE_ENABLED === 'true'
 
+const logStorageCleanupFailure = (logger, message, error, context = {}) => {
+  logger.error?.(message, {
+    ...context,
+    message: error?.message,
+  })
+}
+
+const removeNewObjectAfterFailure = async ({ bucketName, objectKey, originalError, logger }) => {
+  try {
+    await removeObject(bucketName, objectKey)
+  } catch (cleanupError) {
+    logStorageCleanupFailure(
+      logger,
+      'Failed to remove newly uploaded recording after database error',
+      cleanupError,
+      { bucketName }
+    )
+  }
+
+  throw originalError
+}
+
+const removeReplacedObjectBestEffort = async ({ bucketName, objectKey, logger }) => {
+  try {
+    await removeObject(bucketName, objectKey)
+  } catch (error) {
+    logStorageCleanupFailure(logger, 'Failed to remove replaced recording object', error, {
+      bucketName,
+    })
+  }
+}
+
 const loadMeetingOrThrow = async (meetingId) => {
   const meeting = await findMeetingById(meetingId)
 
@@ -96,7 +128,13 @@ export const getRecordingForMeeting = async (meetingId, callerId) => {
   return { recording, transcript, analysisRun }
 }
 
-export const uploadRecordingForMeeting = async ({ meetingId, callerId, file, replace = false }) => {
+export const uploadRecordingForMeeting = async ({
+  meetingId,
+  callerId,
+  file,
+  replace = false,
+  logger = console,
+}) => {
   assertAudioFile(file)
 
   const meeting = await loadMeetingOrThrow(meetingId)
@@ -133,7 +171,7 @@ export const uploadRecordingForMeeting = async ({ meetingId, callerId, file, rep
           sizeBytes: file.size,
           bucketName: BUCKET_AUDIO,
           objectKey,
-          status: workflowEnabled ? 'transcribing' : 'uploaded',
+          status: 'uploaded',
         },
         client
       )
@@ -181,12 +219,20 @@ export const uploadRecordingForMeeting = async ({ meetingId, callerId, file, rep
       return { recording, transcript, analysisRun }
     })
   } catch (error) {
-    await removeObject(BUCKET_AUDIO, objectKey)
-    throw error
+    await removeNewObjectAfterFailure({
+      bucketName: BUCKET_AUDIO,
+      objectKey,
+      originalError: error,
+      logger,
+    })
   }
 
   if (existing) {
-    await removeObject(existing.bucketName, existing.objectKey)
+    await removeReplacedObjectBestEffort({
+      bucketName: existing.bucketName,
+      objectKey: existing.objectKey,
+      logger,
+    })
   }
 
   return result

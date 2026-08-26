@@ -124,14 +124,18 @@ export const MeetingDetailView = ({
     0
   )
   const recordingStatus = detail.recording?.status || 'empty'
-  const recordingStatusLabel =
-    {
-      empty: 'No recording',
-      uploaded: 'Uploaded',
-      transcribing: 'Transcribing',
-      transcribed: 'Transcript ready',
-      failed: 'Needs setup',
-    }[recordingStatus] || recordingStatus
+  const isGenerationQueued =
+    recordingStatus === 'uploaded' &&
+    (detail.transcript?.status === 'processing' || detail.analysisRun?.status === 'queued')
+  const recordingStatusLabel = isGenerationQueued
+    ? 'Queued'
+    : {
+        empty: 'No recording',
+        uploaded: 'Uploaded',
+        transcribing: 'Transcribing',
+        transcribed: 'Transcript ready',
+        failed: 'Needs setup',
+      }[recordingStatus] || recordingStatus
   const transcriptMessage =
     detail.transcript?.errorMessage ||
     (detail.transcript?.status === 'completed'
@@ -143,10 +147,10 @@ export const MeetingDetailView = ({
     detail.analysisRun?.errorMessage ||
     (detail.analysisRun?.status === 'queued'
       ? 'Analysis is queued.'
-      : detail.analysisRun?.status === 'running'
+      : detail.analysisRun?.status === 'processing'
         ? 'Analysis is running.'
-        : detail.analysisRun?.status === 'completed'
-          ? 'Analysis is complete.'
+        : detail.analysisRun?.status === 'ready_for_review'
+          ? 'Analysis is ready for review.'
           : null)
   const minuteStatusClass =
     {

@@ -117,7 +117,7 @@ export const claimWorkflowOutboxEvents = async ({ limit = 10, leaseSeconds = 60,
     return result.rows.map(mapOutboxEvent)
   })
 
-export const markWorkflowOutboxDispatched = async (id) => {
+export const markWorkflowOutboxDispatched = async ({ id, workerId, attempts }) => {
   const result = await query(
     `
       UPDATE workflow_outbox
@@ -128,15 +128,24 @@ export const markWorkflowOutboxDispatched = async (id) => {
           last_error = NULL,
           updated_at = NOW()
       WHERE id = $1
+        AND locked_by = $2
+        AND attempts = $3
+        AND status = 'processing'
       RETURNING ${OUTBOX_COLUMNS}
     `,
-    [id]
+    [id, workerId, attempts]
   )
 
   return mapOutboxEvent(result.rows[0])
 }
 
-export const markWorkflowOutboxFailed = async ({ id, errorMessage, retryDelaySeconds = 30 }) => {
+export const markWorkflowOutboxFailed = async ({
+  id,
+  workerId,
+  attempts,
+  errorMessage,
+  retryDelaySeconds = 30,
+}) => {
   const result = await query(
     `
       UPDATE workflow_outbox
@@ -147,9 +156,12 @@ export const markWorkflowOutboxFailed = async ({ id, errorMessage, retryDelaySec
           last_error = $3,
           updated_at = NOW()
       WHERE id = $1
+        AND locked_by = $4
+        AND attempts = $5
+        AND status = 'processing'
       RETURNING ${OUTBOX_COLUMNS}
     `,
-    [id, retryDelaySeconds, errorMessage]
+    [id, retryDelaySeconds, errorMessage, workerId, attempts]
   )
 
   return mapOutboxEvent(result.rows[0])

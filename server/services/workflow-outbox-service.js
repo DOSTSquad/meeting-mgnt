@@ -39,15 +39,21 @@ export const dispatchPendingWorkflowOutbox = async ({
   for (const event of events) {
     try {
       await dispatchWorkflowEvent(event)
-      results.push(await markWorkflowOutboxDispatched(event.id))
+      const dispatched = await markWorkflowOutboxDispatched({
+        id: event.id,
+        workerId: event.lockedBy,
+        attempts: event.attempts,
+      })
+      results.push(dispatched ?? { ...event, status: 'lease_lost' })
     } catch (error) {
-      results.push(
-        await markWorkflowOutboxFailed({
-          id: event.id,
-          errorMessage: toErrorMessage(error),
-          retryDelaySeconds,
-        })
-      )
+      const failed = await markWorkflowOutboxFailed({
+        id: event.id,
+        workerId: event.lockedBy,
+        attempts: event.attempts,
+        errorMessage: toErrorMessage(error),
+        retryDelaySeconds,
+      })
+      results.push(failed ?? { ...event, status: 'lease_lost' })
     }
   }
 

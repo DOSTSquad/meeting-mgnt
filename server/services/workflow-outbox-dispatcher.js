@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { closeRecordingWorkflowQueue } from './recording-workflow-queue.js'
 import { closeRedisConnections } from './redis-connections.js'
 import { dispatchPendingWorkflowOutbox } from './workflow-outbox-service.js'
@@ -33,38 +35,42 @@ export const getWorkflowOutboxDispatcherConfig = (environment = process.env) => 
 })
 
 export const createWorkflowOutboxDispatcher = ({
-  workerId = `workflow-dispatcher-${process.pid}`,
+  workerId = `workflow-dispatcher-${process.pid}-${randomUUID()}`,
   dispatch = dispatchPendingWorkflowOutbox,
   logger = console,
   environment = process.env,
+  closeQueue = closeRecordingWorkflowQueue,
+  closeRedis = closeRedisConnections,
 } = {}) => {
   const config = getWorkflowOutboxDispatcherConfig(environment)
   let timer
   let stopped = false
-  let running = false
+  let activeDispatch
 
   const dispatchOnce = async () => {
-    if (!config.enabled || stopped || running) {
+    if (!config.enabled || stopped || activeDispatch) {
       return []
     }
 
-    running = true
+    activeDispatch = (async () => {
+      try {
+        return await dispatch({
+          limit: config.limit,
+          leaseSeconds: config.leaseSeconds,
+          workerId,
+          retryDelaySeconds: config.retryDelaySeconds,
+        })
+      } catch (error) {
+        logger.error('Workflow outbox dispatcher failed', {
+          message: error.message,
+        })
+        return []
+      } finally {
+        activeDispatch = undefined
+      }
+    })()
 
-    try {
-      return await dispatch({
-        limit: config.limit,
-        leaseSeconds: config.leaseSeconds,
-        workerId,
-        retryDelaySeconds: config.retryDelaySeconds,
-      })
-    } catch (error) {
-      logger.error('Workflow outbox dispatcher failed', {
-        message: error.message,
-      })
-      return []
-    } finally {
-      running = false
-    }
+    return activeDispatch
   }
 
   const start = () => {
@@ -87,8 +93,9 @@ export const createWorkflowOutboxDispatcher = ({
       timer = undefined
     }
 
-    await closeRecordingWorkflowQueue()
-    await closeRedisConnections()
+    await activeDispatch
+    await closeQueue()
+    await closeRedis()
   }
 
   return {

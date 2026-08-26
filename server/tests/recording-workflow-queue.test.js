@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { describe, beforeAll, beforeEach, afterAll, it, expect } from '@jest/globals'
+import { describe, beforeAll, beforeEach, afterAll, it, expect, jest } from '@jest/globals'
 import { Queue } from 'bullmq'
 import { parse } from 'dotenv'
 import IORedis from 'ioredis'
@@ -27,6 +27,8 @@ process.env.RECORDING_ANALYSIS_QUEUE_NAME = `test-recording-analysis-${process.p
 const { runMigrations } = await import('../db/migrate.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { createWorkflowOutboxDispatcher } = await import('../services/workflow-outbox-dispatcher.js')
+const { claimWorkflowOutboxEvents, markWorkflowOutboxDispatched } =
+  await import('../repositories/workflow-outbox-repository.js')
 const { ANALYSIS_QUEUE_NAME, TRANSCRIPTION_QUEUE_NAME, closeRecordingWorkflowQueue } =
   await import('../services/recording-workflow-queue.js')
 const { closeRedisConnections } = await import('../services/redis-connections.js')
@@ -134,7 +136,7 @@ const seedWorkflowEvent = async () => {
       1024,
       `meetings/${meetingId}/recordings/${recordingId}`,
       'meeting-audio',
-      'transcribing',
+      'uploaded',
     ]
   )
   await query(
@@ -223,7 +225,9 @@ afterAll(async () => {
 
   await closeRecordingWorkflowQueue()
   await closeRedisConnections()
-  await Promise.all([analysisQueue.disconnect(), transcriptionQueue.disconnect()])
+  await Promise.all(
+    [analysisQueue?.disconnect?.(), transcriptionQueue?.disconnect?.()].filter(Boolean)
+  )
   await closePool()
 })
 
@@ -381,5 +385,92 @@ dbRedisDescribe('Recording workflow outbox dispatch (DB + Redis)', () => {
       status: 'dispatched',
       attempts: 1,
     })
+  })
+
+  it('prevents a stale dispatcher from overwriting a newer lease owner', async () => {
+    const workflow = await seedWorkflowEvent()
+    const [firstClaim] = await claimWorkflowOutboxEvents({
+      limit: 1,
+      leaseSeconds: 1,
+      workerId: 'worker-a',
+    })
+
+    await query(
+      `
+        UPDATE workflow_outbox
+        SET leased_until = NOW() - INTERVAL '1 second',
+            available_at = NOW()
+        WHERE id = $1
+      `,
+      [workflow.outboxId]
+    )
+
+    const [secondClaim] = await claimWorkflowOutboxEvents({
+      limit: 1,
+      leaseSeconds: 60,
+      workerId: 'worker-b',
+    })
+
+    const staleUpdate = await markWorkflowOutboxDispatched({
+      id: firstClaim.id,
+      workerId: firstClaim.lockedBy,
+      attempts: firstClaim.attempts,
+    })
+
+    expect(staleUpdate).toBeNull()
+
+    const outboxResult = await query(
+      `
+        SELECT status, attempts, locked_by
+        FROM workflow_outbox
+        WHERE id = $1
+      `,
+      [workflow.outboxId]
+    )
+    expect(outboxResult.rows[0]).toMatchObject({
+      status: 'processing',
+      attempts: 2,
+      locked_by: 'worker-b',
+    })
+
+    const currentUpdate = await markWorkflowOutboxDispatched({
+      id: secondClaim.id,
+      workerId: secondClaim.lockedBy,
+      attempts: secondClaim.attempts,
+    })
+    expect(currentUpdate.status).toBe('dispatched')
+  })
+
+  it('waits for an active dispatch before closing queue connections', async () => {
+    let releaseDispatch
+    const dispatch = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          releaseDispatch = () => resolve([{ status: 'dispatched' }])
+        })
+    )
+    const closeQueue = jest.fn().mockResolvedValue(undefined)
+    const closeRedis = jest.fn().mockResolvedValue(undefined)
+    const dispatcher = createWorkflowOutboxDispatcher({
+      dispatch,
+      closeQueue,
+      closeRedis,
+      environment: {
+        AI_PIPELINE_ENABLED: 'true',
+      },
+    })
+
+    const activeDispatch = dispatcher.dispatchOnce()
+    const stopPromise = dispatcher.stop()
+
+    await Promise.resolve()
+    expect(closeQueue).not.toHaveBeenCalled()
+
+    releaseDispatch()
+    await stopPromise
+    await activeDispatch
+
+    expect(closeQueue).toHaveBeenCalledTimes(1)
+    expect(closeRedis).toHaveBeenCalledTimes(1)
   })
 })
