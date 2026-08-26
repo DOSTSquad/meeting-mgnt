@@ -1,0 +1,98 @@
+Whisper transcription test result
+=================================
+
+Audio file: ../input/calculus_tutorial_meeting_3to4min.mp3
+Model: small
+Requested language: English (en)
+Detected/result language: en
+Audio duration: 227.52 seconds
+Segment count: 57
+
+Raw transcript
+--------------
+
+Okay, before we finish today, I want to spend a few minutes connecting two big ideas
+in calculus one, differentiation and integration. You have both seen the formulas
+already, but I want you to think about what they actually mean.
+
+Maya, if I give you a function, say y equal next squared, what does the derivative
+tell us? Um, it tell us the slope, right? Like how steep the graph is?
+
+Exactly. More generally, the derivative tell us the rate of change at a particular
+point. For y equal next squared, the derivative is 2x, so at x equal 3, the slope is
+6. That means the function is increasing quite quickly at that point.
+
+So it is kind of like speed, if the original function was distance. Yes, that is a
+very good example. If position in a function of time, its derivative gives velocity.
+And if you differentiate velocity again, you get acceleration. So differentiation is
+useful whenever we want to know how something is changing.
+
+And integration is basically the opposite. In many situations, yes. Think of
+integration as a cumulation. Suppose you know the velocity of a car over time, and
+you want to know how far it traveled. You can integrate the velocity. Graphically, a
+definite integral can also represent the area under a curve between two points.
+
+I always get confused about the plus-c. Why do we need it? Good question. The plus-c
+appears with an indefinite integral because many different functions can have the
+same derivative. For example, the derivative of x squared into x, but the derivative
+of x squared plus 5 is also 2x. So when we integrate 2x, we write x squared plus c to
+represent any possible constant.
+
+Okay, so differentiation removes a constant, and integration cannot know what that
+constant originally was. Exactly. That is the right intuition. Now, there is also a
+very important connection called the fundamental theorem of calculus. In simple
+terms, it tells us that differentiation and integration are closely related in first
+processes. We will study that more carefully next week.
+
+For an exam question, how do we know whether we should differentiate or integrate?
+Look at what the question is asking. If it asks for an instantaneous rate, a slope,
+a maximum or minimum, differentiation is often involved. If it asks for a total
+amount accumulated, an area, or later on a volume, integration is often involved.
+The wording gives you clues.
+
+That makes more sense than just memorizing formulas. Good. And that leads to your
+small research task for next class. I want each of you to explore one integration
+topic and explain it to the group in simple language.
+
+What topic do I have? Maya, I want you to look at integration by parts. Find out
+where the formula comes from when we normally use it and prepare one easy example.
+You do not need anything too complicated. Something like integrating x times e to
+the x would be enough.
+
+Okay. So integration by parts, the idea behind the formula and one example. Correct.
+Then, your topic is using integration to calculate volume in three dimensions.
+Focus on the basic idea of taking thin slices and adding their volumes together.
+You can look at the disk or washer method and bring one simple example.
+
+So maybe rotating a curve around the x-axis and finding the volume of the solid.
+Exactly. That would be perfect. Try to explain why the integral represents the total
+volume rather than only giving the formula. Got it.
+
+Great. Next class, each of you will have about three minutes to explain your topic.
+Do not worry about making it formal. I mainly want to see whether you can connect the
+mathematics to the idea behind it. Any last questions? No, I think I'm good. Same
+here. Alright. Then we are done for today. Thanks, both of you. See you next class.
+
+Accuracy Evaluation
+-------------------
+
+Reference file: ../input/calculus_tutorial_meeting_3to4min.txt
+Approximate word accuracy: 95.62%
+Word Error Rate (WER): 4.38%
+
+Reference word count: 662
+Transcribed word count: 659
+Substitutions: 22
+Deletions: 5
+Insertions: 2
+Total word errors: 29
+
+Method: Speaker labels and the speaker-list header were excluded. Both texts were
+converted to lowercase, and punctuation was removed before calculating WER.
+Approximate word accuracy was calculated as 100% minus WER.
+
+Notes
+-----
+
+This is the unedited output from the Whisper small model. Remaining recognition
+errors include some mathematical expressions and similar-sounding terms.

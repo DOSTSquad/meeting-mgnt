@@ -4,6 +4,24 @@ from functools import lru_cache
 import torch
 import whisper
 
+SUPPORTED_LANGUAGE_ALIASES = {
+    "en": "en",
+    "english": "en",
+    "fil": "tl",
+    "filipino": "tl",
+    "tagalog": "tl",
+    "tl": "tl",
+}
+
+
+def normalize_language(language: str | None = "en") -> str:
+    normalized = (language or "en").strip().lower()
+
+    try:
+        return SUPPORTED_LANGUAGE_ALIASES[normalized]
+    except KeyError as error:
+        raise ValueError("language must be English (en) or Filipino/Tagalog (tl)") from error
+
 
 def get_device() -> str:
     configured_device = os.getenv("WHISPER_DEVICE")
@@ -19,12 +37,13 @@ def get_model():
     return whisper.load_model(model_name, device=get_device())
 
 
-def transcribe_audio(file_path: str, language: str | None = "th") -> dict:
+def transcribe_audio(file_path: str, language: str | None = "en") -> dict:
     model_name = os.getenv("WHISPER_MODEL", "small")
     device = get_device()
+    whisper_language = normalize_language(language)
     result = get_model().transcribe(
         file_path,
-        language=language,
+        language=whisper_language,
         task="transcribe",
         fp16=device == "cuda",
     )
