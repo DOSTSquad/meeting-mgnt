@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
+import { transaction } from '../db/postgres.js'
+import {
+  createAnalysisRun,
+  findLatestAnalysisRunByRecordingId,
+} from '../repositories/analysis-run-repository.js'
 import { findMeetingById } from '../repositories/meeting-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
 import {
@@ -12,6 +17,7 @@ import {
   createTranscript,
   findLatestTranscriptByRecordingId,
 } from '../repositories/transcript-repository.js'
+import { createWorkflowOutboxEvent } from '../repositories/workflow-outbox-repository.js'
 import { BUCKET_AUDIO, putObject, removeObject } from './minio-client.js'
 
 const createHttpError = (message, statusCode) => {
@@ -28,6 +34,40 @@ const assertAudioFile = (file) => {
 
   if (!file.mimetype?.startsWith('audio/')) {
     throw createHttpError('Recording must be an audio file', 415)
+  }
+}
+
+const isAiPipelineEnabled = () => process.env.AI_PIPELINE_ENABLED === 'true'
+
+const logStorageCleanupFailure = (logger, message, error, context = {}) => {
+  logger.error?.(message, {
+    ...context,
+    message: error?.message,
+  })
+}
+
+const removeNewObjectAfterFailure = async ({ bucketName, objectKey, originalError, logger }) => {
+  try {
+    await removeObject(bucketName, objectKey)
+  } catch (cleanupError) {
+    logStorageCleanupFailure(
+      logger,
+      'Failed to remove newly uploaded recording after database error',
+      cleanupError,
+      { bucketName }
+    )
+  }
+
+  throw originalError
+}
+
+const removeReplacedObjectBestEffort = async ({ bucketName, objectKey, logger }) => {
+  try {
+    await removeObject(bucketName, objectKey)
+  } catch (error) {
+    logStorageCleanupFailure(logger, 'Failed to remove replaced recording object', error, {
+      bucketName,
+    })
   }
 }
 
@@ -83,11 +123,18 @@ export const getRecordingForMeeting = async (meetingId, callerId) => {
 
   const recording = await findActiveRecordingByMeetingId(meetingId)
   const transcript = recording ? await findLatestTranscriptByRecordingId(recording.id) : null
+  const analysisRun = recording ? await findLatestAnalysisRunByRecordingId(recording.id) : null
 
-  return { recording, transcript }
+  return { recording, transcript, analysisRun }
 }
 
-export const uploadRecordingForMeeting = async ({ meetingId, callerId, file, replace = false }) => {
+export const uploadRecordingForMeeting = async ({
+  meetingId,
+  callerId,
+  file,
+  replace = false,
+  logger = console,
+}) => {
   assertAudioFile(file)
 
   const meeting = await loadMeetingOrThrow(meetingId)
@@ -105,23 +152,90 @@ export const uploadRecordingForMeeting = async ({ meetingId, callerId, file, rep
     'Content-Type': file.mimetype,
   })
 
-  if (existing) {
-    await archiveRecording(existing.id)
-    await removeObject(existing.bucketName, existing.objectKey)
+  const workflowEnabled = isAiPipelineEnabled()
+  let result
+
+  try {
+    result = await transaction(async (client) => {
+      if (existing) {
+        await archiveRecording(existing.id, client)
+      }
+
+      const recording = await createRecording(
+        {
+          id,
+          meetingId,
+          uploadedBy: callerId,
+          fileName: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+          bucketName: BUCKET_AUDIO,
+          objectKey,
+          status: 'uploaded',
+        },
+        client
+      )
+
+      if (!workflowEnabled) {
+        return { recording, transcript: null, analysisRun: null }
+      }
+
+      const transcript = await createTranscript(
+        {
+          meetingId,
+          recordingId: recording.id,
+          createdBy: callerId,
+          status: 'processing',
+        },
+        client
+      )
+      const analysisRun = await createAnalysisRun(
+        {
+          id: randomUUID(),
+          meetingId,
+          recordingId: recording.id,
+          transcriptId: transcript.id,
+          createdBy: callerId,
+          status: 'queued',
+        },
+        client
+      )
+
+      await createWorkflowOutboxEvent(
+        {
+          id: randomUUID(),
+          eventType: 'recording.uploaded',
+          aggregateType: 'recording',
+          aggregateId: recording.id,
+          payload: {
+            recordingId: recording.id,
+            transcriptId: transcript.id,
+            analysisRunId: analysisRun.id,
+          },
+        },
+        client
+      )
+
+      return { recording, transcript, analysisRun }
+    })
+  } catch (error) {
+    await removeNewObjectAfterFailure({
+      bucketName: BUCKET_AUDIO,
+      objectKey,
+      originalError: error,
+      logger,
+    })
   }
 
-  const recording = await createRecording({
-    id,
-    meetingId,
-    uploadedBy: callerId,
-    fileName: file.originalname,
-    mimeType: file.mimetype,
-    sizeBytes: file.size,
-    bucketName: BUCKET_AUDIO,
-    objectKey,
-  })
+  if (existing) {
+    await removeReplacedObjectBestEffort({
+      bucketName: existing.bucketName,
+      objectKey: existing.objectKey,
+      logger,
+    })
+  }
 
-  return { recording, transcript: null }
+  return result
 }
 
 export const archiveRecordingForMeeting = async (meetingId, callerId) => {

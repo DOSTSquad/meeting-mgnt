@@ -23,6 +23,7 @@ const mockRemoveObject = jest.fn().mockResolvedValue(undefined)
 const mockGetObject = jest.fn().mockResolvedValue({
   pipe: jest.fn(),
 })
+const mockQueueRecordingAnalysisWorkflow = jest.fn().mockResolvedValue(undefined)
 
 jest.unstable_mockModule('../services/minio-client.js', () => ({
   BUCKET_FILES: 'meeting-files',
@@ -33,6 +34,10 @@ jest.unstable_mockModule('../services/minio-client.js', () => ({
   statObject: jest.fn().mockResolvedValue({}),
   getObject: mockGetObject,
   removeObject: mockRemoveObject,
+}))
+
+jest.unstable_mockModule('../services/recording-workflow-queue.js', () => ({
+  queueRecordingAnalysisWorkflow: mockQueueRecordingAnalysisWorkflow,
 }))
 
 // Now import everything that transitively pulls in minio-client.
@@ -53,6 +58,7 @@ const {
   removeForMeeting: removeRecordingHandler,
   uploadForMeeting: uploadRecordingHandler,
 } = await import('../controllers/recording-controller.js')
+const { dispatchPendingWorkflowOutbox } = await import('../services/workflow-outbox-service.js')
 
 const TEST_SECRET = 'test-secret'
 
@@ -189,7 +195,11 @@ beforeEach(async () => {
   mockPresignedGetObject.mockClear()
   mockRemoveObject.mockClear()
   mockGetObject.mockClear()
+  mockQueueRecordingAnalysisWorkflow.mockClear()
+  mockQueueRecordingAnalysisWorkflow.mockResolvedValue(undefined)
+  process.env.AI_PIPELINE_ENABLED = 'false'
 
+  await query('TRUNCATE TABLE workflow_outbox RESTART IDENTITY')
   await query('TRUNCATE TABLE meetings RESTART IDENTITY CASCADE')
   await query('TRUNCATE TABLE users RESTART IDENTITY CASCADE')
 
@@ -395,6 +405,249 @@ dbDescribe('File controller (DB-backed)', () => {
         1024,
         expect.objectContaining({ 'Content-Type': 'audio/mpeg' })
       )
+      expect(res.body.transcript).toBeNull()
+      expect(res.body.analysisRun).toBeNull()
+      expect(mockQueueRecordingAnalysisWorkflow).not.toHaveBeenCalled()
+    })
+
+    it('creates durable workflow rows when the AI pipeline is enabled', async () => {
+      process.env.AI_PIPELINE_ENABLED = 'true'
+
+      const { res, nextError } = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'pipeline-recording.mp3',
+            mimetype: 'audio/mpeg',
+          }),
+        })
+      )
+
+      expect(nextError).toBeUndefined()
+      expect(res.statusCode).toBe(201)
+      expect(res.body.recording.status).toBe('uploaded')
+      expect(res.body.transcript).toMatchObject({
+        meetingId: baseMeeting.id,
+        recordingId: res.body.recording.id,
+        status: 'processing',
+      })
+      expect(res.body.analysisRun).toMatchObject({
+        meetingId: baseMeeting.id,
+        recordingId: res.body.recording.id,
+        transcriptId: res.body.transcript.id,
+        status: 'queued',
+      })
+      expect(mockQueueRecordingAnalysisWorkflow).not.toHaveBeenCalled()
+
+      const outboxResult = await query(
+        `
+          SELECT event_type, aggregate_type, aggregate_id, payload, status
+          FROM workflow_outbox
+          WHERE aggregate_id = $1
+        `,
+        [res.body.recording.id]
+      )
+      expect(outboxResult.rows).toHaveLength(1)
+      expect(outboxResult.rows[0]).toMatchObject({
+        event_type: 'recording.uploaded',
+        aggregate_type: 'recording',
+        aggregate_id: res.body.recording.id,
+        status: 'pending',
+      })
+      expect(outboxResult.rows[0].payload).toEqual({
+        recordingId: res.body.recording.id,
+        transcriptId: res.body.transcript.id,
+        analysisRunId: res.body.analysisRun.id,
+      })
+    })
+
+    it('keeps workflow intent pending when Redis is unavailable during upload', async () => {
+      process.env.AI_PIPELINE_ENABLED = 'true'
+      const originalRedisUrl = process.env.REDIS_URL
+      process.env.REDIS_URL = 'redis://127.0.0.1:1'
+
+      const { res, nextError } = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'redis-down.mp3',
+            mimetype: 'audio/mpeg',
+          }),
+        })
+      )
+
+      expect(nextError).toBeUndefined()
+      expect(res.statusCode).toBe(201)
+      expect(res.body.analysisRun.status).toBe('queued')
+      expect(mockQueueRecordingAnalysisWorkflow).not.toHaveBeenCalled()
+
+      const outboxResult = await query(
+        `
+          SELECT status, attempts, last_error
+          FROM workflow_outbox
+          WHERE aggregate_id = $1
+        `,
+        [res.body.recording.id]
+      )
+      expect(outboxResult.rows[0]).toMatchObject({
+        status: 'pending',
+        attempts: 0,
+        last_error: null,
+      })
+
+      if (originalRedisUrl) {
+        process.env.REDIS_URL = originalRedisUrl
+      } else {
+        delete process.env.REDIS_URL
+      }
+    })
+
+    it('removes the newly uploaded object if the database transaction fails', async () => {
+      const { nextError } = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'too-large.mp3',
+            mimetype: 'audio/mpeg',
+            size: 524288001,
+          }),
+        })
+      )
+
+      expect(nextError).toBeDefined()
+      expect(mockPutObject).toHaveBeenCalled()
+      expect(mockRemoveObject).toHaveBeenCalledWith(
+        'meeting-audio',
+        expect.stringMatching(new RegExp(`^meetings/${baseMeeting.id}/recordings/[0-9a-f-]{36}$`))
+      )
+    })
+
+    it('preserves the database error when cleanup of a failed upload object also fails', async () => {
+      const loggerSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      mockRemoveObject.mockRejectedValueOnce(new Error('MinIO cleanup failed'))
+
+      const { nextError } = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'too-large-cleanup-fail.mp3',
+            mimetype: 'audio/mpeg',
+            size: 524288001,
+          }),
+        })
+      )
+
+      expect(nextError).toBeDefined()
+      expect(nextError.message).toMatch(/meeting_recordings/)
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Failed to remove newly uploaded recording after database error',
+        expect.objectContaining({
+          bucketName: 'meeting-audio',
+          message: 'MinIO cleanup failed',
+        })
+      )
+
+      loggerSpy.mockRestore()
+    })
+
+    it('keeps replacement upload successful when old object cleanup fails', async () => {
+      const loggerSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const first = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({ originalname: 'first-cleanup.mp3', mimetype: 'audio/mpeg' }),
+        })
+      )
+      expect(first.nextError).toBeUndefined()
+
+      mockRemoveObject.mockRejectedValueOnce(new Error('old object unavailable'))
+
+      const replace = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({ originalname: 'second-cleanup.mp3', mimetype: 'audio/mpeg' }),
+          body: { replace: 'true' },
+        })
+      )
+
+      expect(replace.nextError).toBeUndefined()
+      expect(replace.res.statusCode).toBe(201)
+      expect(replace.res.body.recording.fileName).toBe('second-cleanup.mp3')
+      expect(loggerSpy).toHaveBeenCalledWith(
+        'Failed to remove replaced recording object',
+        expect.objectContaining({
+          bucketName: 'meeting-audio',
+          message: 'old object unavailable',
+        })
+      )
+
+      loggerSpy.mockRestore()
+    })
+
+    it('replays a failed outbox event with the same workflow identifiers', async () => {
+      process.env.AI_PIPELINE_ENABLED = 'true'
+
+      const uploaded = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({
+            originalname: 'replay.mp3',
+            mimetype: 'audio/mpeg',
+          }),
+        })
+      )
+      expect(uploaded.nextError).toBeUndefined()
+      mockQueueRecordingAnalysisWorkflow.mockRejectedValueOnce(new Error('Redis unavailable'))
+
+      await dispatchPendingWorkflowOutbox({ limit: 1, retryDelaySeconds: 1 })
+
+      mockQueueRecordingAnalysisWorkflow.mockClear()
+      mockQueueRecordingAnalysisWorkflow.mockResolvedValueOnce(undefined)
+
+      await query(
+        `
+          UPDATE workflow_outbox
+          SET available_at = NOW()
+          WHERE aggregate_id = $1
+        `,
+        [uploaded.res.body.recording.id]
+      )
+
+      await dispatchPendingWorkflowOutbox({ limit: 1 })
+
+      expect(mockQueueRecordingAnalysisWorkflow).toHaveBeenCalledWith({
+        recordingId: uploaded.res.body.recording.id,
+        transcriptId: uploaded.res.body.transcript.id,
+        analysisRunId: uploaded.res.body.analysisRun.id,
+      })
+
+      const outboxResult = await query(
+        `
+          SELECT status, attempts
+          FROM workflow_outbox
+          WHERE aggregate_id = $1
+        `,
+        [uploaded.res.body.recording.id]
+      )
+      expect(outboxResult.rows[0]).toMatchObject({
+        status: 'dispatched',
+        attempts: 2,
+      })
     })
 
     it('allows an attendee participant to view recording metadata', async () => {

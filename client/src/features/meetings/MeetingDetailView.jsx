@@ -124,17 +124,34 @@ export const MeetingDetailView = ({
     0
   )
   const recordingStatus = detail.recording?.status || 'empty'
-  const recordingStatusLabel =
-    {
-      empty: 'No recording',
-      uploaded: 'Uploaded',
-      transcribing: 'Transcribing',
-      transcribed: 'Transcript ready',
-      failed: 'Needs setup',
-    }[recordingStatus] || recordingStatus
+  const isGenerationQueued =
+    recordingStatus === 'uploaded' &&
+    (detail.transcript?.status === 'processing' || detail.analysisRun?.status === 'queued')
+  const recordingStatusLabel = isGenerationQueued
+    ? 'Queued'
+    : {
+        empty: 'No recording',
+        uploaded: 'Uploaded',
+        transcribing: 'Transcribing',
+        transcribed: 'Transcript ready',
+        failed: 'Needs setup',
+      }[recordingStatus] || recordingStatus
   const transcriptMessage =
     detail.transcript?.errorMessage ||
-    (detail.transcript?.status === 'completed' ? 'Transcript is ready.' : null)
+    (detail.transcript?.status === 'completed'
+      ? 'Transcript is ready.'
+      : detail.transcript?.status === 'processing'
+        ? 'Transcription is queued.'
+        : null)
+  const analysisMessage =
+    detail.analysisRun?.errorMessage ||
+    (detail.analysisRun?.status === 'queued'
+      ? 'Analysis is queued.'
+      : detail.analysisRun?.status === 'processing'
+        ? 'Analysis is running.'
+        : detail.analysisRun?.status === 'ready_for_review'
+          ? 'Analysis is ready for review.'
+          : null)
   const minuteStatusClass =
     {
       draft: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -465,6 +482,17 @@ export const MeetingDetailView = ({
                         }`}
                       >
                         {transcriptMessage}
+                      </p>
+                    ) : null}
+                    {analysisMessage ? (
+                      <p
+                        className={`mt-1 text-xs font-semibold ${
+                          detail.analysisRun?.status === 'failed'
+                            ? 'text-amber-700'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {analysisMessage}
                       </p>
                     ) : null}
                   </div>

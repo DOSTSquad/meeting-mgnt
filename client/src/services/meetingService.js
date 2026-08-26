@@ -56,6 +56,7 @@ export const getMeetingDetail = async (client, meetingId) => {
     minutes,
     recording: recordingDetail.recording,
     transcript: recordingDetail.transcript,
+    analysisRun: recordingDetail.analysisRun,
   }
 }
 import { getMeetingMinutes } from './minuteService.js'
