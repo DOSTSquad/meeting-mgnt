@@ -62,7 +62,7 @@ jobs:
           git checkout main
           git pull --ff-only origin main
 
-          npm ci
+          npm ci --omit=dev --no-audit --no-fund
           VITE_API_BASE_URL=/ npm run build --workspace=client
           npm run migrate --workspace=server
 
