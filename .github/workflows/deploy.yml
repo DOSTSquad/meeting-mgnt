@@ -37,6 +37,23 @@ jobs:
           test -n "${DEPLOY_USER}" || { echo "Missing DEPLOY_USER secret"; exit 1; }
           test -n "${DEPLOY_SSH_KEY}" || { echo "Missing DEPLOY_SSH_KEY secret"; exit 1; }
 
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build client
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          VITE_API_BASE_URL=/ npm run build --workspace=client
+
       - name: Configure SSH
         run: |
           set -euo pipefail
@@ -45,15 +62,21 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${DEPLOY_PORT}" "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
 
-      - name: Deploy application
+      - name: Sync code and install runtime dependencies
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' bash -s" <<'REMOTE'
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "APP_DIR='${DEPLOY_PATH}' bash -s" <<'REMOTE'
           set -euo pipefail
 
           command -v node >/dev/null || { echo "node not found. Install Node.js globally or make it available on PATH."; exit 1; }
           command -v npm >/dev/null || { echo "npm not found. Install Node.js globally or make it available on PATH."; exit 1; }
+          command -v rsync >/dev/null || { echo "rsync not found. Install rsync on the VPS."; exit 1; }
           node -v
           npm -v
 
@@ -62,8 +85,29 @@ jobs:
           git checkout main
           git pull --ff-only origin main
 
-          npm ci
-          VITE_API_BASE_URL=/ npm run build --workspace=client
+          npm ci --omit=dev --no-audit --no-fund
+          REMOTE
+
+      - name: Upload client bundle
+        run: |
+          set -euo pipefail
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8" \
+            client/dist/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/client/dist/"
+
+      - name: Migrate and restart
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          cd "${APP_DIR}"
           npm run migrate --workspace=server
 
           sudo systemctl restart "${SERVICE_NAME}"
