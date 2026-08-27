@@ -152,12 +152,33 @@ Optional repository variables:
 
 The client bundle is built on the GitHub runner and copied to the VPS with
 `rsync`, so the VPS never installs devDependencies or runs Vite. The VPS deploy
-user must be able to run `git fetch`, `npm ci --omit=dev`,
-`npm run migrate --workspace=server`,
-`sudo systemctl restart meeting-mgnt-server`, and
-`sudo systemctl restart meeting-mgnt-worker`, and `rsync` must be installed
-(`sudo apt install rsync`). If the deploy user is not root, allow passwordless
-sudo only for restarting those two services.
+user must be able to run `git fetch`, `npm ci --omit=dev`, and
+`npm run migrate --workspace=server`, and `rsync` must be installed
+(`sudo apt install rsync`).
+
+Deploy also calls `systemctl` over sudo. If the deploy user is not root, grant
+passwordless sudo for exactly these four commands:
+
+```
+<deploy_user> ALL=(root) NOPASSWD: /usr/bin/systemctl restart meeting-mgnt-server.service, \
+                           /usr/bin/systemctl restart meeting-mgnt-worker.service, \
+                           /usr/bin/systemctl status meeting-mgnt-server.service --no-pager, \
+                           /usr/bin/systemctl status meeting-mgnt-worker.service --no-pager
+```
+
+Edit sudoers with `sudo EDITOR=vim visudo`, never a bare editor: visudo validates
+the syntax before saving, and a malformed sudoers file disables sudo entirely.
+
+Two things about that rule are easy to get wrong:
+
+- **Arguments are matched exactly.** A rule ending in `meeting-mgnt-worker.service`
+  does not authorise `... meeting-mgnt-worker.service --no-pager`, so the
+  `--no-pager` variants have to be listed separately. Deploy only runs
+  `systemctl status` on the failure path, so a missing rule stays invisible until
+  the run where you actually need the diagnostics.
+- **Only these four need sudo.** Deploy calls `systemctl list-unit-files`,
+  `is-failed`, and `is-active` unprivileged; they are read-only and must not be
+  added to the sudoers rule.
 
 Run the Express API as a private service on the VPS:
 
