@@ -73,3 +73,23 @@ export const createAnalysisRun = async (
 
   return mapAnalysisRun(result.rows[0])
 }
+
+// A transcript that failed permanently can never produce an analysis, so its
+// pending runs move to `failed` in the same transaction. Returns every run it
+// moved; an empty array means there was nothing left waiting.
+export const failPendingAnalysisRunsForTranscript = async ({ transcriptId, errorMessage }, db) => {
+  const result = await executor(db).query(
+    `
+      UPDATE analysis_runs
+      SET status = 'failed',
+          error_message = $2,
+          updated_at = NOW()
+      WHERE transcript_id = $1
+        AND status IN ('queued', 'processing')
+      RETURNING ${ANALYSIS_RUN_COLUMNS}
+    `,
+    [transcriptId, errorMessage]
+  )
+
+  return result.rows.map(mapAnalysisRun)
+}

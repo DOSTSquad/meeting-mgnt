@@ -57,6 +57,64 @@ export const findLatestTranscriptByRecordingId = async (recordingId) => {
   return mapTranscript(result.rows[0])
 }
 
+export const findTranscriptById = async (id, db) => {
+  const result = await executor(db).query(
+    `
+      SELECT ${TRANSCRIPT_COLUMNS}
+      FROM meeting_transcripts
+      WHERE id = $1
+    `,
+    [id]
+  )
+
+  return mapTranscript(result.rows[0])
+}
+
+// Guarded completion: only a transcript still in `processing` and still attached
+// to the given recording moves. A null return means the job is stale.
+export const completeTranscript = async (
+  { id, recordingId, transcriptText, segments, durationSeconds },
+  db
+) => {
+  const result = await executor(db).query(
+    `
+      UPDATE meeting_transcripts
+      SET status = 'completed',
+          transcript_text = $3,
+          segments = $4::jsonb,
+          duration_seconds = $5,
+          error_message = NULL,
+          completed_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+        AND recording_id = $2
+        AND status = 'processing'
+      RETURNING ${TRANSCRIPT_COLUMNS}
+    `,
+    [id, recordingId, transcriptText, JSON.stringify(segments), durationSeconds]
+  )
+
+  return mapTranscript(result.rows[0])
+}
+
+export const failTranscript = async ({ id, recordingId, errorMessage }, db) => {
+  const result = await executor(db).query(
+    `
+      UPDATE meeting_transcripts
+      SET status = 'failed',
+          error_message = $3,
+          updated_at = NOW()
+      WHERE id = $1
+        AND recording_id = $2
+        AND status = 'processing'
+      RETURNING ${TRANSCRIPT_COLUMNS}
+    `,
+    [id, recordingId, errorMessage]
+  )
+
+  return mapTranscript(result.rows[0])
+}
+
 export const createTranscript = async (
   {
     meetingId,

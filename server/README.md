@@ -252,6 +252,32 @@ Any meeting participant can read recording metadata, transcript status, and anal
 
 When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates an `uploaded` recording, a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The separate worker runtime publishes an idempotent BullMQ flow with a transcription child job and an analysis parent job; job payloads contain identifiers only. PostgreSQL statuses are the user-visible source of truth. The recording changes to `transcribing` only when a later worker actually starts transcription. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
 
+The worker runtime consumes the transcription child job through a provider adapter selected by
+`AI_TRANSCRIPTION_PROVIDER`. There is no default: an unset or unknown provider stops the worker at
+startup rather than failing every job, so a production worker can never silently emit fixture text.
+The `fixture` adapter returns deterministic text, segments, and duration, and still reads the audio
+stream chunk by chunk so the interface matches a real speech-to-text provider. Audio is never
+buffered whole in the worker and never stored in Redis.
+
+Each transition is a guarded transaction. The recording must still be active and the transcript must
+still be `processing` and still attached to that recording; a guard matching nothing means the job is
+stale (the recording was archived or replaced, or another attempt already finished) and it is skipped
+without touching current state. Retries only rewrite state on the final attempt: earlier failures
+rethrow so BullMQ can back off, and the last attempt fails the transcript, the recording, and every
+`queued` or `processing` analysis run for that transcript in one transaction. The transcription child
+carries `failParentOnFailure: true`, so an exhausted transcription cannot leave analysis waiting
+forever.
+
+After each transition commits, the worker publishes a recording-status invalidation on the
+`WORKFLOW_STATUS_CHANNEL` Redis channel using a dedicated publisher connection. The payload carries
+identifiers and status labels only — never transcript text, audio, credentials, or presigned URLs —
+and PostgreSQL remains authoritative: subscribers reload from the database rather than trusting the
+message. Publishing happens outside the transaction and a failed publish is logged, not retried,
+because the write has already committed.
+
+Worker tuning: `RECORDING_TRANSCRIPTION_CONCURRENCY` (default `2`) and
+`RECORDING_TRANSCRIPTION_TIMEOUT_MS` (default `120000`, used as the BullMQ lock duration).
+
 `POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)

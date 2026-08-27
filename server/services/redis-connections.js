@@ -2,6 +2,7 @@ import IORedis from 'ioredis'
 
 let producerConnection
 let workerConnection
+let publisherConnection
 
 const createRedisConnection = (role) => {
   if (!process.env.REDIS_URL) {
@@ -38,10 +39,21 @@ export const getWorkerRedisConnection = () => {
   return workerConnection
 }
 
+// Status invalidations are published on their own connection so a slow or
+// broken publish can never stall the BullMQ producer or worker.
+export const getPublisherRedisConnection = () => {
+  if (!publisherConnection) {
+    publisherConnection = createRedisConnection('publisher')
+  }
+
+  return publisherConnection
+}
+
 export const closeRedisConnections = async () => {
-  const connections = [producerConnection, workerConnection].filter(Boolean)
+  const connections = [producerConnection, workerConnection, publisherConnection].filter(Boolean)
   producerConnection = undefined
   workerConnection = undefined
+  publisherConnection = undefined
 
   await Promise.all(
     connections.map((connection) => connection.quit().catch(() => connection.disconnect()))
