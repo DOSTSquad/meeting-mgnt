@@ -20,3 +20,8 @@ export const generateMinutesFromRecording = async (client, meetingId) => {
   const response = await client.post(`/api/meetings/${meetingId}/recording/generate-minutes`)
   return response.data
 }
+
+export const getMeetingAnalysis = async (client, meetingId) => {
+  const response = await client.get(`/api/meetings/${meetingId}/recording/analysis`)
+  return response.data
+}

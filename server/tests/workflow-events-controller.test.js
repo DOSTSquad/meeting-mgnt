@@ -8,8 +8,8 @@ const unsubscribe = jest.fn()
 
 jest.unstable_mockModule('../services/workflow-events-service.js', () => ({
   getWorkflowSnapshot,
-  isTranscriptionSettled: (snapshot) =>
-    ['completed', 'failed'].includes(snapshot?.transcript?.status),
+  isWorkflowSettled: (snapshot) =>
+    ['ready_for_review', 'failed'].includes(snapshot?.analysisRun?.status),
 }))
 
 jest.unstable_mockModule('../services/workflow-status-subscriber.js', () => ({
@@ -29,7 +29,7 @@ const processing = {
 const completed = {
   recording: { id: 'rec-1', status: 'transcribed' },
   transcript: { id: 'tra-1', status: 'completed' },
-  analysisRun: { id: 'run-1', status: 'queued' },
+  analysisRun: { id: 'run-1', status: 'ready_for_review' },
 }
 
 const createReq = () => {
@@ -142,7 +142,7 @@ describe('workflow events stream', () => {
     expect(getWorkflowSnapshot).toHaveBeenCalledTimes(2)
   })
 
-  it('closes the stream once transcription settles', async () => {
+  it('closes the stream once the workflow settles', async () => {
     getWorkflowSnapshot.mockResolvedValueOnce(processing).mockResolvedValueOnce(completed)
     await streamWorkflowEvents(req, res, next)
 

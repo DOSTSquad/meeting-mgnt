@@ -57,7 +57,9 @@ export const RegisterView = ({ onRegister, onShowLogin }) => {
       <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-300/40 lg:grid-cols-2">
         <div className="relative hidden bg-slate-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">Welcome</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+              Welcome
+            </p>
             <h2 className="mt-4 max-w-sm text-3xl font-semibold leading-tight text-white">
               Create your account and start managing meetings
             </h2>

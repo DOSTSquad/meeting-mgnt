@@ -1,4 +1,6 @@
 import { useState } from 'react'
+
+import { AnalysisReviewPreview } from './AnalysisReviewPreview.jsx'
 import { Eye, FileAudio, Trash2, UploadCloud } from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
@@ -67,6 +69,7 @@ const getParticipantInitials = (name = '') => {
 
 export const MeetingDetailView = ({
   detail,
+  analysisReview,
   onBack,
   onChange,
   onSaveMeetingField,
@@ -529,6 +532,7 @@ export const MeetingDetailView = ({
                     </div>
                   ) : null}
                 </div>
+                <AnalysisReviewPreview review={analysisReview} />
               </div>
             ) : canManageMeeting ? (
               <label

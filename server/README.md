@@ -275,6 +275,34 @@ and PostgreSQL remains authoritative: subscribers reload from the database rathe
 message. Publishing happens outside the transaction and a failed publish is logged, not retried,
 because the write has already committed.
 
+### Analysis Review (`GET /api/meetings/:meetingId/recording/analysis`)
+
+The latest analysis for a meeting, for any participant. Returns the run with its
+summary, key discussions, decisions, provenance, and proposed action-item
+suggestions. Evidence indexes are resolved server-side into the transcript
+passages they cite, so a reviewer sees the quotation without the client holding
+the whole transcript.
+
+Everything here is read-only. Suggestions stay `proposed` and are not action
+items: promoting them is #65. Nothing in this slice touches minutes.
+
+The analysis worker runs the BullMQ parent job, which the flow releases only once
+its transcription child has completed. `failParentOnFailure` on the child means a
+failed transcription never starts an analysis at all — the dependency is enforced
+by the queue, not by a status check in the worker.
+
+Adapter output is validated before any write, including the fixture's. Evidence
+indexes are checked against the transcript that produced the run, so a citation
+cannot point past the end of it or carry over from another meeting. A malformed
+result fails the run rather than persisting half a review.
+
+Provenance is enforced by the database: `0034` refuses to let a run reach
+`ready_for_review` without a summary, transcript, provider, model, and prompt
+version. A generated result nobody can trace is not reviewable.
+
+Worker tuning: `RECORDING_ANALYSIS_CONCURRENCY` (default `2`) and
+`RECORDING_ANALYSIS_TIMEOUT_MS` (default `120000`).
+
 ### Workflow Events (`GET /api/meetings/:meetingId/workflow/events`)
 
 Server-sent events carrying recording, transcript, and analysis-run status for
@@ -310,8 +338,9 @@ The response sets `Cache-Control: no-cache, no-transform` and
 than buffer this route — Caddy's `reverse_proxy` streams by default; nginx needs
 `proxy_buffering off`.
 
-For this slice the stream closes once transcription settles. #62 extends it
-through analysis readiness.
+A completed transcript with no analysis run yet is deliberately _not_ settled:
+that is the window between the two jobs, and closing there would leave the client
+blind to the analysis result.
 
 ### Checking the workflow end to end
 

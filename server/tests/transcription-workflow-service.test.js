@@ -20,6 +20,10 @@ const { runMigrations } = await import('../db/migrate.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { completeTranscription, failTranscription, startTranscription } =
   await import('../services/transcription-workflow-service.js')
+const { completeAnalysis, failAnalysis, startAnalysis } =
+  await import('../services/analysis-workflow-service.js')
+const { listSuggestionsForAnalysisRun } =
+  await import('../repositories/analysis-suggestion-repository.js')
 
 const dbDescribe = runDatabaseTests ? describe : describe.skip
 
@@ -335,5 +339,143 @@ dbDescribe('transcription workflow transitions', () => {
 
     expect(second.stale).toBe(true)
     expect((await readTranscript(transcriptId)).error_message).toBe('first')
+  })
+})
+
+const ANALYSIS_RESULT = {
+  summary: 'A generated summary.',
+  keyDiscussions: [{ topic: 'T', detail: 'D', evidence: [0] }],
+  decisions: [{ decision: 'Do it', rationale: 'Because', evidence: [0] }],
+  suggestions: [
+    { title: 'First task', description: 'Do the first thing', priority: 'high', evidence: [0] },
+    { title: 'Second task', priority: 'low', evidence: [0] },
+  ],
+  provider: 'fixture',
+  model: 'fixture-analysis-v1',
+  promptVersion: '2026-08-27',
+}
+
+dbDescribe('analysis workflow transitions', () => {
+  const completeTranscriptFirst = async () => {
+    await startTranscription({ recordingId, transcriptId })
+    await completeTranscription({ recordingId, transcriptId, result: FIXTURE_RESULT })
+  }
+
+  it('refuses to start while the transcript is not completed', async () => {
+    const started = await startAnalysis({ analysisRunId, transcriptId, recordingId })
+
+    expect(started.stale).toBe(true)
+    expect((await readAnalysisRun(analysisRunId)).status).toBe('queued')
+  })
+
+  it('moves the run to processing once the transcript is complete', async () => {
+    await completeTranscriptFirst()
+
+    const started = await startAnalysis({ analysisRunId, transcriptId, recordingId })
+
+    expect(started.stale).toBe(false)
+    expect(started.transcript.status).toBe('completed')
+    expect((await readAnalysisRun(analysisRunId)).status).toBe('processing')
+  })
+
+  it('persists the result, provenance, and proposed suggestions in one transaction', async () => {
+    await completeTranscriptFirst()
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+
+    const completed = await completeAnalysis({
+      analysisRunId,
+      transcriptId,
+      recordingId,
+      result: ANALYSIS_RESULT,
+    })
+
+    expect(completed.stale).toBe(false)
+
+    const row = await query(
+      'SELECT status, summary, provider, model, prompt_version, jsonb_array_length(key_discussions) AS discussions, jsonb_array_length(decisions) AS decisions, completed_at FROM analysis_runs WHERE id = $1',
+      [analysisRunId]
+    )
+
+    expect(row.rows[0]).toMatchObject({
+      status: 'ready_for_review',
+      summary: 'A generated summary.',
+      provider: 'fixture',
+      model: 'fixture-analysis-v1',
+      prompt_version: '2026-08-27',
+      discussions: 1,
+      decisions: 1,
+    })
+    expect(row.rows[0].completed_at).not.toBeNull()
+
+    const suggestions = await listSuggestionsForAnalysisRun(analysisRunId)
+
+    expect(suggestions).toHaveLength(2)
+    expect(suggestions.every((item) => item.status === 'proposed')).toBe(true)
+    expect(suggestions[0]).toMatchObject({ title: 'First task', priority: 'high', evidence: [0] })
+  })
+
+  it("replaces a previous attempt's suggestions rather than accumulating them", async () => {
+    await completeTranscriptFirst()
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+    await completeAnalysis({ analysisRunId, transcriptId, recordingId, result: ANALYSIS_RESULT })
+
+    // A retry re-runs the adapter. completed_at is cleared with the status
+    // because 0033 forbids a completion timestamp on a run that is not ready.
+    await query(
+      "UPDATE analysis_runs SET status = 'processing', completed_at = NULL WHERE id = $1",
+      [analysisRunId]
+    )
+    await completeAnalysis({
+      analysisRunId,
+      transcriptId,
+      recordingId,
+      result: { ...ANALYSIS_RESULT, suggestions: [ANALYSIS_RESULT.suggestions[0]] },
+    })
+
+    expect(await listSuggestionsForAnalysisRun(analysisRunId)).toHaveLength(1)
+  })
+
+  it('treats a duplicate completion as stale', async () => {
+    await completeTranscriptFirst()
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+    await completeAnalysis({ analysisRunId, transcriptId, recordingId, result: ANALYSIS_RESULT })
+
+    const duplicate = await completeAnalysis({
+      analysisRunId,
+      transcriptId,
+      recordingId,
+      result: { ...ANALYSIS_RESULT, summary: 'second delivery' },
+    })
+
+    expect(duplicate.stale).toBe(true)
+    expect((await readAnalysisRun(analysisRunId)).status).toBe('ready_for_review')
+  })
+
+  it('fails the run and keeps the failure message', async () => {
+    await completeTranscriptFirst()
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+
+    const failed = await failAnalysis({
+      analysisRunId,
+      transcriptId,
+      recordingId,
+      errorMessage: 'provider exhausted',
+    })
+
+    expect(failed.stale).toBe(false)
+    expect(await readAnalysisRun(analysisRunId)).toMatchObject({
+      status: 'failed',
+      error_message: 'provider exhausted',
+    })
+  })
+
+  it('leaves the analysis run failed when transcription failed', async () => {
+    await startTranscription({ recordingId, transcriptId })
+    await failTranscription({ recordingId, transcriptId, errorMessage: 'no audio' })
+
+    // failTranscription already failed the pending run, so the analysis job has
+    // nothing to claim even if BullMQ somehow delivered it.
+    expect((await readAnalysisRun(analysisRunId)).status).toBe('failed')
+    expect((await startAnalysis({ analysisRunId, transcriptId, recordingId })).stale).toBe(true)
   })
 })

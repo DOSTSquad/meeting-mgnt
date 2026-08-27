@@ -1,0 +1,1289 @@
+{
+  "info": {
+    "name": "DOST Meeting Management",
+    "description": "Auth, Meeting CRUD, and Participant management endpoints for the DOST meeting management API. Run **Login** first to populate the `token` collection variable; subsequent requests use it via Bearer auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "dost-meeting-mgnt-collection"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "meetingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "minutesId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recordingId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "participantUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fileId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "actionItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "smoke@test.local",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "password123",
+      "type": "string"
+    },
+    {
+      "key": "meetingRequestId",
+      "value": ""
+    },
+    {
+      "key": "timeOptionId",
+      "value": ""
+    },
+    {
+      "key": "inviteeId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "description": "Creates a new user. Returns `{ token, user }` and sets the `token` collection variable on success."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.token) pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "description": "Returns `{ token, user }`. Test script auto-saves `token` to the collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.token) pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Returns the user attached to the current bearer token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meetings",
+      "item": [
+        {
+          "name": "Create meeting",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sprint planning\",\n  \"description\": \"Plan the next sprint backlog\",\n  \"startsAt\": \"2026-05-01T09:00:00+10:00\",\n  \"endsAt\": \"2026-05-01T10:00:00+10:00\",\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"location\": \"Room 4.1\",\n  \"status\": \"scheduled\"\n}"
+            },
+            "description": "Creates a meeting. `startsAt`/`endsAt` accept ISO 8601 with offset; Postgres normalizes to UTC. `timezoneName` defaults to `'UTC'` if omitted; must be a valid IANA zone."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.meeting && data.meeting.id) pm.collectionVariables.set('meetingId', data.meeting.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List meetings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames for repository search/display, `participantCount` is the full attendee count, and `participantNames` is a short preview of up to three names for repository/list views."
+          }
+        },
+        {
+          "name": "List meetings (filters + pagination)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings?status=scheduled&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "description": "scheduled | completed | cancelled | archived"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-05-01T00:00:00Z",
+                  "description": "ISO 8601; starts_at >= from"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31T23:59:59Z",
+                  "description": "ISO 8601; starts_at <= to"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "default 1, min 1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "default 20, min 1, max 100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search meetings (full-text)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings?q=budget&status=scheduled",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "budget",
+                  "description": "plainto_tsquery over title + description (english config, stemmed) and uploaded file names (simple config); max 200 chars"
+                },
+                {
+                  "key": "status",
+                  "value": "scheduled",
+                  "description": "optional; composes with q"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get meeting by id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
+            },
+            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames and `participantNames` is a short preview of up to three names."
+          }
+        },
+        {
+          "name": "Update meeting",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"location\": \"Room 5.2\"\n}"
+            },
+            "description": "Partial update — send only the fields you want to change."
+          }
+        },
+        {
+          "name": "Delete meeting",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}"]
+            },
+            "description": "Hard delete. Returns 204 on success, 404 if not found."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meeting requests",
+      "item": [
+        {
+          "name": "Create meeting request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"description\": \"Review delivery health and risks\",\n  \"durationMinutes\": 60,\n  \"timezoneName\": \"Australia/Brisbane\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+10:00\"\n}"
+            },
+            "description": "Creates a meeting request. `responseDeadline` is required, must be a future ISO 8601 datetime, and controls when invitee availability submission closes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.meetingRequest && data.meetingRequest.id) pm.collectionVariables.set(meetingRequestId, data.meetingRequest.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update meeting request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Quarterly Operations Review\",\n  \"description\": \"Review delivery health and updated risks\",\n  \"durationMinutes\": 90,\n  \"timezoneName\": \"Asia/Manila\",\n  \"responseDeadline\": \"2026-05-08T17:00:00+08:00\"\n}"
+            },
+            "description": "Updates editable meeting request details before the request is closed. Used when the organizer goes back in the creation wizard and changes duration, timezone, title, description, or response deadline."
+          }
+        },
+        {
+          "name": "Replace time options",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/time-options",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "time-options"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timeOptions\": [\n    {\n      \"startsAt\": \"2026-05-12T09:00:00+10:00\",\n      \"endsAt\": \"2026-05-12T10:00:00+10:00\"\n    },\n    {\n      \"startsAt\": \"2026-05-12T11:00:00+10:00\",\n      \"endsAt\": \"2026-05-12T12:00:00+10:00\"\n    }\n  ]\n}"
+            },
+            "description": "Replaces candidate time options. Returns 409 if any option overlaps the request creator's existing non-cancelled/non-archived meetings."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.timeOptions && data.timeOptions[0]) pm.collectionVariables.set(timeOptionId, data.timeOptions[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Replace invitees",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "invitees"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invitees\": [\n    {\n      \"email\": \"nattanan.thepsathorn@seed.local\"\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.invitees && data.invitees[0]) pm.collectionVariables.set(inviteeId, data.invitees[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get meeting request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get invitee meeting request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees/{{inviteeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "invitees", "{{inviteeId}}"]
+            },
+            "description": "Invitee-safe request detail for the dashboard voting modal. Returns `{ meetingRequest, invitee, timeOptions, responses }` for the matching invitee or request creator. `meetingRequest` includes derived `responseDeadlinePassed`, `availabilityClosed`, and `canConfirm` flags."
+          }
+        },
+        {
+          "name": "Submit availability",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/invitees/{{inviteeId}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "meeting-requests",
+                "{{meetingRequestId}}",
+                "invitees",
+                "{{inviteeId}}",
+                "availability"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"responses\": [\n    {\n      \"timeOptionId\": \"{{timeOptionId}}\",\n      \"isAvailable\": true\n    }\n  ]\n}"
+            },
+            "description": "Submit or replace an invitee's binary availability responses. Returns `409` after the request response deadline has passed."
+          }
+        },
+        {
+          "name": "Confirm meeting request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}", "confirm"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timeOptionId\": \"{{timeOptionId}}\",\n  \"location\": \"Room 4.1\",\n  \"tag\": \"Operations\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.meeting && data.meeting.id) pm.collectionVariables.set(meetingId, data.meeting.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Terminate meeting request",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meeting-requests/{{meetingRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meeting-requests", "{{meetingRequestId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard aggregate data for the signed-in user, including host-created pending meeting requests and invitee availability requests before they become confirmed meetings.",
+      "item": [
+        {
+          "name": "Get dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard"]
+            },
+            "description": "Returns `{ recentMeetings, pendingMeetingRequests, pendingAvailabilityRequests, myActionItems }`. `recentMeetings` includes the next six accessible active meetings ordered by earliest start time. `pendingMeetingRequests` includes unconfirmed, uncancelled meeting requests created by the current user, including derived deadline flags. `pendingAvailabilityRequests` includes requests where the current user is an invitee, still needs to submit availability, and the response deadline has not passed. `myActionItems` includes lean summaries for the current user's open assigned action items, including derived `isOverdue` and `dueState`; fetch `/action-items/:id` for detail-only fields."
+          }
+        },
+        {
+          "name": "Get notification summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "summary"]
+            },
+            "description": "Topbar-friendly notification payload. Returns `{ unreadCount, notifications, nextCursor }`, where `notifications` contains the latest five notification previews and `nextCursor` is present when more items exist."
+          }
+        },
+        {
+          "name": "List notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Optional page size, defaults to 20 and caps at 50"
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "description": "Optional cursor returned by the previous page",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Cursor-paginated notification feed. Returns `{ notifications, nextCursor }`; pass `nextCursor` as `cursor` to fetch the next page."
+          }
+        },
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "read"]
+            },
+            "description": "Marks one notification owned by the signed-in user as read. Returns `{ notification }`."
+          }
+        },
+        {
+          "name": "Archive notification",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/archive",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "archive"]
+            },
+            "description": "Archives one notification owned by the signed-in user. Archived notifications are marked read and hidden from summary/feed responses. Returns `{ notification }`."
+          }
+        },
+        {
+          "name": "Mark notifications read",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{notificationId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read"]
+            },
+            "description": "Marks selected notifications owned by the signed-in user as read. Returns `{ updatedCount }`."
+          }
+        },
+        {
+          "name": "Mark all notifications read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            },
+            "description": "Marks every unread notification owned by the signed-in user as read. Returns `{ updatedCount }`."
+          }
+        },
+        {
+          "name": "Archive read notifications",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/archive-read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "archive-read"]
+            },
+            "description": "Archives all read notifications owned by the signed-in user. Unread notifications are preserved. Returns `{ archivedCount }`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Minutes",
+      "description": "Manage minutes for a meeting. `content`, `keyDiscussions`, `decisions`, `facilitatorId`, `recorderId`, and optional `generatedFromTranscriptId` live on `/meetings/{{meetingId}}/minutes`, not on the meeting record.",
+      "item": [
+        {
+          "name": "Get meeting minutes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
+            },
+            "description": "Returns `{ minutes }`. If the meeting has no minutes yet, the API creates an empty draft minutes row."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.minutes && data.minutes.id) pm.collectionVariables.set('minutesId', data.minutes.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update meeting minutes",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Reviewed delivery risk and agreed follow-up owners.\",\n  \"keyDiscussions\": \"Timeline risk\\nResourcing\",\n  \"decisions\": \"Keep current milestone scope.\",\n  \"facilitatorId\": null,\n  \"recorderId\": null,\n  \"generatedFromTranscriptId\": null\n}"
+            },
+            "description": "Updates moved minutes fields. Only the meeting creator or an organizer can update minutes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.minutes && data.minutes.id) pm.collectionVariables.set('minutesId', data.minutes.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update meeting minutes without id",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"draft\"\n}"
+            },
+            "description": "Updates the meeting's current minutes row, creating a draft row first if needed."
+          }
+        },
+        {
+          "name": "Update meeting minutes missing body",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/{{minutesId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "{{minutesId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Expected 400 with `No updates supplied`."
+          }
+        },
+        {
+          "name": "Get minutes for unknown meeting",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/00000000-0000-0000-0000-000000000000/minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "00000000-0000-0000-0000-000000000000", "minutes"]
+            },
+            "description": "Expected 404."
+          }
+        },
+        {
+          "name": "Update unknown minutes id",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "minutes",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"This should not update.\"\n}"
+            },
+            "description": "Expected 404 with `Minutes not found`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recordings",
+      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio.",
+      "item": [
+        {
+          "name": "Get active recording",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording"]
+            },
+            "description": "Returns `{ recording, transcript }`. Both are null when no active recording exists. Any meeting participant can read recording metadata and transcript status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.recording && data.recording.id) pm.collectionVariables.set('recordingId', data.recording.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload or replace recording",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select an MP3/WAV/M4A audio file ≤ 50 MB"
+                },
+                {
+                  "key": "replace",
+                  "value": "true",
+                  "type": "text",
+                  "description": "Set true to replace the current active recording"
+                }
+              ]
+            },
+            "description": "Uploads the one active recording used for minutes generation. Without `replace=true`, a second active recording returns 409."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.recording && data.recording.id) pm.collectionVariables.set('recordingId', data.recording.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate minutes from recording scaffold",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording/generate-minutes",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording", "generate-minutes"]
+            },
+            "description": "Scaffold endpoint. Until speech-to-text/LLM providers are configured, returns 202 with `generationStatus='not_configured'` and a failed transcript row."
+          }
+        },
+        {
+          "name": "Remove active recording",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "recording"]
+            },
+            "description": "Archives the active recording and removes its MinIO object. Returns 204."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Participants",
+      "description": "Manage participants on a meeting. All requests target `/meetings/{{meetingId}}/participants`. Only the meeting creator or a participant with `role='organizer'` can add / update / remove participants. The last organizer cannot be demoted or removed.",
+      "item": [
+        {
+          "name": "List participants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants"]
+            },
+            "description": "Returns `{ participants: [...] }`. Each row includes `userId`, `name`, `email`, `role`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
+          }
+        },
+        {
+          "name": "Add participants (bulk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\"<user-uuid-1>\", \"<user-uuid-2>\"],\n  \"role\": \"attendee\"\n}"
+            },
+            "description": "Adds one or more users to the meeting. `userIds` is a 1–50 element array of user UUIDs. `role` is optional (default `attendee`); allowed: `organizer`, `attendee`, `optional`.\n\nIdempotent — re-posting an existing `userId` is a no-op (use PATCH to change role). Returns `201 { participants }` containing the current rows for every requested id.\n\nThe test script auto-saves the first returned `userId` to `participantUserId` so the PATCH/DELETE requests below work out of the box."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.participants && data.participants.length > 0) {",
+                  "    pm.collectionVariables.set('participantUserId', data.participants[0].userId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update participant role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"organizer\"\n}"
+            },
+            "description": "Update a participant's `role`. Empty body returns 400.\n\nAllowed `role`: `organizer`, `attendee`, `optional`.\n\nDemoting the last organizer returns 400."
+          }
+        },
+        {
+          "name": "Remove participant",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/participants/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
+            },
+            "description": "Removes the participant from the meeting. Returns 204 on success, 404 if not a participant, 400 if they are the last organizer."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files",
+      "description": "Upload, list, download, and delete files attached to a meeting. These materials may include audio, but they are separate from the dedicated Meeting Recording workflow used for minutes generation. Max 50 MB; allowed types: PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, Markdown, and audio.",
+      "item": [
+        {
+          "name": "Upload file",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "files"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a PDF/DOCX/XLSX/PPTX/image/audio ≤ 50 MB"
+                },
+                {
+                  "key": "description",
+                  "value": "Meeting agenda",
+                  "type": "text",
+                  "description": "Optional description"
+                }
+              ]
+            },
+            "description": "Multipart upload. Field name must be `file`. Returns `201 { file }`. Auto-saves `fileId` to collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.file && data.file.id) pm.collectionVariables.set('fileId', data.file.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List files",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "files"]
+            },
+            "description": "Returns `{ files: [...] }` for the meeting. Any participant can list."
+          }
+        },
+        {
+          "name": "Download file (presigned URL)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}", "download"]
+            },
+            "description": "Returns `{ url, expiresAt }`. The presigned URL is valid for 60 seconds — paste it into a browser or use it in a fetch to retrieve the file bytes directly from MinIO."
+          }
+        },
+        {
+          "name": "Delete file",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/files/{{fileId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["files", "{{fileId}}"]
+            },
+            "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only creator or organizer can delete."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Action items",
+      "description": "Create, list, update, and delete action items attached to a meeting. Any meeting participant (including the creator) can CRUD action items.",
+      "item": [
+        {
+          "name": "Create action item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "action-items"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Write the design doc\",\n  \"description\": \"Capture decisions from today\",\n  \"assigneeId\": \"<user-uuid>\",\n  \"dueDate\": \"2026-05-10T17:00:00+10:00\",\n  \"priority\": \"high\"\n}"
+            },
+            "description": "Creates an action item. `title` is required (≤255 chars). `assigneeId`, `dueDate`, `description`, `priority` are optional. Defaults: `status='todo'`, `priority='medium'`, `source='manual'`. Auto-saves `actionItemId` to collection variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.actionItem && data.actionItem.id) pm.collectionVariables.set('actionItemId', data.actionItem.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List action items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/action-items?status=todo",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "action-items"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "todo",
+                  "description": "Optional: todo | in_progress | blocked | completed | cancelled",
+                  "disabled": true
+                },
+                {
+                  "key": "assigneeId",
+                  "value": "",
+                  "description": "Optional: filter to items assigned to a user",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters. Each action item includes derived `isOverdue` and `dueState` fields; overdue is not a persisted status."
+          }
+        },
+        {
+          "name": "Get action item",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
+            },
+            "description": "Returns `{ actionItem }` with full action item detail, including derived `isOverdue` and `dueState`. Meeting creators, meeting participants, and the assigned user can view it."
+          }
+        },
+        {
+          "name": "Update action item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\",\n  \"priority\": \"high\"\n}"
+            },
+            "description": "Partial update — send only the fields to change. Allowed: `title`, `description`, `assigneeId`, `dueDate`, `status`, `priority`. Empty body returns 400. Transitioning `status` to `completed` stamps `completedAt`; transitioning away clears it."
+          }
+        },
+        {
+          "name": "Delete action item",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/action-items/{{actionItemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["action-items", "{{actionItemId}}"]
+            },
+            "description": "Hard delete. Returns 204 on success, 404 if not found. Any meeting participant can delete."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/../health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "live"]
+            }
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/../health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["..", "health", "ready"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

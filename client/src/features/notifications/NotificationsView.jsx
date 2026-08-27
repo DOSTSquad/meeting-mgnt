@@ -23,7 +23,9 @@ export const NotificationsView = ({ notifications }) => {
   return (
     <section>
       <h1 className="text-5xl font-semibold text-slate-800">Notifications</h1>
-      <p className="mt-2 text-lg text-slate-500">Stay updated with your meetings and action items</p>
+      <p className="mt-2 text-lg text-slate-500">
+        Stay updated with your meetings and action items
+      </p>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-4">

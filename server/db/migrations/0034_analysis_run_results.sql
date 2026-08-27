@@ -44,4 +44,12 @@ END $$;
 -- from. Kept as a JSONB array of segment indexes alongside each suggestion so a
 -- reviewer can jump to the passage that justified it.
 ALTER TABLE analysis_action_item_suggestions
-  ADD COLUMN IF NOT EXISTS evidence JSONB NOT NULL DEFAULT '[]'::jsonb;
+  ADD COLUMN IF NOT EXISTS evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+  -- Every suggestion in a run is written by one transaction, so created_at is
+  -- identical across them and ordering by it falls back to a random uuid. The
+  -- adapter returns them in a deliberate order; this preserves it so a reviewer
+  -- does not see the list reshuffle between page loads.
+  ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS analysis_action_item_suggestions_order_idx
+  ON analysis_action_item_suggestions (analysis_run_id, position);

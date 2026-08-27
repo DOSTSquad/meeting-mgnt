@@ -243,7 +243,6 @@ try {
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1)
   console.log(`\nSettled after ${elapsed}s`)
 
-  const sequence = frames.map((frame) => frame.event).join(' -> ')
   const serialisedFrames = JSON.stringify(frames)
 
   const results = [

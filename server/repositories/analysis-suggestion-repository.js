@@ -14,6 +14,7 @@ const SUGGESTION_COLUMNS = `
   status,
   source_ref,
   evidence,
+  position,
   created_at,
   updated_at
 `
@@ -37,6 +38,7 @@ const mapSuggestion = (row) => {
     status: row.status,
     sourceRef: row.source_ref,
     evidence: row.evidence ?? [],
+    position: row.position,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   }
@@ -48,7 +50,7 @@ export const listSuggestionsForAnalysisRun = async (analysisRunId, db) => {
       SELECT ${SUGGESTION_COLUMNS}
       FROM analysis_action_item_suggestions
       WHERE analysis_run_id = $1
-      ORDER BY created_at, id
+      ORDER BY position, id
     `,
     [analysisRunId]
   )
@@ -78,13 +80,14 @@ export const replaceSuggestionsForAnalysisRun = async (
 
   const created = []
 
-  for (const suggestion of suggestions) {
+  for (const [position, suggestion] of suggestions.entries()) {
     const result = await client.query(
       `
         INSERT INTO analysis_action_item_suggestions (
-          analysis_run_id, meeting_id, title, description, priority, status, source_ref, evidence
+          analysis_run_id, meeting_id, title, description, priority, status, source_ref,
+          evidence, position
         )
-        VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7::jsonb)
+        VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7::jsonb, $8)
         RETURNING ${SUGGESTION_COLUMNS}
       `,
       [
@@ -95,6 +98,7 @@ export const replaceSuggestionsForAnalysisRun = async (
         suggestion.priority,
         suggestion.sourceRef ?? null,
         JSON.stringify(suggestion.evidence ?? []),
+        position,
       ]
     )
 

@@ -1,0 +1,36 @@
+# Default is the current VPS IP over HTTP.
+# Override APP_SITE later if you add a domain.
+# Use APP_SITE=meeting.example.com for automatic HTTPS.
+{$APP_SITE:http://194.195.127.196} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	handle /health* {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	handle {
+		root * {$CLIENT_DIST:/srv/meeting-mgnt/client/dist}
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Optional: expose MinIO through Caddy for browser-accessible presigned downloads.
+# If enabled, set the server env to:
+# MINIO_ENDPOINT=files.example.com
+# MINIO_PORT=443
+# MINIO_USE_SSL=true
+#
+# {$MINIO_SITE} {
+# 	reverse_proxy 127.0.0.1:9000
+# }
+#
+# Optional MinIO admin console. Protect this with firewall rules or do not expose it publicly.
+#
+# {$MINIO_CONSOLE_SITE} {
+# 	reverse_proxy 127.0.0.1:9001
+# }
