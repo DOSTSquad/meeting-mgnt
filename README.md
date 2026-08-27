@@ -26,11 +26,15 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 4. Apply database migrations with `npm run migrate --workspace=server`.
 5. Optional: seed local demo data with `npm run seed --workspace=server`.
 6. Start the API with `npm run dev --workspace=server`.
-7. Start the client with `npm run dev --workspace=client`.
+7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
+8. Start the client with `npm run dev --workspace=client`.
 
 The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
+
+When the AI workflow is enabled, keep the API and worker runtime in separate processes. The API
+handles HTTP; the worker owns outbox dispatch and BullMQ workflow publication.
 
 ## Database Migrations
 
@@ -42,19 +46,20 @@ Migrations are SQL files in `server/db/migrations`, tracked in the `schema_migra
 
 ## Common Commands
 
-| Task                       | Command                              |
-| -------------------------- | ------------------------------------ |
-| Lint all workspaces        | `npm run lint`                       |
-| Test all workspaces        | `npm run test`                       |
-| Format check               | `npm run format`                     |
-| Format write               | `npm run format:fix`                 |
-| Run server                 | `npm run dev --workspace=server`     |
-| Run client                 | `npm run dev --workspace=client`     |
-| Run server tests (Jest)    | `npm run test --workspace=server`    |
-| Run DB-backed server tests | `npm run test:db --workspace=server` |
-| Run server migrations      | `npm run migrate --workspace=server` |
-| Seed local demo data       | `npm run seed --workspace=server`    |
-| Build client               | `npm run build --workspace=client`   |
+| Task                       | Command                                 |
+| -------------------------- | --------------------------------------- |
+| Lint all workspaces        | `npm run lint`                          |
+| Test all workspaces        | `npm run test`                          |
+| Format check               | `npm run format`                        |
+| Format write               | `npm run format:fix`                    |
+| Run server                 | `npm run dev --workspace=server`        |
+| Run worker runtime         | `npm run worker:dev --workspace=server` |
+| Run client                 | `npm run dev --workspace=client`        |
+| Run server tests (Jest)    | `npm run test --workspace=server`       |
+| Run DB-backed server tests | `npm run test:db --workspace=server`    |
+| Run server migrations      | `npm run migrate --workspace=server`    |
+| Seed local demo data       | `npm run seed --workspace=server`       |
+| Build client               | `npm run build --workspace=client`      |
 
 ## Codex Cage
 
@@ -123,7 +128,12 @@ The Codex Cage source revision is pinned in `.github/workflows/codex-cage-issue.
 The [`Deploy`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.github/workflows/deploy.yml)
 workflow runs on pushes to `main` and can also be started manually from GitHub Actions.
 
-Configure these GitHub repository secrets:
+Configure these secrets on the `production` **environment**, not as repository
+secrets. Repository secrets are readable by any workflow on any branch, which
+lets anyone with write access run a workflow that exfiltrates the deploy key.
+Environment secrets are only released to a job that declares
+`environment: production`, and that job is subject to the environment's
+deployment branch policy.
 
 | Name             | Purpose                                    |
 | ---------------- | ------------------------------------------ |
@@ -134,18 +144,41 @@ Configure these GitHub repository secrets:
 
 Optional repository variables:
 
-| Name                  | Default               |
-| --------------------- | --------------------- |
-| `DEPLOY_PATH`         | `/srv/meeting-mgnt`   |
-| `DEPLOY_SERVICE_NAME` | `meeting-mgnt-server` |
+| Name                         | Default                       |
+| ---------------------------- | ----------------------------- |
+| `DEPLOY_PATH`                | `/srv/meeting-mgnt`           |
+| `DEPLOY_SERVICE_NAME`        | `meeting-mgnt-server.service` |
+| `DEPLOY_WORKER_SERVICE_NAME` | `meeting-mgnt-worker.service` |
 
 The client bundle is built on the GitHub runner and copied to the VPS with
 `rsync`, so the VPS never installs devDependencies or runs Vite. The VPS deploy
-user must be able to run `git fetch`, `npm ci --omit=dev`,
-`npm run migrate --workspace=server`, and
-`sudo systemctl restart meeting-mgnt-server`, and `rsync` must be installed
-(`sudo apt install rsync`). If the deploy user is not root, allow passwordless
-sudo only for restarting that service.
+user must be able to run `git fetch`, `npm ci --omit=dev`, and
+`npm run migrate --workspace=server`, and `rsync` must be installed
+(`sudo apt install rsync`).
+
+Deploy also calls `systemctl` over sudo. If the deploy user is not root, grant
+passwordless sudo for exactly these four commands:
+
+```
+<deploy_user> ALL=(root) NOPASSWD: /usr/bin/systemctl restart meeting-mgnt-server.service, \
+                           /usr/bin/systemctl restart meeting-mgnt-worker.service, \
+                           /usr/bin/systemctl status meeting-mgnt-server.service --no-pager, \
+                           /usr/bin/systemctl status meeting-mgnt-worker.service --no-pager
+```
+
+Edit sudoers with `sudo EDITOR=vim visudo`, never a bare editor: visudo validates
+the syntax before saving, and a malformed sudoers file disables sudo entirely.
+
+Two things about that rule are easy to get wrong:
+
+- **Arguments are matched exactly.** A rule ending in `meeting-mgnt-worker.service`
+  does not authorise `... meeting-mgnt-worker.service --no-pager`, so the
+  `--no-pager` variants have to be listed separately. Deploy only runs
+  `systemctl status` on the failure path, so a missing rule stays invisible until
+  the run where you actually need the diagnostics.
+- **Only these four need sudo.** Deploy calls `systemctl list-unit-files`,
+  `is-failed`, and `is-active` unprivileged; they are read-only and must not be
+  added to the sudoers rule.
 
 Run the Express API as a private service on the VPS:
 
@@ -158,6 +191,26 @@ sudo systemctl enable --now meeting-mgnt-server
 ```
 
 The service assumes the app is deployed at `/srv/meeting-mgnt`, `.env` exists there, and Node is available at `/usr/bin/node`; edit the service file if your VPS differs.
+
+Install the worker runtime as a second unit:
+
+```bash
+sudo cp deploy/meeting-mgnt-worker.service /etc/systemd/system/meeting-mgnt-worker.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now meeting-mgnt-worker
+```
+
+Deploy restarts the worker unit only when it is already installed, so the
+workflow stays green until you run the commands above.
+
+The worker exits `0` when `AI_PIPELINE_ENABLED` is not `true`, so systemd reports
+it as `inactive (dead)` rather than failed. That is the expected state while the
+AI pipeline is off; deploy only fails the run when the unit is actually
+`failed`. Enabling the pipeline requires `AI_PIPELINE_ENABLED=true` plus a
+reachable `REDIS_URL` and `DATABASE_URL` in `.env` on the VPS, otherwise the
+worker fails its startup validation. The full list of workflow settings is in
+[`.env.example`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.env.example);
+copy any new keys to the VPS `.env` before enabling it.
 
 When the Express API is behind Caddy, set `TRUST_PROXY=true` in the server `.env` so API rate limiting keys on the forwarded client IP rather than Caddy's loopback address.
 
