@@ -157,6 +157,25 @@ export const lockActiveRecordingById = async (id, db) => {
   return mapRecording(result.rows[0])
 }
 
+// Same row lock as lockActiveRecordingById, but without the archived filter, so
+// a caller that must still act on an archived recording's dependants can take
+// the lock. Every workflow transaction locks the recording first: a consistent
+// lock order is what stops a complete and a fail on the same transcript from
+// deadlocking against each other.
+export const lockRecordingById = async (id, db) => {
+  const result = await executor(db).query(
+    `
+      SELECT ${RECORDING_COLUMNS}
+      FROM meeting_recordings
+      WHERE id = $1
+      FOR UPDATE
+    `,
+    [id]
+  )
+
+  return mapRecording(result.rows[0])
+}
+
 // Guarded status write for workflow transitions: only an active recording in one
 // of the expected statuses moves. A null return means the job is stale.
 export const transitionActiveRecordingStatus = async (

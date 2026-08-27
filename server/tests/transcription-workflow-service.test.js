@@ -288,6 +288,45 @@ dbDescribe('transcription workflow transitions', () => {
     expect((await readRecording(recordingId)).status).toBe('transcribing')
   })
 
+  // Scheduling decides who wins, so this cannot force the interleaving that a
+  // reversed lock order would deadlock on. It checks the weaker but still useful
+  // property that exactly one path commits. The lock ordering itself is pinned in
+  // transcription-lock-order.test.js.
+  it('keeps exactly one winner when a complete and a fail race', async () => {
+    await startTranscription({ recordingId, transcriptId })
+
+    const [completed, failed] = await Promise.all([
+      completeTranscription({ recordingId, transcriptId, result: FIXTURE_RESULT }),
+      failTranscription({ recordingId, transcriptId, errorMessage: 'provider exhausted' }),
+    ])
+
+    expect([completed.stale, failed.stale].filter(Boolean)).toHaveLength(1)
+
+    const transcript = await readTranscript(transcriptId)
+    const recording = await readRecording(recordingId)
+
+    if (completed.stale) {
+      expect(transcript.status).toBe('failed')
+      expect(recording.status).toBe('failed')
+    } else {
+      expect(transcript.status).toBe('completed')
+      expect(recording.status).toBe('transcribed')
+    }
+  })
+
+  it('survives many concurrent duplicate completions', async () => {
+    await startTranscription({ recordingId, transcriptId })
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        completeTranscription({ recordingId, transcriptId, result: FIXTURE_RESULT })
+      )
+    )
+
+    expect(results.filter((result) => !result.stale)).toHaveLength(1)
+    expect((await readTranscript(transcriptId)).status).toBe('completed')
+  })
+
   it('treats a second failure as stale', async () => {
     await startTranscription({ recordingId, transcriptId })
     await failTranscription({ recordingId, transcriptId, errorMessage: 'first' })

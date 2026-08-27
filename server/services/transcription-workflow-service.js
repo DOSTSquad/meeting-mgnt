@@ -2,6 +2,7 @@ import { transaction } from '../db/postgres.js'
 import { failPendingAnalysisRunsForTranscript } from '../repositories/analysis-run-repository.js'
 import {
   lockActiveRecordingById,
+  lockRecordingById,
   transitionActiveRecordingStatus,
 } from '../repositories/recording-repository.js'
 import {
@@ -109,6 +110,13 @@ export const completeTranscription = async ({ recordingId, transcriptId, result 
  */
 export const failTranscription = async ({ recordingId, transcriptId, errorMessage }) =>
   transaction(async (client) => {
+    // Take the recording lock first even though the write below may not need it.
+    // startTranscription and completeTranscription lock recording-then-transcript;
+    // locking transcript-then-recording here would let a concurrent complete and
+    // fail on the same transcript deadlock. The lock is deliberately not filtered
+    // on archived_at, because an archived recording's transcript must still fail.
+    await lockRecordingById(recordingId, client)
+
     const transcript = await failTranscript({ id: transcriptId, recordingId, errorMessage }, client)
 
     if (!transcript) {
