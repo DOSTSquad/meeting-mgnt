@@ -1,15 +1,9 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-import { config as loadDotenv } from 'dotenv'
+// Must stay first: ESM hoists imports above ordinary statements, so .env has to
+// be loaded by an import, not a call below them. See server/load-env.js.
+import '../load-env.js'
 
 import { runMigrations } from '../db/migrate.js'
 import { closePool } from '../db/postgres.js'
-
-loadDotenv({
-  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env'),
-  override: true,
-})
 
 const main = async () => {
   const result = await runMigrations()

@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Visual explanation of the meeting recording generation flow introduced by PR #68."
+    />
+    <title>Recording Generation Flow Orchestration</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172033;
+        --muted: #637089;
+        --paper: #f5f1e8;
+        --surface: #fffdf8;
+        --line: #d9d2c4;
+        --blue: #3169d8;
+        --blue-soft: #e8efff;
+        --amber: #a96500;
+        --amber-soft: #fff0cf;
+        --red: #bd3b3b;
+        --red-soft: #ffe8e5;
+        --purple: #6f4bc5;
+        --purple-soft: #eee8ff;
+        --green: #287a5a;
+        --green-soft: #e2f4eb;
+        --orange: #bd531d;
+        --orange-soft: #ffeadc;
+        --shadow: 0 16px 40px rgb(36 38 43 / 8%);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 8% 0%, rgb(49 105 216 / 10%), transparent 28rem),
+          radial-gradient(circle at 92% 12%, rgb(169 101 0 / 9%), transparent 26rem), var(--paper);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        line-height: 1.55;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      code,
+      .mono {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+      }
+
+      code {
+        border: 1px solid rgb(23 32 51 / 10%);
+        border-radius: 6px;
+        background: rgb(255 255 255 / 60%);
+        padding: 0.1rem 0.35rem;
+        font-size: 0.88em;
+      }
+
+      .page-shell {
+        width: min(1320px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 72px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        border: 1px solid rgb(255 255 255 / 75%);
+        border-radius: 999px;
+        background: rgb(255 253 248 / 78%);
+        padding: 10px 12px 10px 20px;
+        box-shadow: 0 8px 28px rgb(36 38 43 / 6%);
+        backdrop-filter: blur(16px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--ink);
+        color: white;
+        font-size: 0.7rem;
+        letter-spacing: 0;
+      }
+
+      .top-links {
+        display: flex;
+        gap: 4px;
+      }
+
+      .top-links a {
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .top-links a:hover,
+      .top-links a:focus-visible {
+        background: var(--ink);
+        color: white;
+        outline: none;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+        gap: 34px;
+        align-items: end;
+        padding: 84px 18px 58px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        color: var(--blue);
+        font-size: 0.78rem;
+        font-weight: 850;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 28px;
+        height: 2px;
+        background: currentColor;
+        content: '';
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 900px;
+        margin-bottom: 22px;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(3.1rem, 7vw, 6.7rem);
+        font-weight: 500;
+        letter-spacing: -0.055em;
+        line-height: 0.91;
+      }
+
+      .hero-copy {
+        max-width: 750px;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: clamp(1.05rem, 2vw, 1.3rem);
+      }
+
+      .hero-summary {
+        border-left: 3px solid var(--blue);
+        padding-left: 22px;
+      }
+
+      .hero-summary strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.76rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .hero-summary p {
+        margin-bottom: 14px;
+        color: var(--muted);
+      }
+
+      .pill-row,
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill,
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgb(255 253 248 / 60%);
+        padding: 7px 10px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 760;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .section {
+        margin-top: 28px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgb(255 253 248 / 90%);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        border-bottom: 1px solid var(--line);
+        padding: 28px 30px 22px;
+      }
+
+      .section-number {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.72rem;
+      }
+
+      h2 {
+        margin-bottom: 4px;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(1.8rem, 3.5vw, 3rem);
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+      }
+
+      .section-subtitle {
+        max-width: 630px;
+        margin-bottom: 0;
+        color: var(--muted);
+      }
+
+      .section-body {
+        padding: 30px;
+      }
+
+      .view-toggle {
+        display: inline-flex;
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--paper);
+        padding: 4px;
+      }
+
+      .view-toggle button {
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        padding: 8px 12px;
+        color: var(--muted);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.72rem;
+        font-weight: 800;
+      }
+
+      .view-toggle button[aria-pressed='true'] {
+        background: var(--ink);
+        color: white;
+      }
+
+      .pipeline {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(130px, 1fr));
+        align-items: stretch;
+        gap: 30px;
+        min-width: 1120px;
+      }
+
+      .pipeline-wrap {
+        overflow-x: auto;
+        padding: 6px 3px 18px;
+      }
+
+      .stage {
+        position: relative;
+        min-height: 202px;
+        border: 1px solid currentColor;
+        border-radius: 16px;
+        background: white;
+        padding: 18px;
+        color: var(--ink);
+      }
+
+      .stage:not(:last-child)::after {
+        position: absolute;
+        top: 50%;
+        right: -26px;
+        width: 20px;
+        height: 2px;
+        background: var(--line);
+        content: '';
+      }
+
+      .stage:not(:last-child)::before {
+        position: absolute;
+        z-index: 1;
+        top: calc(50% - 4px);
+        right: -28px;
+        border-top: 5px solid transparent;
+        border-bottom: 5px solid transparent;
+        border-left: 7px solid var(--line);
+        content: '';
+      }
+
+      .stage.database {
+        border-color: rgb(49 105 216 / 36%);
+        background: var(--blue-soft);
+      }
+
+      .stage.outbox {
+        border-color: rgb(169 101 0 / 38%);
+        background: var(--amber-soft);
+      }
+
+      .stage.queue {
+        border-color: rgb(189 59 59 / 34%);
+        background: var(--red-soft);
+      }
+
+      .stage.transcription {
+        border-style: dashed;
+        border-color: rgb(111 75 197 / 42%);
+        background: var(--purple-soft);
+      }
+
+      .stage.analysis {
+        border-style: dashed;
+        border-color: rgb(40 122 90 / 42%);
+        background: var(--green-soft);
+      }
+
+      .stage.review {
+        border-style: dashed;
+        border-color: rgb(40 122 90 / 42%);
+        background: white;
+      }
+
+      .stage-step {
+        display: block;
+        margin-bottom: 22px;
+        color: var(--muted);
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.68rem;
+      }
+
+      .stage h3 {
+        margin-bottom: 9px;
+        font-size: 1rem;
+        line-height: 1.2;
+      }
+
+      .stage p {
+        margin-bottom: 14px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .status-chip {
+        display: inline-block;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        padding: 4px 8px;
+        color: var(--muted);
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.64rem;
+        font-weight: 700;
+      }
+
+      .implemented-label,
+      .pending-label {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        border-radius: 999px;
+        padding: 4px 7px;
+        font-size: 0.56rem;
+        font-weight: 900;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .implemented-label {
+        background: var(--ink);
+        color: white;
+      }
+
+      .pending-label {
+        border: 1px dashed currentColor;
+        background: rgb(255 255 255 / 56%);
+        color: var(--muted);
+      }
+
+      .failure-lane {
+        display: none;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 18px;
+        border-top: 1px dashed var(--line);
+        padding-top: 18px;
+      }
+
+      body[data-view='failure'] .failure-lane {
+        display: grid;
+      }
+
+      .failure-card {
+        border: 1px solid rgb(189 83 29 / 32%);
+        border-radius: 12px;
+        background: var(--orange-soft);
+        padding: 14px;
+      }
+
+      .failure-card strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.8rem;
+      }
+
+      .failure-card span {
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .flow-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+        gap: 24px;
+      }
+
+      .flow-tree {
+        display: grid;
+        place-items: center;
+        min-height: 430px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background:
+          linear-gradient(rgb(255 255 255 / 74%), rgb(255 255 255 / 74%)),
+          repeating-linear-gradient(0deg, transparent, transparent 23px, rgb(23 32 51 / 6%) 24px),
+          repeating-linear-gradient(90deg, transparent, transparent 23px, rgb(23 32 51 / 6%) 24px);
+        padding: 24px;
+      }
+
+      .tree-stack {
+        display: grid;
+        justify-items: center;
+        width: min(100%, 470px);
+      }
+
+      .job-card {
+        width: 100%;
+        border: 1px solid currentColor;
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 12px 26px rgb(23 32 51 / 7%);
+      }
+
+      .job-card.parent {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+
+      .job-card.child {
+        background: var(--purple-soft);
+        color: var(--purple);
+      }
+
+      .job-card strong {
+        display: block;
+        color: var(--ink);
+      }
+
+      .job-card span {
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .tree-line {
+        display: grid;
+        height: 86px;
+        place-items: center;
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+      }
+
+      .tree-line::before,
+      .tree-line::after {
+        width: 1px;
+        height: 24px;
+        background: var(--line);
+        content: '';
+      }
+
+      .callouts {
+        display: grid;
+        gap: 12px;
+      }
+
+      .callout {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: white;
+        padding: 18px;
+      }
+
+      .callout-index {
+        display: inline-grid;
+        width: 26px;
+        height: 26px;
+        margin-bottom: 12px;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--ink);
+        color: white;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.68rem;
+      }
+
+      .callout h3 {
+        margin-bottom: 6px;
+        font-size: 0.95rem;
+      }
+
+      .callout p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .warning {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 16px;
+        align-items: start;
+        margin-top: 20px;
+        border: 1px solid rgb(189 83 29 / 36%);
+        border-radius: 16px;
+        background: var(--orange-soft);
+        padding: 20px;
+      }
+
+      .warning-icon {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 12px;
+        background: var(--orange);
+        color: white;
+        font-weight: 900;
+      }
+
+      .warning strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .warning p {
+        margin-bottom: 0;
+        color: #77401f;
+      }
+
+      .state-table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        min-width: 850px;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 14px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 0.68rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .state {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 4px 8px;
+        white-space: nowrap;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.68rem;
+      }
+
+      .state.blue {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+
+      .state.amber {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+
+      .state.red {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+
+      .state.purple {
+        background: var(--purple-soft);
+        color: var(--purple);
+      }
+
+      .state.green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .info-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: white;
+        padding: 20px;
+      }
+
+      .info-card .kicker {
+        display: block;
+        margin-bottom: 20px;
+        color: var(--muted);
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.65rem;
+      }
+
+      .info-card h3 {
+        margin-bottom: 8px;
+        font-size: 0.98rem;
+      }
+
+      .info-card p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .matrix {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+
+      .matrix-column {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+      }
+
+      .matrix-column.implemented {
+        background: var(--green-soft);
+      }
+
+      .matrix-column.pending {
+        border-style: dashed;
+        background: white;
+      }
+
+      .matrix-column h3 {
+        margin-bottom: 16px;
+      }
+
+      .check-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .check-list li {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 8px;
+        align-items: start;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .check-list li::before {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        place-items: center;
+        border-radius: 6px;
+        background: var(--green);
+        color: white;
+        content: 'OK';
+        font-size: 0.48rem;
+        font-weight: 900;
+      }
+
+      .pending .check-list li::before {
+        border: 1px dashed var(--muted);
+        background: transparent;
+        color: var(--muted);
+        content: '--';
+      }
+
+      .glossary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+
+      .term {
+        border-top: 3px solid var(--ink);
+        background: white;
+        padding: 18px;
+      }
+
+      .term strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .term p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 32px 4px 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      @media (max-width: 920px) {
+        .top-links {
+          display: none;
+        }
+
+        .hero,
+        .flow-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          padding-top: 64px;
+        }
+
+        .hero-summary {
+          max-width: 650px;
+        }
+
+        .cards {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .glossary {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 640px) {
+        .page-shell {
+          width: min(100% - 20px, 1320px);
+          padding-top: 10px;
+        }
+
+        .topbar {
+          border-radius: 16px;
+        }
+
+        .hero {
+          padding: 54px 8px 36px;
+        }
+
+        h1 {
+          font-size: clamp(3rem, 17vw, 4.8rem);
+        }
+
+        .section-head {
+          display: grid;
+          padding: 22px 20px 18px;
+        }
+
+        .section-body {
+          padding: 20px;
+        }
+
+        .view-toggle {
+          width: max-content;
+        }
+
+        .failure-lane,
+        .cards,
+        .matrix,
+        .glossary {
+          grid-template-columns: 1fr;
+        }
+
+        .flow-tree {
+          min-height: 390px;
+          padding: 16px;
+        }
+
+        footer {
+          display: grid;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body data-view="happy">
+    <main class="page-shell">
+      <nav class="topbar" aria-label="Report sections">
+        <div class="brand">
+          <span class="brand-mark">68</span>
+          Recording generation
+        </div>
+        <div class="top-links">
+          <a href="#architecture">Architecture</a>
+          <a href="#flow">BullMQ flow</a>
+          <a href="#states">States</a>
+          <a href="#recovery">Recovery</a>
+          <a href="#status">PR status</a>
+        </div>
+      </nav>
+
+      <header class="hero">
+        <div>
+          <span class="eyebrow">PR #68 visual guide</span>
+          <h1>Audio to insight, orchestrated.</h1>
+          <p class="hero-copy">
+            A durable path from recording upload to transcription and meeting analysis, with
+            PostgreSQL as the source of truth and BullMQ coordinating execution order.
+          </p>
+        </div>
+        <aside class="hero-summary" aria-label="Report summary">
+          <strong>Current implementation</strong>
+          <p>
+            Upload, transactional outbox, Redis flow creation, and queued UI states are present. The
+            transcription and analysis workers are intentionally pending.
+          </p>
+          <div class="pill-row">
+            <span class="pill"
+              ><span class="dot" style="color: var(--green)"></span>Scaffolded</span
+            >
+            <span class="pill"
+              ><span class="dot" style="color: var(--purple)"></span>Workers pending</span
+            >
+          </div>
+        </aside>
+      </header>
+
+      <section class="section" id="architecture">
+        <div class="section-head">
+          <div>
+            <span class="section-number">01 / Architecture</span>
+            <h2>The complete route</h2>
+            <p class="section-subtitle">
+              Solid cards exist in PR #68. Dashed cards belong to the worker and review issues that
+              follow.
+            </p>
+          </div>
+          <div class="view-toggle" aria-label="Diagram view">
+            <button type="button" data-view-button="happy" aria-pressed="true">Happy path</button>
+            <button type="button" data-view-button="failure" aria-pressed="false">
+              Failure paths
+            </button>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="legend" aria-label="Layer legend">
+            <span class="legend-item"
+              ><span class="dot" style="color: var(--blue)"></span>PostgreSQL</span
+            >
+            <span class="legend-item"
+              ><span class="dot" style="color: var(--amber)"></span>Outbox</span
+            >
+            <span class="legend-item"
+              ><span class="dot" style="color: var(--red)"></span>Redis / BullMQ</span
+            >
+            <span class="legend-item"
+              ><span class="dot" style="color: var(--purple)"></span>STT</span
+            >
+            <span class="legend-item"
+              ><span class="dot" style="color: var(--green)"></span>Analysis / review</span
+            >
+          </div>
+
+          <div
+            class="pipeline-wrap"
+            tabindex="0"
+            aria-label="Horizontally scrollable orchestration pipeline"
+          >
+            <div class="pipeline">
+              <article class="stage">
+                <span class="implemented-label">Built</span>
+                <span class="stage-step">STEP 01</span>
+                <h3>Upload audio</h3>
+                <p>Owner or organizer uploads one meeting recording.</p>
+                <span class="status-chip">HTTP 201</span>
+              </article>
+              <article class="stage database">
+                <span class="implemented-label">Built</span>
+                <span class="stage-step">STEP 02</span>
+                <h3>Commit workflow state</h3>
+                <p>Recording, transcript, analysis run, and outbox event commit together.</p>
+                <span class="status-chip">transaction</span>
+              </article>
+              <article class="stage outbox">
+                <span class="implemented-label">Built</span>
+                <span class="stage-step">STEP 03</span>
+                <h3>Dispatch outbox</h3>
+                <p>A leased dispatcher retries until Redis accepts the workflow.</p>
+                <span class="status-chip">recording.uploaded</span>
+              </article>
+              <article class="stage queue">
+                <span class="implemented-label">Built</span>
+                <span class="stage-step">STEP 04</span>
+                <h3>Create BullMQ flow</h3>
+                <p>FlowProducer atomically creates one child and one waiting parent.</p>
+                <span class="status-chip">waiting-children</span>
+              </article>
+              <article class="stage transcription">
+                <span class="pending-label">#61</span>
+                <span class="stage-step">STEP 05</span>
+                <h3>Transcribe recording</h3>
+                <p>The child job streams audio and writes the completed transcript.</p>
+                <span class="status-chip">transcribe-recording</span>
+              </article>
+              <article class="stage analysis">
+                <span class="pending-label">#62</span>
+                <span class="stage-step">STEP 06</span>
+                <h3>Analyze transcript</h3>
+                <p>The parent unlocks and extracts summary, decisions, and suggestions.</p>
+                <span class="status-chip">analyze-recording</span>
+              </article>
+              <article class="stage review">
+                <span class="pending-label">#63 / #65</span>
+                <span class="stage-step">STEP 07</span>
+                <h3>Human review</h3>
+                <p>People apply draft minutes and accept or reject proposed action items.</p>
+                <span class="status-chip">ready_for_review</span>
+              </article>
+            </div>
+          </div>
+
+          <div class="failure-lane" aria-live="polite">
+            <div class="failure-card">
+              <strong>Database commit fails</strong>
+              <span>Rollback workflow rows and remove the newly uploaded MinIO object.</span>
+            </div>
+            <div class="failure-card">
+              <strong>Redis is unavailable</strong>
+              <span>Keep the event in the outbox and retry after <code>available_at</code>.</span>
+            </div>
+            <div class="failure-card">
+              <strong>STT exhausts retries</strong>
+              <span>Fail domain state and prevent analysis from executing.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="flow">
+        <div class="section-head">
+          <div>
+            <span class="section-number">02 / BullMQ dependency</span>
+            <h2>Parent waits for child</h2>
+            <p class="section-subtitle">
+              The visual hierarchy looks inverted because BullMQ parents run after all children
+              complete successfully.
+            </p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="flow-grid">
+            <div class="flow-tree" aria-label="BullMQ flow tree">
+              <div class="tree-stack">
+                <div class="job-card parent">
+                  <strong>analyze-recording</strong>
+                  <span>Parent job / recording-analysis queue / waiting-children</span>
+                </div>
+                <div class="tree-line">DEPENDS ON</div>
+                <div class="job-card child">
+                  <strong>transcribe-recording</strong>
+                  <span>Child job / recording-transcription queue / runs first</span>
+                </div>
+              </div>
+            </div>
+            <div class="callouts">
+              <article class="callout">
+                <span class="callout-index">1</span>
+                <h3>Both jobs are created together</h3>
+                <p>FlowProducer adds the dependency tree atomically inside Redis.</p>
+              </article>
+              <article class="callout">
+                <span class="callout-index">2</span>
+                <h3>Only the child is runnable</h3>
+                <p>The analysis parent remains in <code>waiting-children</code>.</p>
+              </article>
+              <article class="callout">
+                <span class="callout-index">3</span>
+                <h3>Child completion unlocks analysis</h3>
+                <p>
+                  BullMQ moves the parent to <code>waiting</code> so an analysis worker can claim
+                  it.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <aside class="warning">
+            <span class="warning-icon">!</span>
+            <div>
+              <strong>Failure propagation needs one explicit option</strong>
+              <p>
+                PR #68 does not set <code>failParentOnFailure: true</code> on the transcription
+                child. Issue #61 should add it so exhausted STT failures also fail the analysis
+                parent instead of leaving a blocked dependency.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="states">
+        <div class="section-head">
+          <div>
+            <span class="section-number">03 / State timeline</span>
+            <h2>Three stores, three responsibilities</h2>
+            <p class="section-subtitle">
+              PostgreSQL represents business truth, the outbox guarantees delivery, and BullMQ
+              tracks execution mechanics.
+            </p>
+          </div>
+        </div>
+        <div class="section-body state-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Moment</th>
+                <th>Recording</th>
+                <th>Transcript</th>
+                <th>Analysis run</th>
+                <th>Outbox</th>
+                <th>BullMQ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Upload committed</td>
+                <td><span class="state blue">transcribing</span></td>
+                <td><span class="state purple">processing</span></td>
+                <td><span class="state green">queued</span></td>
+                <td><span class="state amber">pending</span></td>
+                <td>Not created</td>
+              </tr>
+              <tr>
+                <td>Dispatcher claims event</td>
+                <td><span class="state blue">transcribing</span></td>
+                <td><span class="state purple">processing</span></td>
+                <td><span class="state green">queued</span></td>
+                <td><span class="state amber">processing</span></td>
+                <td>Creating flow</td>
+              </tr>
+              <tr>
+                <td>Flow accepted</td>
+                <td><span class="state blue">transcribing</span></td>
+                <td><span class="state purple">processing</span></td>
+                <td><span class="state green">queued</span></td>
+                <td><span class="state amber">dispatched</span></td>
+                <td>
+                  <span class="state red">child waiting</span>
+                  <span class="state red">parent waiting-children</span>
+                </td>
+              </tr>
+              <tr>
+                <td>STT completed</td>
+                <td><span class="state blue">transcribed</span></td>
+                <td><span class="state purple">completed</span></td>
+                <td><span class="state green">queued</span></td>
+                <td><span class="state amber">dispatched</span></td>
+                <td>
+                  <span class="state red">child completed</span>
+                  <span class="state red">parent waiting</span>
+                </td>
+              </tr>
+              <tr>
+                <td>Analysis completed</td>
+                <td><span class="state blue">transcribed</span></td>
+                <td><span class="state purple">completed</span></td>
+                <td><span class="state green">completed</span></td>
+                <td><span class="state amber">dispatched</span></td>
+                <td><span class="state red">flow completed</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="recovery">
+        <div class="section-head">
+          <div>
+            <span class="section-number">04 / Recovery model</span>
+            <h2>Crashes become retries</h2>
+            <p class="section-subtitle">
+              Each boundary has a durable checkpoint, so a process crash does not silently lose the
+              requested workflow.
+            </p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="cards">
+            <article class="info-card">
+              <span class="kicker">CASE A</span>
+              <h3>Crash before DB commit</h3>
+              <p>The transaction rolls back. The upload service removes the new MinIO object.</p>
+            </article>
+            <article class="info-card">
+              <span class="kicker">CASE B</span>
+              <h3>Crash before Redis enqueue</h3>
+              <p>The pending outbox row survives. A restarted dispatcher claims it later.</p>
+            </article>
+            <article class="info-card">
+              <span class="kicker">CASE C</span>
+              <h3>Crash after Redis enqueue</h3>
+              <p>Lease expiry replays the outbox event; stable job IDs avoid duplicate jobs.</p>
+            </article>
+            <article class="info-card">
+              <span class="kicker">CASE D</span>
+              <h3>Worker crashes while active</h3>
+              <p>BullMQ detects a stalled lock and makes the job available for processing again.</p>
+            </article>
+            <article class="info-card">
+              <span class="kicker">CASE E</span>
+              <h3>Recording is replaced</h3>
+              <p>The worker must verify active domain state before writing any stale result.</p>
+            </article>
+            <article class="info-card">
+              <span class="kicker">CASE F</span>
+              <h3>Provider fails temporarily</h3>
+              <p>BullMQ retries three times with exponential backoff before final failure.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="status">
+        <div class="section-head">
+          <div>
+            <span class="section-number">05 / Delivery status</span>
+            <h2>What exists today</h2>
+            <p class="section-subtitle">
+              PR #68 is intentionally an orchestration scaffold. The later issues fill in the
+              processors and review behavior without changing the queue contract.
+            </p>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="matrix">
+            <article class="matrix-column implemented">
+              <h3>Implemented in PR #68</h3>
+              <ul class="check-list">
+                <li>Pipeline feature flag and configuration</li>
+                <li>Transactional recording workflow state</li>
+                <li>Analysis-run and suggestion scaffolding</li>
+                <li>Durable outbox with lease and retry</li>
+                <li>BullMQ FlowProducer parent/child tree</li>
+                <li>Stable job IDs and replay protection</li>
+                <li>Queued status in API and meeting-detail UI</li>
+                <li>Upload compensation and replacement ordering</li>
+              </ul>
+            </article>
+            <article class="matrix-column pending">
+              <h3>Pending follow-up work</h3>
+              <ul class="check-list">
+                <li>#61 fixture transcription worker</li>
+                <li>#62 fixture analysis worker and preview</li>
+                <li>#63 safe apply-to-minutes command</li>
+                <li>#64 production worker process</li>
+                <li>#65 action-item suggestion review</li>
+                <li>#66 real Whisper adapter</li>
+                <li>#67 structured LLM adapter</li>
+                <li>Client polling through terminal states</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="glossary">
+        <div class="section-head">
+          <div>
+            <span class="section-number">06 / Glossary</span>
+            <h2>Do not mix these concepts</h2>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="glossary">
+            <article class="term">
+              <strong>Domain event</strong>
+              <p>A past-tense fact such as <code>recording.uploaded</code>.</p>
+            </article>
+            <article class="term">
+              <strong>BullMQ job</strong>
+              <p>A command such as <code>transcribe-recording</code>.</p>
+            </article>
+            <article class="term">
+              <strong>Outbox</strong>
+              <p>A durable bridge between a PostgreSQL commit and Redis delivery.</p>
+            </article>
+            <article class="term">
+              <strong>Analysis run</strong>
+              <p>The durable business record for one transcript-analysis attempt.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>DOST Meeting Management / Recording Generation Flow</span>
+        <span>Based on PR #68 and follow-up issues #61 through #67</span>
+      </footer>
+    </main>
+
+    <script>
+      const viewButtons = document.querySelectorAll('[data-view-button]')
+
+      viewButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const nextView = button.dataset.viewButton
+          document.body.dataset.view = nextView
+
+          viewButtons.forEach((candidate) => {
+            candidate.setAttribute(
+              'aria-pressed',
+              candidate.dataset.viewButton === nextView ? 'true' : 'false'
+            )
+          })
+        })
+      })
+    </script>
+  </body>
+</html>

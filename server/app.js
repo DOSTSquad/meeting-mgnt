@@ -1,17 +1,14 @@
-import { config as loadDotenv } from 'dotenv'
+// Must stay first: ESM hoists imports above ordinary statements, so loading .env
+// anywhere below this line would run after the whole import graph had already
+// read process.env. See server/load-env.js.
+import './load-env.js'
+
 import cors from 'cors'
 import express from 'express'
 import { rateLimit } from 'express-rate-limit'
 import http from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-loadDotenv({
-  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env'),
-  override: true,
-})
 
 import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'
@@ -23,6 +20,7 @@ import minuteRouter from './routes/minute-routes.js'
 import participantRouter from './routes/participant-routes.js'
 import publicInvitationRouter from './routes/public-invitation-routes.js'
 import recordingRouter from './routes/recording-routes.js'
+import workflowEventsRouter from './routes/workflow-events-routes.js'
 import tagRouter from './routes/tag-routes.js'
 import userRouter from './routes/user-routes.js'
 import { fileRouter, meetingFileRouter } from './routes/file-routes.js'
@@ -292,6 +290,7 @@ export const createApp = () => {
   app.use('/api/meetings', meetingRouter)
   app.use('/api/meetings/:meetingId/minutes', minuteRouter)
   app.use('/api/meetings/:meetingId/recording', recordingRouter)
+  app.use('/api/meetings/:meetingId/workflow', workflowEventsRouter)
   app.use('/api/meetings/:meetingId/participants', participantRouter)
   app.use('/api/meetings/:meetingId/files', meetingFileRouter)
   app.use('/api/files', fileRouter)

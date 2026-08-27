@@ -5,6 +5,10 @@
 	encode zstd gzip
 
 	handle /api/* {
+		# reverse_proxy streams by default, which the workflow SSE endpoint at
+		# /api/meetings/{id}/workflow/events depends on. Do not add response
+		# buffering or compression here: either one holds frames back until the
+		# stream closes, which defeats the point of it.
 		reverse_proxy 127.0.0.1:3001
 	}
 

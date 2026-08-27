@@ -141,7 +141,9 @@ export const MeetingDetailView = ({
     (detail.transcript?.status === 'completed'
       ? 'Transcript is ready.'
       : detail.transcript?.status === 'processing'
-        ? 'Transcription is queued.'
+        ? recordingStatus === 'transcribing'
+          ? 'Transcription is running.'
+          : 'Transcription is queued.'
         : null)
   const analysisMessage =
     detail.analysisRun?.errorMessage ||

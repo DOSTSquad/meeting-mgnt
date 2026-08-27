@@ -1,14 +1,8 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-import { config as loadDotenv } from 'dotenv'
+// Must stay first: ESM hoists imports above ordinary statements, so .env has to
+// be loaded by an import, not a call below them. See server/load-env.js.
+import '../load-env.js'
 
 import { closePool, query } from '../db/postgres.js'
-
-loadDotenv({
-  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env'),
-  override: true,
-})
 
 const TASK_SOURCE_REF = 'dummy-assigned-task-seed-v1'
 
@@ -83,7 +77,8 @@ const seedAssignedTasks = async () => {
     const meetingsForTasks = randomPickMany(accessibleMeetings, 2, 3)
 
     for (const [index, meeting] of meetingsForTasks.entries()) {
-      const dueDateOffset = index % 2 === 0 ? -(1 + Math.floor(Math.random() * 6)) : 2 + Math.floor(Math.random() * 10)
+      const dueDateOffset =
+        index % 2 === 0 ? -(1 + Math.floor(Math.random() * 6)) : 2 + Math.floor(Math.random() * 10)
       await query(
         `
           INSERT INTO action_items (

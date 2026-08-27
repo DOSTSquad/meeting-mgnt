@@ -10,6 +10,7 @@
     "worker:dev": "NODE_ENV=development node --watch worker.js",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.js",
+    "check:workflow": "node scripts/check-recording-workflow.js",
     "seed": "node scripts/seed.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:db": "RUN_DB_TESTS=true NODE_OPTIONS=--experimental-vm-modules jest --runInBand"

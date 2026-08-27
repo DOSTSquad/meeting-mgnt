@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { getApiClient } from '../../lib/apiClient.js'
+import { subscribeToWorkflowEvents } from '../../lib/workflowEventStream.js'
 import {
   createMeetingActionItem,
   deleteActionItem,
@@ -434,6 +435,57 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     },
     [onError, selectedMeetingId, token]
   )
+
+  const workflowTranscriptStatus = selectedMeetingDetail?.transcript?.status
+
+  // Stream workflow transitions only while transcription is actually in flight.
+  // Anything settled has nothing left to report, and the server closes such a
+  // stream immediately anyway.
+  useEffect(() => {
+    if (!token || !selectedMeetingId || workflowTranscriptStatus !== 'processing') {
+      return undefined
+    }
+
+    const applySnapshot = (snapshot) => {
+      setSelectedMeetingDetail((prev) => {
+        if (!prev || prev.meeting?.id !== selectedMeetingId) {
+          return prev
+        }
+
+        // The snapshot carries status metadata only, so merge it over what is
+        // already held rather than replacing: the file name, object key, and
+        // transcript body must survive.
+        return {
+          ...prev,
+          recording: snapshot.recording
+            ? { ...prev.recording, ...snapshot.recording }
+            : prev.recording,
+          transcript: snapshot.transcript
+            ? { ...prev.transcript, ...snapshot.transcript }
+            : prev.transcript,
+          analysisRun: snapshot.analysisRun
+            ? { ...prev.analysisRun, ...snapshot.analysisRun }
+            : prev.analysisRun,
+        }
+      })
+    }
+
+    const stop = subscribeToWorkflowEvents({
+      meetingId: selectedMeetingId,
+      token,
+      onSnapshot: applySnapshot,
+      // No refetch on settle. The stream deliberately omits transcript text, but
+      // nothing here renders it: this view shows statuses and error messages
+      // only, and the final `status` frame already carried both. A view that
+      // starts displaying the transcript body should fetch it itself rather than
+      // making every viewer pay for it here.
+      // Losing the stream degrades to the status shown at page load. Surfacing a
+      // banner for a background channel would be noise.
+      onError: () => {},
+    })
+
+    return stop
+  }, [selectedMeetingId, token, workflowTranscriptStatus])
 
   const removeRecording = useCallback(async () => {
     if (!selectedMeetingId) {
