@@ -570,8 +570,13 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     }
   }, [onError, selectedMeetingId, token])
 
+  // The null check has to come first. Optional chaining guards the read but not
+  // the comparison: before any meeting is opened both sides are undefined, the
+  // equality holds, and the true branch dereferences null.
   const analysisReview =
-    loadedAnalysisReview?.meetingId === selectedMeetingId ? loadedAnalysisReview.review : null
+    loadedAnalysisReview && loadedAnalysisReview.meetingId === selectedMeetingId
+      ? loadedAnalysisReview.review
+      : null
 
   return {
     selectedMeetingDetail,
