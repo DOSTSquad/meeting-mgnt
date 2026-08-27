@@ -1,4 +1,4 @@
-import { getWorkflowSnapshot, isTranscriptionSettled } from '../services/workflow-events-service.js'
+import { getWorkflowSnapshot, isWorkflowSettled } from '../services/workflow-events-service.js'
 import { getWorkflowStatusSubscriber } from '../services/workflow-status-subscriber.js'
 
 const HEARTBEAT_MS = Number(process.env.WORKFLOW_SSE_HEARTBEAT_MS) || 15000
@@ -61,8 +61,8 @@ export const streamWorkflowEvents = async (req, res, next) => {
   // A settled transcript ends the stream for this slice. Checked before
   // subscribing so a client that connects after the work finished gets its
   // snapshot and a clean close rather than an idle connection.
-  if (isTranscriptionSettled(snapshot)) {
-    writeFrame(res, 'settled', { reason: 'transcription-settled' })
+  if (isWorkflowSettled(snapshot)) {
+    writeFrame(res, 'settled', { reason: 'workflow-settled' })
     close()
     return
   }
@@ -91,8 +91,8 @@ export const streamWorkflowEvents = async (req, res, next) => {
 
       writeFrame(res, 'status', fresh)
 
-      if (isTranscriptionSettled(fresh)) {
-        writeFrame(res, 'settled', { reason: 'transcription-settled' })
+      if (isWorkflowSettled(fresh)) {
+        writeFrame(res, 'settled', { reason: 'workflow-settled' })
         close()
       }
     } catch (error) {

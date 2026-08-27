@@ -31,7 +31,6 @@ loadDotenv({
 // The pipeline is off by default in .env. Enabling it only for this process
 // avoids asking the operator to edit .env and remember to change it back.
 process.env.AI_PIPELINE_ENABLED = 'true'
-process.env.AI_TRANSCRIPTION_PROVIDER = process.env.AI_TRANSCRIPTION_PROVIDER || 'fixture'
 
 process.env.WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS = '500'
 process.env.WORKFLOW_SSE_HEARTBEAT_MS = process.env.WORKFLOW_SSE_HEARTBEAT_MS || '1000'
@@ -49,8 +48,16 @@ const { createApp } = await import('../app.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { uploadRecordingForMeeting } = await import('../services/recording-service.js')
 const { createTranscriptionWorker } = await import('../services/transcription-worker.js')
+const { createAnalysisWorker } = await import('../services/analysis-worker.js')
 const { createWorkerRuntime } = await import('../worker-runtime.js')
 const { WORKFLOW_STATUS_CHANNEL } = await import('../services/workflow-status-publisher.js')
+
+// Re-asserted after the imports: app.js reloads .env with override: true at
+// module scope, so anything set before importing it is overwritten. .env ships
+// these empty, and the adapters refuse to default.
+process.env.AI_PIPELINE_ENABLED = 'true'
+process.env.AI_TRANSCRIPTION_PROVIDER = process.env.AI_TRANSCRIPTION_PROVIDER || 'fixture'
+process.env.AI_ANALYSIS_PROVIDER = process.env.AI_ANALYSIS_PROVIDER || 'fixture'
 const { closeWorkflowStatusSubscriber } = await import('../services/workflow-status-subscriber.js')
 
 const TIMEOUT_MS = 60000
@@ -113,12 +120,21 @@ try {
   await subscriber.subscribe(WORKFLOW_STATUS_CHANNEL)
   subscriber.on('message', (_channel, message) => {
     const payload = JSON.parse(message)
+
+    // The channel is shared, and starting a worker drains any backlog left by
+    // earlier runs. Only this run's meeting counts.
+    if (payload.meetingId !== meetingId) {
+      return
+    }
+
     invalidations.push(payload)
     console.log(`  <- ${payload.recordingStatus} / ${payload.transcriptStatus ?? '-'}`)
   })
 
   console.log('Starting the worker runtime')
-  runtime = createWorkerRuntime({ services: [createTranscriptionWorker()] })
+  runtime = createWorkerRuntime({
+    services: [createTranscriptionWorker(), createAnalysisWorker()],
+  })
   if (!runtime.start()) {
     throw new Error('Worker runtime refused to start')
   }
@@ -195,6 +211,16 @@ try {
               jsonb_array_length(t.segments) AS segment_count,
               t.completed_at,
               a.status AS analysis_status,
+              a.summary AS analysis_summary,
+              a.provider AS analysis_provider,
+              a.model AS analysis_model,
+              a.prompt_version AS analysis_prompt_version,
+              jsonb_array_length(a.key_discussions) AS discussion_count,
+              jsonb_array_length(a.decisions) AS decision_count,
+              (SELECT count(*) FROM analysis_action_item_suggestions s
+                WHERE s.analysis_run_id = a.id) AS suggestion_count,
+              (SELECT count(*) FROM analysis_action_item_suggestions s
+                WHERE s.analysis_run_id = a.id AND s.status <> 'proposed') AS non_proposed_count,
               o.status AS outbox_status
        FROM meeting_recordings r
        JOIN meeting_transcripts t ON t.recording_id = r.id
@@ -205,7 +231,7 @@ try {
     )
 
     state = result.rows[0]
-    if (['transcribed', 'failed'].includes(state?.recording_status)) {
+    if (['ready_for_review', 'failed', 'cancelled'].includes(state?.analysis_status)) {
       break
     }
 
@@ -228,18 +254,32 @@ try {
     check('transcript.completed_at', state?.completed_at ? 'set' : 'null', 'set'),
     // No analysis consumer exists until #62, so a queued run is the correct
     // outcome here, not a stuck one.
-    check('analysis_run.status', state?.analysis_status, 'queued'),
+    check('analysis_run.status', state?.analysis_status, 'ready_for_review'),
+    check('analysis.summary', Boolean(state?.analysis_summary), true),
+    check('analysis.provider', state?.analysis_provider, 'fixture'),
+    check('analysis.model', state?.analysis_model, 'fixture-analysis-v1'),
+    check('analysis.promptVersion', Boolean(state?.analysis_prompt_version), true),
+    check('analysis.discussions', Number(state?.discussion_count), 2),
+    check('analysis.decisions', Number(state?.decision_count), 1),
+    check('suggestions', Number(state?.suggestion_count), 2),
+    check('suggestions all proposed', Number(state?.non_proposed_count), 0),
     check('workflow_outbox.status', state?.outbox_status, 'dispatched'),
-    check('status invalidations', invalidations.length, 2),
+    // transcribing, transcribed, analysis processing, analysis ready_for_review
+    check('status invalidations', invalidations.length, 4),
     check('stream: non-participant', refused.status, 403),
     check('stream: no token', anonymous.status, 401),
     check('stream: content-type', stream.headers.get('content-type'), 'text/event-stream'),
     check('stream: x-accel-buffering', stream.headers.get('x-accel-buffering'), 'no'),
-    check('stream: frames', sequence, 'snapshot -> status -> status -> settled'),
+    check('stream: last frame', frames.at(-1)?.event, 'settled'),
+    check(
+      'stream: reaches ready_for_review',
+      frames.some((frame) => frame.data.analysisRun?.status === 'ready_for_review'),
+      true
+    ),
     check('stream: heartbeats', heartbeats > 0, true),
     check(
-      'stream: no transcript text',
-      /Thanks for joining|meeting-audio|objectKey/.test(serialisedFrames),
+      'stream: no generated content',
+      /Thanks for joining|meeting-audio|objectKey|Circulate the status/.test(serialisedFrames),
       false
     ),
   ]
