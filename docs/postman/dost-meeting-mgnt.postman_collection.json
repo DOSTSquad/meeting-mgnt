@@ -741,7 +741,12 @@
           "name": "Mark notifications read",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"ids\": [\"{{notificationId}}\"]\n}"
@@ -1031,6 +1036,25 @@
             },
             "description": "Archives the active recording and removes its MinIO object. Returns 204."
           }
+        },
+        {
+          "name": "Stream workflow events (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/workflow/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "workflow", "events"]
+            },
+            "description": "Server-sent events for one meeting's recording workflow.\n\nFrames: `snapshot` (PostgreSQL state, always first on every connection), `status` (a transition, reloaded from PostgreSQL rather than forwarded from Redis), `settled` (transcription reached completed or failed; the server then closes), `error` (stream ended early, e.g. access revoked mid-stream), and `: heartbeat` comment frames every WORKFLOW_SSE_HEARTBEAT_MS.\n\nPayloads carry identifiers, statuses, error messages, timestamps, and segmentCount only. Never transcript text, audio, credentials, or presigned URLs — refetch GET /meetings/{{meetingId}}/recording after `settled` for the transcript body.\n\nMeeting access is authorised before any stream header is written, so a non-participant receives 403 rather than an empty 200.\n\nAuthenticate with the Authorization header. EventSource cannot send one, so browser clients use fetch. Never put the JWT in a query parameter.\n\nPostman shows the raw stream; it will not close on its own until `settled` arrives."
+          },
+          "response": []
         }
       ]
     },

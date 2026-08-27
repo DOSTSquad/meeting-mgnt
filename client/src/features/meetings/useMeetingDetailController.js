@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { getApiClient } from '../../lib/apiClient.js'
+import { subscribeToWorkflowEvents } from '../../lib/workflowEventStream.js'
 import {
   createMeetingActionItem,
   deleteActionItem,
@@ -11,6 +12,7 @@ import { getMeetingDetail, updateMeeting } from '../../services/meetingService.j
 import { updateMeetingMinutes } from '../../services/minuteService.js'
 import {
   generateMinutesFromRecording,
+  getMeetingRecording,
   removeMeetingRecording,
   uploadMeetingRecording,
 } from '../../services/recordingService.js'
@@ -434,6 +436,72 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     },
     [onError, selectedMeetingId, token]
   )
+
+  const workflowTranscriptStatus = selectedMeetingDetail?.transcript?.status
+
+  // Stream workflow transitions only while transcription is actually in flight.
+  // Anything settled has nothing left to report, and the server closes such a
+  // stream immediately anyway.
+  useEffect(() => {
+    if (!token || !selectedMeetingId || workflowTranscriptStatus !== 'processing') {
+      return undefined
+    }
+
+    const applySnapshot = (snapshot) => {
+      setSelectedMeetingDetail((prev) => {
+        if (!prev || prev.meeting?.id !== selectedMeetingId) {
+          return prev
+        }
+
+        // The snapshot carries status metadata only, so merge it over what is
+        // already held rather than replacing: the file name, object key, and
+        // transcript body must survive.
+        return {
+          ...prev,
+          recording: snapshot.recording
+            ? { ...prev.recording, ...snapshot.recording }
+            : prev.recording,
+          transcript: snapshot.transcript
+            ? { ...prev.transcript, ...snapshot.transcript }
+            : prev.transcript,
+          analysisRun: snapshot.analysisRun
+            ? { ...prev.analysisRun, ...snapshot.analysisRun }
+            : prev.analysisRun,
+        }
+      })
+    }
+
+    const stop = subscribeToWorkflowEvents({
+      meetingId: selectedMeetingId,
+      token,
+      onSnapshot: applySnapshot,
+      onSettled: async () => {
+        // The stream never carries transcript text. Once it settles, refetch the
+        // authorised endpoint to pick up the body and segments.
+        try {
+          const detail = await getMeetingRecording(getApiClient(token), selectedMeetingId)
+          setSelectedMeetingDetail((prev) =>
+            prev && prev.meeting?.id === selectedMeetingId
+              ? {
+                  ...prev,
+                  recording: detail.recording,
+                  transcript: detail.transcript,
+                  analysisRun: detail.analysisRun,
+                }
+              : prev
+          )
+        } catch {
+          // The status already arrived through the stream. A failed refetch only
+          // costs the transcript body, which the next page load recovers.
+        }
+      },
+      // Losing the stream degrades to the status shown at page load. Surfacing a
+      // banner for a background channel would be noise.
+      onError: () => {},
+    })
+
+    return stop
+  }, [selectedMeetingId, token, workflowTranscriptStatus])
 
   const removeRecording = useCallback(async () => {
     if (!selectedMeetingId) {

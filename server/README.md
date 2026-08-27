@@ -275,6 +275,44 @@ and PostgreSQL remains authoritative: subscribers reload from the database rathe
 message. Publishing happens outside the transaction and a failed publish is logged, not retried,
 because the write has already committed.
 
+### Workflow Events (`GET /api/meetings/:meetingId/workflow/events`)
+
+Server-sent events carrying recording, transcript, and analysis-run status for
+one meeting. Meeting access is authorised **before** any stream header is
+written, so a non-participant gets a normal `403` rather than a `200` that turns
+out to be empty.
+
+Frames:
+
+| Event         | Meaning                                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `snapshot`    | The PostgreSQL state at connect. Always the first frame, on every connection.                                         |
+| `status`      | A transition. The server reloads PostgreSQL before emitting; the Redis message itself is never forwarded.             |
+| `settled`     | Transcription reached `completed` or `failed`. The server then closes the stream.                                     |
+| `error`       | The stream ended early, for example because access was revoked mid-stream.                                            |
+| `: heartbeat` | A comment frame, sent every `WORKFLOW_SSE_HEARTBEAT_MS` (default `15000`), so proxies do not reap an idle connection. |
+
+Payloads carry identifiers, statuses, error messages, timestamps, and
+`segmentCount` only — never transcript text, audio, credentials, or presigned
+URLs. A client that wants the transcript body refetches
+`GET /api/meetings/:meetingId/recording` after `settled`.
+
+Because a reconnect always begins with a fresh `snapshot`, a Redis Pub/Sub
+message dropped while a client was away cannot leave the UI stale. Redis is an
+invalidation signal; PostgreSQL is the record.
+
+Clients must use `fetch` with the `Authorization` header rather than
+`EventSource`, which cannot send one. Never move the JWT into a query parameter:
+it would land in access logs, proxy logs, and browser history.
+
+The response sets `Cache-Control: no-cache, no-transform` and
+`X-Accel-Buffering: no`. Any reverse proxy in front of the API must stream rather
+than buffer this route — Caddy's `reverse_proxy` streams by default; nginx needs
+`proxy_buffering off`.
+
+For this slice the stream closes once transcription settles. #62 extends it
+through analysis readiness.
+
 ### Checking the workflow end to end
 
 ```bash

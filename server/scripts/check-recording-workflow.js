@@ -33,19 +33,25 @@ loadDotenv({
 process.env.AI_PIPELINE_ENABLED = 'true'
 process.env.AI_TRANSCRIPTION_PROVIDER = process.env.AI_TRANSCRIPTION_PROVIDER || 'fixture'
 
-// Dedicated queues and channel so a check never consumes work belonging to a
-// worker the operator already has running.
-const suffix = `check-${process.pid}`
-process.env.RECORDING_TRANSCRIPTION_QUEUE_NAME = `${suffix}-transcription`
-process.env.RECORDING_ANALYSIS_QUEUE_NAME = `${suffix}-analysis`
-process.env.WORKFLOW_STATUS_CHANNEL = `${suffix}-status`
 process.env.WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS = '500'
+process.env.WORKFLOW_SSE_HEARTBEAT_MS = process.env.WORKFLOW_SSE_HEARTBEAT_MS || '1000'
 
+// Queue and channel names are deliberately NOT scoped per run. server/app.js
+// reloads .env with override: true at module scope, so anything set here is
+// overwritten the moment the app is imported, and a scoped name would only
+// half-apply. The check therefore shares the configured queues: stop a local
+// worker first, or it may be the one that picks the job up. Either worker
+// produces the same fixture result, so a shared run still settles correctly.
+
+const jwt = (await import('jsonwebtoken')).default
 const IORedis = (await import('ioredis')).default
+const { createApp } = await import('../app.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { uploadRecordingForMeeting } = await import('../services/recording-service.js')
 const { createTranscriptionWorker } = await import('../services/transcription-worker.js')
 const { createWorkerRuntime } = await import('../worker-runtime.js')
+const { WORKFLOW_STATUS_CHANNEL } = await import('../services/workflow-status-publisher.js')
+const { closeWorkflowStatusSubscriber } = await import('../services/workflow-status-subscriber.js')
 
 const TIMEOUT_MS = 60000
 const POLL_MS = 250
@@ -60,22 +66,38 @@ const check = (label, actual, expected) => {
 }
 
 const userId = randomUUID()
+const outsiderId = randomUUID()
 const meetingId = randomUUID()
 
 const cleanUp = async () => {
   await query('DELETE FROM meetings WHERE id = $1', [meetingId]).catch(() => {})
-  await query('DELETE FROM users WHERE id = $1', [userId]).catch(() => {})
+  await query('DELETE FROM users WHERE id = ANY($1::uuid[])', [[userId, outsiderId]]).catch(
+    () => {}
+  )
 }
+
+const tokenFor = (id) =>
+  jwt.sign({ sub: id, email: `${id}@example.invalid` }, process.env.JWT_SECRET, {
+    expiresIn: '10m',
+  })
 
 let runtime
 let subscriber
+let server
+let streamController
 
 try {
   console.log('Seeding a throwaway meeting')
   await query(
     `INSERT INTO users (id, name, email, password_hash, role, department)
-     VALUES ($1, 'Workflow Check', $2, 'x', 'staff', 'ops')`,
-    [userId, `workflow-check-${userId}@example.invalid`]
+     VALUES ($1, 'Workflow Check', $2, 'x', 'staff', 'ops'),
+            ($3, 'Workflow Outsider', $4, 'x', 'staff', 'ops')`,
+    [
+      userId,
+      `workflow-check-${userId}@example.invalid`,
+      outsiderId,
+      `workflow-outsider-${outsiderId}@example.invalid`,
+    ]
   )
   await query(
     `INSERT INTO meetings (id, title, starts_at, ends_at, timezone_name, owner_id, created_by)
@@ -83,10 +105,12 @@ try {
     [meetingId, userId]
   )
 
-  console.log(`Subscribing to ${process.env.WORKFLOW_STATUS_CHANNEL}`)
+  // Read the channel the publisher resolved rather than process.env: the
+  // publisher captured it at module load, before app.js reloaded .env.
+  console.log(`Subscribing to ${WORKFLOW_STATUS_CHANNEL}`)
   subscriber = new IORedis(process.env.REDIS_URL)
   const invalidations = []
-  await subscriber.subscribe(process.env.WORKFLOW_STATUS_CHANNEL)
+  await subscriber.subscribe(WORKFLOW_STATUS_CHANNEL)
   subscriber.on('message', (_channel, message) => {
     const payload = JSON.parse(message)
     invalidations.push(payload)
@@ -98,6 +122,53 @@ try {
   if (!runtime.start()) {
     throw new Error('Worker runtime refused to start')
   }
+
+  console.log('Opening the workflow event stream')
+  server = createApp().listen(0)
+  await new Promise((resolve) => server.once('listening', resolve))
+  const streamUrl = `http://127.0.0.1:${server.address().port}/api/meetings/${meetingId}/workflow/events`
+
+  const refused = await fetch(streamUrl, {
+    headers: { Authorization: `Bearer ${tokenFor(outsiderId)}` },
+  })
+  const anonymous = await fetch(streamUrl)
+
+  streamController = new AbortController()
+  const stream = await fetch(streamUrl, {
+    headers: { Authorization: `Bearer ${tokenFor(userId)}`, Accept: 'text/event-stream' },
+    signal: streamController.signal,
+  })
+
+  const frames = []
+  let heartbeats = 0
+  const reading = (async () => {
+    const reader = stream.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) return
+      buffer += decoder.decode(value, { stream: true })
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary !== -1) {
+        const raw = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        boundary = buffer.indexOf('\n\n')
+        if (raw.startsWith(':')) {
+          heartbeats += 1
+          continue
+        }
+        const event = raw.match(/^event: (\S+)/)?.[1]
+        const data = JSON.parse(raw.match(/\ndata: (.*)$/s)[1])
+        frames.push({ event, data })
+        console.log(
+          `  <- ${event}  recording=${data.recording?.status ?? '-'} transcript=${data.transcript?.status ?? '-'}`
+        )
+        if (event === 'settled') return
+      }
+    }
+  })()
 
   console.log('Uploading a recording')
   const audio = Buffer.alloc(64 * 1024, 7)
@@ -141,8 +212,13 @@ try {
     await sleep(POLL_MS)
   }
 
+  await Promise.race([reading, sleep(5000)])
+
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1)
   console.log(`\nSettled after ${elapsed}s`)
+
+  const sequence = frames.map((frame) => frame.event).join(' -> ')
+  const serialisedFrames = JSON.stringify(frames)
 
   const results = [
     check('recording.status', state?.recording_status, 'transcribed'),
@@ -155,6 +231,17 @@ try {
     check('analysis_run.status', state?.analysis_status, 'queued'),
     check('workflow_outbox.status', state?.outbox_status, 'dispatched'),
     check('status invalidations', invalidations.length, 2),
+    check('stream: non-participant', refused.status, 403),
+    check('stream: no token', anonymous.status, 401),
+    check('stream: content-type', stream.headers.get('content-type'), 'text/event-stream'),
+    check('stream: x-accel-buffering', stream.headers.get('x-accel-buffering'), 'no'),
+    check('stream: frames', sequence, 'snapshot -> status -> status -> settled'),
+    check('stream: heartbeats', heartbeats > 0, true),
+    check(
+      'stream: no transcript text',
+      /Thanks for joining|meeting-audio|objectKey/.test(serialisedFrames),
+      false
+    ),
   ]
 
   const passed = results.every(Boolean)
@@ -164,7 +251,10 @@ try {
   console.error(`\nFAIL  ${error.message}`)
   process.exitCode = 1
 } finally {
+  streamController?.abort()
+  server?.close()
   await subscriber?.quit().catch(() => subscriber.disconnect())
+  await closeWorkflowStatusSubscriber()
   await runtime?.stop()
   await cleanUp()
   await closePool()
