@@ -192,6 +192,34 @@ sudo systemctl enable --now meeting-mgnt-server
 
 The service assumes the app is deployed at `/srv/meeting-mgnt`, `.env` exists there, and Node is available at `/usr/bin/node`; edit the service file if your VPS differs.
 
+### Choosing the service account
+
+Both unit files ship with `User=meeting-mgnt` / `Group=meeting-mgnt`, which
+requires the `useradd` line above. **Whatever you choose, both units must
+agree** — the API and the worker share `/srv/meeting-mgnt` and its `.env`.
+
+If you skip creating the dedicated account and run the services as root instead,
+delete the `User=` and `Group=` lines from both unit files. Leaving them in place
+while the account does not exist fails at startup with a misleading error:
+
+```
+meeting-mgnt-worker.service: Failed to determine user credentials: No such process
+```
+
+That message means systemd could not resolve the `User=`, not that a process is
+missing. Check what an already-working unit uses before installing a new one:
+
+```bash
+systemctl show -p User -p Group --value meeting-mgnt-server.service
+```
+
+Empty output means the unit runs as root.
+
+Note that `chown -R meeting-mgnt:meeting-mgnt /srv/meeting-mgnt` is only correct
+when the deploy user can still write there. Deploy runs `git pull`, `npm ci`, and
+receives `rsync` into that directory as the SSH user from `DEPLOY_USER`, so
+handing exclusive ownership to a different account breaks every later deploy.
+
 Install the worker runtime as a second unit:
 
 ```bash
