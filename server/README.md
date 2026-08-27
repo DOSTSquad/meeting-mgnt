@@ -275,6 +275,27 @@ and PostgreSQL remains authoritative: subscribers reload from the database rathe
 message. Publishing happens outside the transaction and a failed publish is logged, not retried,
 because the write has already committed.
 
+### Checking the workflow end to end
+
+```bash
+docker compose up -d --wait postgres redis minio
+npm run migrate --workspace=server
+npm run check:workflow --workspace=server
+```
+
+The check seeds a throwaway meeting, uploads a recording through the real
+service, runs the worker runtime against the real queue, and asserts the settled
+database state and the status invalidations. It removes what it created, and it
+enables the pipeline only for its own process, so `.env` needs no edit. It uses
+process-scoped queue and channel names, so it never steals work from a worker
+you already have running.
+
+`analysis_run.status` is expected to settle at `queued`: nothing consumes the
+analysis queue until #62.
+
+The unit and database suites cover each piece in isolation. This covers the seams
+between them, which is where a dropped first status invalidation was found.
+
 Worker tuning: `RECORDING_TRANSCRIPTION_CONCURRENCY` (default `2`) and
 `RECORDING_TRANSCRIPTION_TIMEOUT_MS` (default `120000`, used as the BullMQ lock duration).
 
