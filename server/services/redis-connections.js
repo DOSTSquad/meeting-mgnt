@@ -13,7 +13,12 @@ const createRedisConnection = (role) => {
 
   const connection = new IORedis(process.env.REDIS_URL, {
     connectionName: `meeting-mgnt-${role}`,
-    enableOfflineQueue: false,
+    // The BullMQ producer and worker fail fast rather than pile commands up
+    // behind a dead socket. The publisher is fire-and-forget, and combined with
+    // lazyConnect its very first publish is always issued before the socket is
+    // up, so without the offline queue the first status invalidation of a
+    // process is guaranteed to be dropped.
+    enableOfflineQueue: role === 'publisher',
     lazyConnect: true,
     maxRetriesPerRequest: role === 'worker' ? null : 1,
   })
