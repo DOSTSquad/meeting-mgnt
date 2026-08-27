@@ -1,17 +1,14 @@
-import { config as loadDotenv } from 'dotenv'
+// Must stay first: ESM hoists imports above ordinary statements, so loading .env
+// anywhere below this line would run after the whole import graph had already
+// read process.env. See server/load-env.js.
+import './load-env.js'
+
 import cors from 'cors'
 import express from 'express'
 import { rateLimit } from 'express-rate-limit'
 import http from 'node:http'
 import https from 'node:https'
 import net from 'node:net'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-loadDotenv({
-  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env'),
-  override: true,
-})
 
 import { requireAuth } from './middleware/auth-middleware.js'
 import authRouter from './routes/auth-routes.js'

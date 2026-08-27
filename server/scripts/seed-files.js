@@ -1,16 +1,11 @@
-import path from 'node:path'
-import { randomUUID } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
+// Must stay first: ESM hoists imports above ordinary statements, so .env has to
+// be loaded by an import, not a call below them. See server/load-env.js.
+import '../load-env.js'
 
-import { config as loadDotenv } from 'dotenv'
+import { randomUUID } from 'node:crypto'
 
 import { closePool, query } from '../db/postgres.js'
 import { BUCKET_FILES, putObject } from '../services/minio-client.js'
-
-loadDotenv({
-  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env'),
-  override: true,
-})
 
 const textTemplates = [
   'Meeting agenda and context notes for team alignment.',
