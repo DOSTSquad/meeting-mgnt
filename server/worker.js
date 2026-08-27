@@ -11,8 +11,12 @@ loadDotenv({
 })
 
 const { createWorkerRuntime } = await import('./worker-runtime.js')
+const { createTranscriptionWorker } = await import('./services/transcription-worker.js')
 
-const workerRuntime = createWorkerRuntime()
+// Queue consumers are registered here, never from the Express entrypoint.
+const workerRuntime = createWorkerRuntime({
+  services: [createTranscriptionWorker()],
+})
 
 try {
   const started = workerRuntime.start()

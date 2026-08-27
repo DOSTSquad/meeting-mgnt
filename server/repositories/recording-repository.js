@@ -125,3 +125,76 @@ export const updateRecordingStatus = async ({ id, status, errorMessage = null })
 
   return mapRecording(result.rows[0])
 }
+
+export const findRecordingById = async (id, db) => {
+  const result = await executor(db).query(
+    `
+      SELECT ${RECORDING_COLUMNS}
+      FROM meeting_recordings
+      WHERE id = $1
+    `,
+    [id]
+  )
+
+  return mapRecording(result.rows[0])
+}
+
+// Locks the row so a concurrent archive or replacement cannot slip between the
+// staleness check and the status write. Returns null when the recording has
+// already been archived, which the caller must treat as a stale job.
+export const lockActiveRecordingById = async (id, db) => {
+  const result = await executor(db).query(
+    `
+      SELECT ${RECORDING_COLUMNS}
+      FROM meeting_recordings
+      WHERE id = $1
+        AND archived_at IS NULL
+      FOR UPDATE
+    `,
+    [id]
+  )
+
+  return mapRecording(result.rows[0])
+}
+
+// Same row lock as lockActiveRecordingById, but without the archived filter, so
+// a caller that must still act on an archived recording's dependants can take
+// the lock. Every workflow transaction locks the recording first: a consistent
+// lock order is what stops a complete and a fail on the same transcript from
+// deadlocking against each other.
+export const lockRecordingById = async (id, db) => {
+  const result = await executor(db).query(
+    `
+      SELECT ${RECORDING_COLUMNS}
+      FROM meeting_recordings
+      WHERE id = $1
+      FOR UPDATE
+    `,
+    [id]
+  )
+
+  return mapRecording(result.rows[0])
+}
+
+// Guarded status write for workflow transitions: only an active recording in one
+// of the expected statuses moves. A null return means the job is stale.
+export const transitionActiveRecordingStatus = async (
+  { id, status, errorMessage = null, expectedStatuses, durationSeconds = null },
+  db
+) => {
+  const result = await executor(db).query(
+    `
+      UPDATE meeting_recordings
+      SET status = $2,
+          error_message = $3,
+          duration_seconds = COALESCE(duration_seconds, $4)
+      WHERE id = $1
+        AND archived_at IS NULL
+        AND status = ANY($5::text[])
+      RETURNING ${RECORDING_COLUMNS}
+    `,
+    [id, status, errorMessage, durationSeconds, expectedStatuses]
+  )
+
+  return mapRecording(result.rows[0])
+}

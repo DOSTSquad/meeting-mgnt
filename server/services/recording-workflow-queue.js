@@ -83,6 +83,9 @@ export const queueRecordingAnalysisWorkflow = async ({
           },
           removeOnComplete: 1000,
           removeOnFail: 5000,
+          // Without this an exhausted transcription leaves the analysis parent
+          // waiting on a child that will never complete.
+          failParentOnFailure: true,
         },
       },
     ],
