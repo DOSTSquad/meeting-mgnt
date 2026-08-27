@@ -12,7 +12,6 @@ import { getMeetingDetail, updateMeeting } from '../../services/meetingService.j
 import { updateMeetingMinutes } from '../../services/minuteService.js'
 import {
   generateMinutesFromRecording,
-  getMeetingRecording,
   removeMeetingRecording,
   uploadMeetingRecording,
 } from '../../services/recordingService.js'
@@ -475,26 +474,11 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
       meetingId: selectedMeetingId,
       token,
       onSnapshot: applySnapshot,
-      onSettled: async () => {
-        // The stream never carries transcript text. Once it settles, refetch the
-        // authorised endpoint to pick up the body and segments.
-        try {
-          const detail = await getMeetingRecording(getApiClient(token), selectedMeetingId)
-          setSelectedMeetingDetail((prev) =>
-            prev && prev.meeting?.id === selectedMeetingId
-              ? {
-                  ...prev,
-                  recording: detail.recording,
-                  transcript: detail.transcript,
-                  analysisRun: detail.analysisRun,
-                }
-              : prev
-          )
-        } catch {
-          // The status already arrived through the stream. A failed refetch only
-          // costs the transcript body, which the next page load recovers.
-        }
-      },
+      // No refetch on settle. The stream deliberately omits transcript text, but
+      // nothing here renders it: this view shows statuses and error messages
+      // only, and the final `status` frame already carried both. A view that
+      // starts displaying the transcript body should fetch it itself rather than
+      // making every viewer pay for it here.
       // Losing the stream degrades to the status shown at page load. Surfacing a
       // banner for a background channel would be noise.
       onError: () => {},
