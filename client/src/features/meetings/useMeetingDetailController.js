@@ -9,7 +9,7 @@ import {
 } from '../../services/actionItemService.js'
 import { downloadFileContent, uploadMeetingFile } from '../../services/fileService.js'
 import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
-import { updateMeetingMinutes } from '../../services/minuteService.js'
+import { applyGeneratedMinutes, updateMeetingMinutes } from '../../services/minuteService.js'
 import {
   generateMinutesFromRecording,
   getMeetingAnalysis,
@@ -25,6 +25,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
   // Stored with the meeting it belongs to, so switching meetings derives an
   // empty preview instead of needing an effect to clear it.
   const [loadedAnalysisReview, setLoadedAnalysisReview] = useState(null)
+  const [applyMinutesState, setApplyMinutesState] = useState({ status: 'idle' })
   const selectedMeetingId = selectedMeetingDetail?.meeting?.id
 
   const fetchMeetingDetail = useCallback(
@@ -521,6 +522,65 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     return stop
   }, [isWorkflowInFlight, selectedMeetingId, token, workflowPhase])
 
+  /**
+   * Applies the reviewed analysis to the draft minutes.
+   *
+   * The version the client currently holds is sent as the precondition. A 409
+   * means someone edited the minutes since it was loaded; the server reports the
+   * current version rather than overwriting, and the user decides what to do, so
+   * this never retries on its own.
+   */
+  const applyGeneratedMinutesToDraft = useCallback(async () => {
+    const analysisRunId = loadedAnalysisReview?.review?.analysisRun?.id
+    const expectedVersion = selectedMeetingDetail?.minutes?.version
+
+    if (!selectedMeetingId || !analysisRunId || !expectedVersion) {
+      return
+    }
+
+    setApplyMinutesState({ status: 'applying' })
+
+    try {
+      const result = await applyGeneratedMinutes(getApiClient(token), selectedMeetingId, {
+        analysisRunId,
+        expectedVersion,
+      })
+
+      setSelectedMeetingDetail((prev) =>
+        prev && prev.meeting?.id === selectedMeetingId ? { ...prev, minutes: result.minutes } : prev
+      )
+      setApplyMinutesState({ status: 'applied' })
+    } catch (error) {
+      if (error.response?.status === 409) {
+        const { currentVersion, minutes } = error.response.data ?? {}
+
+        // Refresh to what is actually stored, so the user sees the edit that
+        // caused the conflict and a retry carries the version they have now seen.
+        if (minutes) {
+          setSelectedMeetingDetail((prev) =>
+            prev && prev.meeting?.id === selectedMeetingId ? { ...prev, minutes } : prev
+          )
+        }
+
+        setApplyMinutesState({ status: 'conflict', currentVersion })
+        return
+      }
+
+      setApplyMinutesState({ status: 'idle' })
+      onError(error.response?.data?.error || 'Unable to apply generated minutes')
+    }
+  }, [
+    loadedAnalysisReview,
+    onError,
+    selectedMeetingDetail?.minutes?.version,
+    selectedMeetingId,
+    token,
+  ])
+
+  const dismissApplyMinutesState = useCallback(() => {
+    setApplyMinutesState({ status: 'idle' })
+  }, [])
+
   const removeRecording = useCallback(async () => {
     if (!selectedMeetingId) {
       return
@@ -581,6 +641,9 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
   return {
     selectedMeetingDetail,
     analysisReview,
+    applyMinutesState,
+    applyGeneratedMinutesToDraft,
+    dismissApplyMinutesState,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
     isPreviewOpen,

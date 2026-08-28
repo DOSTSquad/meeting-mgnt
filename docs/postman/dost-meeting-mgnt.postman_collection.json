@@ -933,6 +933,29 @@
             },
             "description": "Expected 404 with `Minutes not found`."
           }
+        },
+        {
+          "name": "Apply generated minutes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"analysisRunId\": \"{{analysisRunId}}\",\n  \"expectedVersion\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/minutes/apply-generated",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "minutes", "apply-generated"]
+            },
+            "description": "Applies a reviewed analysis run to the draft minutes. Owner or organizer only.\n\n`expectedVersion` is required. Send the version the client currently holds; the guard is in the UPDATE's WHERE clause, so a human edit landing in between cannot be overwritten.\n\n409 returns `{ error, currentVersion, minutes }` and changes nothing. Do not retry automatically — show the user what changed first.\n\nWrites content, key_discussions, decisions, and generated_from_transcript_id. The result stays `draft`: applying never approves or publishes, and the analysis provider is not called again."
+          },
+          "response": []
         }
       ]
     },

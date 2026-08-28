@@ -275,6 +275,41 @@ and PostgreSQL remains authoritative: subscribers reload from the database rathe
 message. Publishing happens outside the transaction and a failed publish is logged, not retried,
 because the write has already committed.
 
+### Apply Generated Minutes (`POST /api/meetings/:meetingId/minutes/apply-generated`)
+
+Applies a reviewed analysis run to the meeting's draft minutes. Owner or
+organizer only.
+
+```json
+{ "analysisRunId": "…", "expectedVersion": 3 }
+```
+
+`expectedVersion` is **required**, not optional. Without it this would be
+last-write-wins, which is the failure the endpoint exists to prevent: generation
+can run for minutes while a human edits the same minutes by hand, and applying
+must not silently discard that work.
+
+The version guard lives in the `UPDATE ... WHERE version = $n`, not in a read
+followed by a write, so an edit landing between the client reading the version
+and sending the apply cannot slip through. A mismatch returns `409` with the
+current version and the stored minutes, and **changes nothing**:
+
+```json
+{ "error": "Minutes were modified by someone else", "currentVersion": 5, "minutes": { … } }
+```
+
+The server never retries on its own. The client refreshes to what is stored, so
+the user can read the edit that caused the conflict before deciding.
+
+Writes `content` from the summary, `key_discussions`, `decisions`, and
+`generated_from_transcript_id`. Evidence indexes are dropped: they are review
+aids for deciding whether to apply, not part of the minutes a reader sees.
+
+The result stays `draft`. Applying never approves or publishes, and the analysis
+provider is never called again — the stored result is used. The run must be
+`ready_for_review` and must belong to this meeting; a run from another meeting is
+a `404`.
+
 ### Analysis Review (`GET /api/meetings/:meetingId/recording/analysis`)
 
 The latest analysis for a meeting, for any participant. Returns the run with its

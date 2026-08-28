@@ -70,6 +70,9 @@ const getParticipantInitials = (name = '') => {
 export const MeetingDetailView = ({
   detail,
   analysisReview,
+  applyMinutesState,
+  onApplyGeneratedMinutes,
+  onDismissApplyMinutesState,
   onBack,
   onChange,
   onSaveMeetingField,
@@ -532,7 +535,13 @@ export const MeetingDetailView = ({
                     </div>
                   ) : null}
                 </div>
-                <AnalysisReviewPreview review={analysisReview} />
+                <AnalysisReviewPreview
+                  review={analysisReview}
+                  canApply={canManageMeeting}
+                  applyState={applyMinutesState}
+                  onApply={onApplyGeneratedMinutes}
+                  onDismissApplyState={onDismissApplyMinutesState}
+                />
               </div>
             ) : canManageMeeting ? (
               <label

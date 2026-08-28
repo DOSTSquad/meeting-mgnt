@@ -161,3 +161,52 @@ export const updateMinute = async ({ meetingId, minuteId, updates }) => {
 
   return findMinuteById(result.rows[0].id)
 }
+
+/**
+ * Conditional update for applying generated content.
+ *
+ * The version guard is in the WHERE clause rather than a read-then-write, so a
+ * human edit that lands between the caller reading the version and sending the
+ * apply cannot be silently overwritten. A null return means the version moved:
+ * the caller must report the conflict, not retry.
+ */
+export const applyGeneratedMinuteContent = async ({
+  meetingId,
+  minuteId,
+  expectedVersion,
+  content,
+  keyDiscussions,
+  decisions,
+  generatedFromTranscriptId,
+}) => {
+  const result = await query(
+    `
+      UPDATE minutes
+      SET content = $4,
+          key_discussions = $5,
+          decisions = $6,
+          generated_from_transcript_id = $7,
+          version = version + 1,
+          updated_at = NOW()
+      WHERE id = $1
+        AND meeting_id = $2
+        AND version = $3
+      RETURNING id
+    `,
+    [
+      minuteId,
+      meetingId,
+      expectedVersion,
+      content,
+      keyDiscussions,
+      decisions,
+      generatedFromTranscriptId,
+    ]
+  )
+
+  if (!result.rows[0]?.id) {
+    return null
+  }
+
+  return findMinuteById(result.rows[0].id)
+}
