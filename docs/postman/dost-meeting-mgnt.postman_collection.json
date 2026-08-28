@@ -1091,6 +1091,67 @@
             "description": "The latest analysis for the meeting, for any participant.\n\nReturns `{ analysisRun, suggestions, transcript }`. The run carries summary, keyDiscussions, decisions, and provenance (provider, model, promptVersion, transcriptId). Evidence indexes are resolved server-side into the transcript passages they cite, so each item arrives with `{ segmentIndex, startSeconds, endSeconds, speaker, text }`.\n\nRead-only. Suggestions stay `proposed` and are not action items; promoting them is #65. Nothing here modifies minutes.\n\n`analysisRun` is null until the analysis worker finishes. Watch GET /meetings/{{meetingId}}/workflow/events for the transition rather than polling this."
           },
           "response": []
+        },
+        {
+          "name": "Accept analysis suggestion",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/{{meetingId}}/analysis-suggestions/{{suggestionId}}/accept",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "analysis-suggestions",
+                "{{suggestionId}}",
+                "accept"
+              ]
+            },
+            "description": "Creates the official action item and marks the suggestion accepted, in one transaction.\n\nExactly-once: a duplicate request returns 200 with alreadyReviewed=true and creates no second task and no second notification. A first acceptance returns 201.\n\nThe action item's source ('ai') and source_ref (the analysis run id) are set by the server. `source` is not accepted in the request at all.\n\nThe assignee is re-checked against current meeting participants; someone who has left the meeting is rejected with 400."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject analysis suggestion",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/{{meetingId}}/analysis-suggestions/{{suggestionId}}/reject",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "analysis-suggestions",
+                "{{suggestionId}}",
+                "reject"
+              ]
+            },
+            "description": "Marks the suggestion rejected and records the reviewer and timestamp. Creates no action item.\n\nRejected suggestions are kept: what was offered and turned down is part of the record."
+          },
+          "response": []
+        },
+        {
+          "name": "Edit analysis suggestion",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/{{meetingId}}/analysis-suggestions/{{suggestionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "analysis-suggestions", "{{suggestionId}}"]
+            },
+            "description": "Edits a suggestion while it is still `proposed`. An accepted or rejected suggestion returns 409: it is a record of what was decided, not a draft.\n\nEditable: title, description, assigneeId, dueDate, priority. Provenance fields are not editable.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Edited title\",\n  \"priority\": \"medium\"\n}"
+            }
+          },
+          "response": []
         }
       ]
     },

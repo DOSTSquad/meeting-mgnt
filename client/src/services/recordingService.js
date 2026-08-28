@@ -25,3 +25,25 @@ export const getMeetingAnalysis = async (client, meetingId) => {
   const response = await client.get(`/api/meetings/${meetingId}/recording/analysis`)
   return response.data
 }
+
+export const acceptAnalysisSuggestion = async (client, meetingId, suggestionId) => {
+  const response = await client.post(
+    `/api/meetings/${meetingId}/analysis-suggestions/${suggestionId}/accept`
+  )
+  return response.data
+}
+
+export const rejectAnalysisSuggestion = async (client, meetingId, suggestionId) => {
+  const response = await client.post(
+    `/api/meetings/${meetingId}/analysis-suggestions/${suggestionId}/reject`
+  )
+  return response.data
+}
+
+export const editAnalysisSuggestion = async (client, meetingId, suggestionId, updates) => {
+  const response = await client.patch(
+    `/api/meetings/${meetingId}/analysis-suggestions/${suggestionId}`,
+    updates
+  )
+  return response.data
+}

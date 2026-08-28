@@ -73,6 +73,8 @@ export const MeetingDetailView = ({
   applyMinutesState,
   onApplyGeneratedMinutes,
   onDismissApplyMinutesState,
+  onAcceptSuggestion,
+  onRejectSuggestion,
   onBack,
   onChange,
   onSaveMeetingField,
@@ -541,6 +543,8 @@ export const MeetingDetailView = ({
                   applyState={applyMinutesState}
                   onApply={onApplyGeneratedMinutes}
                   onDismissApplyState={onDismissApplyMinutesState}
+                  onAcceptSuggestion={onAcceptSuggestion}
+                  onRejectSuggestion={onRejectSuggestion}
                 />
               </div>
             ) : canManageMeeting ? (

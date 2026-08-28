@@ -340,6 +340,8 @@ const AppShell = ({ token, user, onLogout }) => {
     applyMinutesState,
     applyGeneratedMinutesToDraft,
     dismissApplyMinutesState,
+    acceptSuggestion,
+    rejectSuggestion,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
     isPreviewOpen,
@@ -447,6 +449,8 @@ const AppShell = ({ token, user, onLogout }) => {
                     applyMinutesState={applyMinutesState}
                     onApplyGeneratedMinutes={applyGeneratedMinutesToDraft}
                     onDismissApplyMinutesState={dismissApplyMinutesState}
+                    onAcceptSuggestion={acceptSuggestion}
+                    onRejectSuggestion={rejectSuggestion}
                     onBack={() => navigate('/meetings')}
                     onChange={updateMeetingDetailField}
                     onSaveMeetingField={saveMeetingField}
