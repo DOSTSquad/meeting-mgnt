@@ -275,6 +275,44 @@ and PostgreSQL remains authoritative: subscribers reload from the database rathe
 message. Publishing happens outside the transaction and a failed publish is logged, not retried,
 because the write has already committed.
 
+### Reviewing Suggestions (`/api/meetings/:meetingId/analysis-suggestions/:suggestionId`)
+
+Owner or organizer only.
+
+| Method  | Path                    | Effect                                                                          |
+| ------- | ----------------------- | ------------------------------------------------------------------------------- |
+| `PATCH` | `/:suggestionId`        | Edit title, description, assignee, due date, or priority while still `proposed` |
+| `POST`  | `/:suggestionId/accept` | Create the official action item and mark the suggestion accepted                |
+| `POST`  | `/:suggestionId/reject` | Mark rejected, keeping the record                                               |
+
+`proposed` is the only editable state. Once accepted or rejected a suggestion is
+a record of what was decided, not a draft, and `0035` enforces that a reviewed
+suggestion carries its reviewer and timestamp.
+
+**Acceptance is exactly-once.** The action item and the suggestion's acceptance
+commit in one transaction, guarded on `status = 'proposed'`. There is no state
+where a task exists that no suggestion claims, or a suggestion claims a task that
+was never written, and a duplicate request returns `200` with the existing result
+rather than creating a second task or sending a second notification. A concurrent
+loser rolls back, discarding the action item its attempt created.
+
+**Provenance is server-controlled.** The action item gets `source = 'ai'` and
+`source_ref = <analysis run id>` from the server. `source` is not in the request
+validators at all: a client able to choose it could pass generated content off as
+hand-written, or the reverse.
+
+**Assignees are re-checked at review time**, not only when the suggestion was
+generated. Participants change, and someone who has since left the meeting must
+not be given a task for it.
+
+**Notification is sent after the transaction commits**, and a failure is logged
+rather than propagated. The task exists either way and the assignee can still see
+it; rolling back an action item the reviewer has already been told about would be
+worse than a missed email.
+
+Rejected suggestions are kept with their reviewer and timestamp. What was offered
+and turned down is as much a part of the record as what was taken.
+
 ### Apply Generated Minutes (`POST /api/meetings/:meetingId/minutes/apply-generated`)
 
 Applies a reviewed analysis run to the meeting's draft minutes. Owner or

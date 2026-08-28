@@ -1,3 +1,9 @@
+const STATUS_CLASS = {
+  proposed: 'bg-slate-100 text-slate-500',
+  accepted: 'bg-emerald-50 text-emerald-700',
+  rejected: 'bg-slate-100 text-slate-400',
+}
+
 const PRIORITY_CLASS = {
   low: 'bg-slate-100 text-slate-600',
   medium: 'bg-amber-50 text-amber-700',
@@ -50,6 +56,8 @@ export const AnalysisReviewPreview = ({
   applyState = { status: 'idle' },
   onApply,
   onDismissApplyState,
+  onAcceptSuggestion,
+  onRejectSuggestion,
 }) => {
   const run = review?.analysisRun
 
@@ -160,7 +168,13 @@ export const AnalysisReviewPreview = ({
             {suggestions.map((item) => (
               <li key={item.id}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-800">{item.title}</p>
+                  <p
+                    className={`text-sm font-semibold ${
+                      item.status === 'rejected' ? 'text-slate-400 line-through' : 'text-slate-800'
+                    }`}
+                  >
+                    {item.title}
+                  </p>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                       PRIORITY_CLASS[item.priority] || PRIORITY_CLASS.medium
@@ -168,9 +182,31 @@ export const AnalysisReviewPreview = ({
                   >
                     {item.priority}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      STATUS_CLASS[item.status] || STATUS_CLASS.proposed
+                    }`}
+                  >
                     {item.status}
                   </span>
+                  {canApply && item.status === 'proposed' ? (
+                    <span className="ml-auto flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onAcceptSuggestion?.(item.id)}
+                        className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-emerald-700"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRejectSuggestion?.(item.id)}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 transition hover:border-rose-200 hover:text-rose-700"
+                      >
+                        Reject
+                      </button>
+                    </span>
+                  ) : null}
                 </div>
                 {item.description ? (
                   <p className="text-sm text-slate-600">{item.description}</p>

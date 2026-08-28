@@ -20,6 +20,7 @@ import minuteRouter from './routes/minute-routes.js'
 import participantRouter from './routes/participant-routes.js'
 import publicInvitationRouter from './routes/public-invitation-routes.js'
 import recordingRouter from './routes/recording-routes.js'
+import suggestionRouter from './routes/suggestion-review-routes.js'
 import workflowEventsRouter from './routes/workflow-events-routes.js'
 import tagRouter from './routes/tag-routes.js'
 import userRouter from './routes/user-routes.js'
@@ -291,6 +292,7 @@ export const createApp = () => {
   app.use('/api/meetings/:meetingId/minutes', minuteRouter)
   app.use('/api/meetings/:meetingId/recording', recordingRouter)
   app.use('/api/meetings/:meetingId/workflow', workflowEventsRouter)
+  app.use('/api/meetings/:meetingId/analysis-suggestions', suggestionRouter)
   app.use('/api/meetings/:meetingId/participants', participantRouter)
   app.use('/api/meetings/:meetingId/files', meetingFileRouter)
   app.use('/api/files', fileRouter)

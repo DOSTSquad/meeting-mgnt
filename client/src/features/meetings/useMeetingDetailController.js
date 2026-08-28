@@ -11,8 +11,11 @@ import { downloadFileContent, uploadMeetingFile } from '../../services/fileServi
 import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
 import { applyGeneratedMinutes, updateMeetingMinutes } from '../../services/minuteService.js'
 import {
+  acceptAnalysisSuggestion,
+  editAnalysisSuggestion,
   generateMinutesFromRecording,
   getMeetingAnalysis,
+  rejectAnalysisSuggestion,
   removeMeetingRecording,
   uploadMeetingRecording,
 } from '../../services/recordingService.js'
@@ -577,6 +580,94 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     token,
   ])
 
+  /**
+   * Replaces one suggestion in the loaded review after it has been reviewed.
+   *
+   * Reviewed suggestions stay in the list rather than disappearing: the record of
+   * what was offered and turned down is as much a part of the review as what was
+   * taken.
+   */
+  const replaceSuggestion = useCallback((suggestion) => {
+    setLoadedAnalysisReview((prev) => {
+      if (!prev?.review?.suggestions) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        review: {
+          ...prev.review,
+          suggestions: prev.review.suggestions.map((item) =>
+            item.id === suggestion.id ? { ...item, ...suggestion } : item
+          ),
+        },
+      }
+    })
+  }, [])
+
+  const reviewSuggestion = useCallback(
+    async (suggestionId, action) => {
+      if (!selectedMeetingId) {
+        return
+      }
+
+      const client = getApiClient(token)
+
+      try {
+        const result =
+          action === 'accept'
+            ? await acceptAnalysisSuggestion(client, selectedMeetingId, suggestionId)
+            : await rejectAnalysisSuggestion(client, selectedMeetingId, suggestionId)
+
+        replaceSuggestion(result.suggestion)
+
+        // An accepted suggestion becomes a real action item, so the list beside
+        // it has to show it without a reload.
+        if (result.actionItem) {
+          setSelectedMeetingDetail((prev) =>
+            prev && prev.meeting?.id === selectedMeetingId
+              ? { ...prev, actionItems: [result.actionItem, ...prev.actionItems] }
+              : prev
+          )
+        }
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to review the suggestion')
+      }
+    },
+    [onError, replaceSuggestion, selectedMeetingId, token]
+  )
+
+  const acceptSuggestion = useCallback(
+    (suggestionId) => reviewSuggestion(suggestionId, 'accept'),
+    [reviewSuggestion]
+  )
+
+  const rejectSuggestion = useCallback(
+    (suggestionId) => reviewSuggestion(suggestionId, 'reject'),
+    [reviewSuggestion]
+  )
+
+  const editSuggestion = useCallback(
+    async (suggestionId, updates) => {
+      if (!selectedMeetingId) {
+        return
+      }
+
+      try {
+        const result = await editAnalysisSuggestion(
+          getApiClient(token),
+          selectedMeetingId,
+          suggestionId,
+          updates
+        )
+        replaceSuggestion(result.suggestion)
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to edit the suggestion')
+      }
+    },
+    [onError, replaceSuggestion, selectedMeetingId, token]
+  )
+
   const dismissApplyMinutesState = useCallback(() => {
     setApplyMinutesState({ status: 'idle' })
   }, [])
@@ -644,6 +735,9 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     applyMinutesState,
     applyGeneratedMinutesToDraft,
     dismissApplyMinutesState,
+    acceptSuggestion,
+    rejectSuggestion,
+    editSuggestion,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
     isPreviewOpen,

@@ -1,4 +1,6 @@
 import { query } from '../db/postgres.js'
+
+const executor = (db) => db ?? { query }
 import { getActionItemDueState, isOverdueActionItem } from '../utils/action-items.js'
 
 const ACTION_ITEM_COLUMNS = `
@@ -149,18 +151,21 @@ export const findById = async (id) => {
   return mapActionItem(result.rows[0] ?? null)
 }
 
-export const insert = async ({
-  meetingId,
-  title,
-  description = null,
-  assigneeId = null,
-  dueDate = null,
-  priority = 'medium',
-  createdBy,
-  source = 'manual',
-  sourceRef = null,
-}) => {
-  const result = await query(
+export const insert = async (
+  {
+    meetingId,
+    title,
+    description = null,
+    assigneeId = null,
+    dueDate = null,
+    priority = 'medium',
+    createdBy,
+    source = 'manual',
+    sourceRef = null,
+  },
+  db
+) => {
+  const result = await executor(db).query(
     `
       INSERT INTO action_items (
         meeting_id, title, description, assignee_id, due_date,

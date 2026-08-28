@@ -15,6 +15,9 @@ const SUGGESTION_COLUMNS = `
   source_ref,
   evidence,
   position,
+  accepted_action_item_id,
+  reviewed_by,
+  reviewed_at,
   created_at,
   updated_at
 `
@@ -39,6 +42,9 @@ const mapSuggestion = (row) => {
     sourceRef: row.source_ref,
     evidence: row.evidence ?? [],
     position: row.position,
+    acceptedActionItemId: row.accepted_action_item_id,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: mapNullableDate(row.reviewed_at),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   }
@@ -106,4 +112,84 @@ export const replaceSuggestionsForAnalysisRun = async (
   }
 
   return created
+}
+
+export const findSuggestionById = async (id, db) => {
+  const result = await executor(db).query(
+    `
+      SELECT ${SUGGESTION_COLUMNS}
+      FROM analysis_action_item_suggestions
+      WHERE id = $1
+    `,
+    [id]
+  )
+
+  return mapSuggestion(result.rows[0])
+}
+
+// Editing is only allowed while a suggestion is still a proposal. Once it has
+// been accepted or rejected it is a record of what was decided, not a draft.
+export const updateProposedSuggestion = async (
+  { id, meetingId, title, description, assigneeId, dueDate, priority },
+  db
+) => {
+  const result = await executor(db).query(
+    `
+      UPDATE analysis_action_item_suggestions
+      SET title = COALESCE($3, title),
+          description = CASE WHEN $4::boolean THEN $5 ELSE description END,
+          assignee_id = CASE WHEN $6::boolean THEN $7 ELSE assignee_id END,
+          due_date = CASE WHEN $8::boolean THEN $9 ELSE due_date END,
+          priority = COALESCE($10, priority),
+          updated_at = NOW()
+      WHERE id = $1
+        AND meeting_id = $2
+        AND status = 'proposed'
+      RETURNING ${SUGGESTION_COLUMNS}
+    `,
+    [
+      id,
+      meetingId,
+      title ?? null,
+      description !== undefined,
+      description ?? null,
+      assigneeId !== undefined,
+      assigneeId ?? null,
+      dueDate !== undefined,
+      dueDate ?? null,
+      priority ?? null,
+    ]
+  )
+
+  return mapSuggestion(result.rows[0])
+}
+
+/**
+ * Claims a suggestion for review.
+ *
+ * The `status = 'proposed'` guard is what makes acceptance exactly-once: a
+ * duplicate request matches nothing and the caller must treat null as "already
+ * reviewed" rather than retrying.
+ */
+export const markSuggestionReviewed = async (
+  { id, meetingId, status, reviewedBy, acceptedActionItemId = null },
+  db
+) => {
+  const result = await executor(db).query(
+    `
+      UPDATE analysis_action_item_suggestions
+      SET status = $3,
+          reviewed_by = $4,
+          reviewed_at = NOW(),
+          accepted_action_item_id = $5,
+          updated_at = NOW()
+      WHERE id = $1
+        AND meeting_id = $2
+        AND status = 'proposed'
+      RETURNING ${SUGGESTION_COLUMNS}
+    `,
+    [id, meetingId, status, reviewedBy, acceptedActionItemId]
+  )
+
+  return mapSuggestion(result.rows[0])
 }
