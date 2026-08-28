@@ -1,7 +1,11 @@
 import { Router } from 'express'
 import { body, param } from 'express-validator'
 
-import { getForMeeting, updateForMeeting } from '../controllers/minute-controller.js'
+import {
+  applyGeneratedForMeeting,
+  getForMeeting,
+  updateForMeeting,
+} from '../controllers/minute-controller.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 import { ALLOWED_MINUTE_STATUSES } from '../services/minute-service.js'
 
@@ -29,6 +33,21 @@ minuteRouter.get(
   [param('meetingId').isUUID().withMessage('meetingId must be a UUID')],
   handleValidationErrors,
   getForMeeting
+)
+
+minuteRouter.post(
+  '/apply-generated',
+  [
+    param('meetingId').isUUID().withMessage('meetingId must be a UUID'),
+    body('analysisRunId').isUUID().withMessage('analysisRunId must be a UUID'),
+    // Required, not optional: an apply without an expected version would be
+    // last-write-wins, which is exactly what this endpoint exists to prevent.
+    body('expectedVersion')
+      .isInt({ min: 1 })
+      .withMessage('expectedVersion must be a positive integer'),
+  ],
+  handleValidationErrors,
+  applyGeneratedForMeeting
 )
 
 minuteRouter.put('/', updateValidators, handleValidationErrors, updateForMeeting)

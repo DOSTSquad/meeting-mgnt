@@ -337,6 +337,9 @@ const AppShell = ({ token, user, onLogout }) => {
   const {
     selectedMeetingDetail,
     analysisReview,
+    applyMinutesState,
+    applyGeneratedMinutesToDraft,
+    dismissApplyMinutesState,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
     isPreviewOpen,
@@ -441,6 +444,9 @@ const AppShell = ({ token, user, onLogout }) => {
                   <MeetingDetailView
                     detail={selectedMeetingDetail}
                     analysisReview={analysisReview}
+                    applyMinutesState={applyMinutesState}
+                    onApplyGeneratedMinutes={applyGeneratedMinutesToDraft}
+                    onDismissApplyMinutesState={dismissApplyMinutesState}
                     onBack={() => navigate('/meetings')}
                     onChange={updateMeetingDetailField}
                     onSaveMeetingField={saveMeetingField}

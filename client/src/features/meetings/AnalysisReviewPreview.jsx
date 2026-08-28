@@ -44,7 +44,13 @@ const Evidence = ({ evidence }) => {
  * action items until a reviewer explicitly applies it, so every suggestion is
  * labelled as proposed and no control offers to accept one yet.
  */
-export const AnalysisReviewPreview = ({ review }) => {
+export const AnalysisReviewPreview = ({
+  review,
+  canApply = false,
+  applyState = { status: 'idle' },
+  onApply,
+  onDismissApplyState,
+}) => {
   const run = review?.analysisRun
 
   if (!run || run.status !== 'ready_for_review') {
@@ -59,13 +65,54 @@ export const AnalysisReviewPreview = ({ review }) => {
         <div>
           <h3 className="text-sm font-bold text-slate-900">Generated analysis</h3>
           <p className="text-xs text-slate-500">
-            Ready for review. Nothing has been added to the minutes or action items.
+            {applyState.status === 'applied'
+              ? 'Applied to the draft minutes. Review and edit them before approving.'
+              : 'Preview only. Nothing has been added to the minutes or action items yet.'}
           </p>
         </div>
-        <span className="rounded-full border border-blue-100 bg-white px-2 py-1 text-[11px] font-semibold text-blue-700">
-          {run.provider} · {run.model} · prompt {run.promptVersion}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-blue-100 bg-white px-2 py-1 text-[11px] font-semibold text-blue-700">
+            {run.provider} · {run.model} · prompt {run.promptVersion}
+          </span>
+          {canApply ? (
+            <button
+              type="button"
+              onClick={onApply}
+              disabled={applyState.status === 'applying'}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+            >
+              {applyState.status === 'applying'
+                ? 'Applying...'
+                : applyState.status === 'applied'
+                  ? 'Apply again'
+                  : 'Apply to minutes'}
+            </button>
+          ) : null}
+        </div>
       </header>
+
+      {applyState.status === 'conflict' ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm font-bold text-amber-900">
+            The minutes changed while you were reviewing
+          </p>
+          <p className="mt-1 text-xs text-amber-800">
+            Someone else saved an edit
+            {typeof applyState.currentVersion === 'number'
+              ? ` (now version ${applyState.currentVersion})`
+              : ''}
+            , so nothing was overwritten. The minutes above have been refreshed to what is saved.
+            Read them, then apply again if you still want the generated content.
+          </p>
+          <button
+            type="button"
+            onClick={onDismissApplyState}
+            className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-900"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-3 rounded-xl bg-white p-3">
         <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Summary</h4>
