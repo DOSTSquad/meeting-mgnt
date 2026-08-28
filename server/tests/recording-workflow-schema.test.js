@@ -117,8 +117,13 @@ afterAll(async () => {
   await closePool()
 })
 
-const createAnalysisRun = (status, completedAt = null, id = randomUUID()) =>
-  query(
+// 0034 requires provenance on a run offered for review, so a ready_for_review
+// fixture must carry it. Other statuses leave the columns null on purpose, which
+// is what keeps the constraint honest.
+const createAnalysisRun = (status, completedAt = null, id = randomUUID()) => {
+  const isReady = status === 'ready_for_review'
+
+  return query(
     `
       INSERT INTO analysis_runs (
         id,
@@ -127,13 +132,30 @@ const createAnalysisRun = (status, completedAt = null, id = randomUUID()) =>
         transcript_id,
         created_by,
         status,
-        completed_at
+        completed_at,
+        summary,
+        provider,
+        model,
+        prompt_version
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `,
-    [id, meetingId, recordingId, transcriptId, userId, status, completedAt]
+    [
+      id,
+      meetingId,
+      recordingId,
+      transcriptId,
+      userId,
+      status,
+      completedAt,
+      isReady ? 'A generated summary.' : null,
+      isReady ? 'fixture' : null,
+      isReady ? 'fixture-analysis-v1' : null,
+      isReady ? '2026-08-27' : null,
+    ]
   )
+}
 
 dbDescribe('recording generation workflow schema', () => {
   it('uses analysis-run statuses aligned with the review workflow', async () => {
@@ -146,6 +168,20 @@ dbDescribe('recording generation workflow schema', () => {
 
     await expect(createAnalysisRun('running')).rejects.toThrow(/analysis_runs/)
     await expect(createAnalysisRun('completed')).rejects.toThrow(/analysis_runs/)
+  })
+
+  it('refuses to offer a run for review without provenance', async () => {
+    await expect(
+      query(
+        `
+          INSERT INTO analysis_runs (
+            meeting_id, recording_id, transcript_id, created_by, status, completed_at, summary
+          )
+          VALUES ($1, $2, $3, $4, 'ready_for_review', NOW(), 'A summary with no model behind it')
+        `,
+        [meetingId, recordingId, transcriptId, userId]
+      )
+    ).rejects.toThrow(/analysis_runs_ready_requires_provenance/)
   })
 
   it('allows only one queued or processing analysis per active recording or transcript', async () => {

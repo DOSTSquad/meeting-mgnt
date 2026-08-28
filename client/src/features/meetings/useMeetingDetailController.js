@@ -12,6 +12,7 @@ import { getMeetingDetail, updateMeeting } from '../../services/meetingService.j
 import { updateMeetingMinutes } from '../../services/minuteService.js'
 import {
   generateMinutesFromRecording,
+  getMeetingAnalysis,
   removeMeetingRecording,
   uploadMeetingRecording,
 } from '../../services/recordingService.js'
@@ -21,6 +22,9 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
   const [pendingMeetingRecordingFile, setPendingMeetingRecordingFile] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  // Stored with the meeting it belongs to, so switching meetings derives an
+  // empty preview instead of needing an effect to clear it.
+  const [loadedAnalysisReview, setLoadedAnalysisReview] = useState(null)
   const selectedMeetingId = selectedMeetingDetail?.meeting?.id
 
   const fetchMeetingDetail = useCallback(
@@ -436,13 +440,43 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     [onError, selectedMeetingId, token]
   )
 
-  const workflowTranscriptStatus = selectedMeetingDetail?.transcript?.status
+  const transcriptStatus = selectedMeetingDetail?.transcript?.status
+  const analysisStatus = selectedMeetingDetail?.analysisRun?.status
+  // One string so the effect re-subscribes on any phase change without depending
+  // on the whole detail object.
+  const workflowPhase = `${transcriptStatus ?? ''}:${analysisStatus ?? ''}`
+  // The workflow now runs past a completed transcript into analysis, so the
+  // stream stays open until the analysis run reaches a terminal status too.
+  const isWorkflowInFlight =
+    transcriptStatus === 'processing' || ['queued', 'processing'].includes(analysisStatus)
 
-  // Stream workflow transitions only while transcription is actually in flight.
-  // Anything settled has nothing left to report, and the server closes such a
-  // stream immediately anyway.
+  // Load the review once the stream reports it is ready. The stream carries
+  // status metadata only, never generated content.
   useEffect(() => {
-    if (!token || !selectedMeetingId || workflowTranscriptStatus !== 'processing') {
+    if (!token || !selectedMeetingId || analysisStatus !== 'ready_for_review') {
+      return
+    }
+
+    let cancelled = false
+
+    getMeetingAnalysis(getApiClient(token), selectedMeetingId)
+      .then((review) => {
+        if (!cancelled) {
+          setLoadedAnalysisReview({ meetingId: selectedMeetingId, review })
+        }
+      })
+      .catch(() => {
+        // The status is already visible. A failed fetch only costs the preview,
+        // which the next page load recovers.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [analysisStatus, selectedMeetingId, token])
+
+  useEffect(() => {
+    if (!token || !selectedMeetingId || !isWorkflowInFlight) {
       return undefined
     }
 
@@ -485,7 +519,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     })
 
     return stop
-  }, [selectedMeetingId, token, workflowTranscriptStatus])
+  }, [isWorkflowInFlight, selectedMeetingId, token, workflowPhase])
 
   const removeRecording = useCallback(async () => {
     if (!selectedMeetingId) {
@@ -536,8 +570,17 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     }
   }, [onError, selectedMeetingId, token])
 
+  // The null check has to come first. Optional chaining guards the read but not
+  // the comparison: before any meeting is opened both sides are undefined, the
+  // equality holds, and the true branch dereferences null.
+  const analysisReview =
+    loadedAnalysisReview && loadedAnalysisReview.meetingId === selectedMeetingId
+      ? loadedAnalysisReview.review
+      : null
+
   return {
     selectedMeetingDetail,
+    analysisReview,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
     isPreviewOpen,

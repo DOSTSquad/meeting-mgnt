@@ -18,7 +18,14 @@ export const WORKFLOW_STATUS_CHANNEL =
  * committed.
  */
 export const publishWorkflowStatus = async (
-  { meetingId, recordingId, transcriptId = null, recordingStatus, transcriptStatus = null },
+  {
+    meetingId,
+    recordingId,
+    transcriptId = null,
+    recordingStatus = null,
+    transcriptStatus = null,
+    analysisStatus = null,
+  },
   { connection = undefined, logger = console } = {}
 ) => {
   const payload = {
@@ -27,6 +34,7 @@ export const publishWorkflowStatus = async (
     transcriptId,
     recordingStatus,
     transcriptStatus,
+    analysisStatus,
     publishedAt: new Date().toISOString(),
   }
 

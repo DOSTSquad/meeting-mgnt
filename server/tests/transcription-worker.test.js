@@ -347,6 +347,7 @@ describe('workflow status publisher', () => {
     const payload = JSON.parse(publish.mock.calls[0][1])
 
     expect(Object.keys(payload).sort()).toEqual([
+      'analysisStatus',
       'meetingId',
       'publishedAt',
       'recordingId',

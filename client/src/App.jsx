@@ -336,6 +336,7 @@ const AppShell = ({ token, user, onLogout }) => {
   })
   const {
     selectedMeetingDetail,
+    analysisReview,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
     isPreviewOpen,
@@ -439,6 +440,7 @@ const AppShell = ({ token, user, onLogout }) => {
                 selectedMeetingDetail?.meeting?.id === activeMeetingId ? (
                   <MeetingDetailView
                     detail={selectedMeetingDetail}
+                    analysisReview={analysisReview}
                     onBack={() => navigate('/meetings')}
                     onChange={updateMeetingDetailField}
                     onSaveMeetingField={saveMeetingField}

@@ -12,10 +12,12 @@ loadDotenv({
 
 const { createWorkerRuntime } = await import('./worker-runtime.js')
 const { createTranscriptionWorker } = await import('./services/transcription-worker.js')
+const { createAnalysisWorker } = await import('./services/analysis-worker.js')
 
 // Queue consumers are registered here, never from the Express entrypoint.
+// Order matters only for shutdown, which stops them in reverse.
 const workerRuntime = createWorkerRuntime({
-  services: [createTranscriptionWorker()],
+  services: [createTranscriptionWorker(), createAnalysisWorker()],
 })
 
 try {

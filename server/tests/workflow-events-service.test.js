@@ -6,7 +6,7 @@ jest.unstable_mockModule('../services/recording-service.js', () => ({
   getRecordingForMeeting,
 }))
 
-const { getWorkflowSnapshot, isTranscriptionSettled } =
+const { getWorkflowSnapshot, isWorkflowSettled } =
   await import('../services/workflow-events-service.js')
 
 const MEETING_ID = '33333333-3333-4333-8333-333333333333'
@@ -102,17 +102,40 @@ describe('workflow snapshot projection', () => {
   })
 })
 
-describe('transcription settlement', () => {
-  it.each([
-    ['completed', true],
-    ['failed', true],
-    ['processing', false],
-  ])('treats %s as settled=%s', (status, expected) => {
-    expect(isTranscriptionSettled({ transcript: { status } })).toBe(expected)
+describe('workflow settlement', () => {
+  const snapshot = (transcriptStatus, analysisStatus) => ({
+    transcript: transcriptStatus ? { status: transcriptStatus } : null,
+    analysisRun: analysisStatus ? { status: analysisStatus } : null,
   })
 
-  it('is not settled without a transcript', () => {
-    expect(isTranscriptionSettled({ transcript: null })).toBe(false)
-    expect(isTranscriptionSettled(null)).toBe(false)
+  it.each([
+    ['ready_for_review', true],
+    ['failed', true],
+    ['cancelled', true],
+    ['queued', false],
+    ['processing', false],
+  ])('treats an analysis run in %s as settled=%s', (status, expected) => {
+    expect(isWorkflowSettled(snapshot('completed', status))).toBe(expected)
+  })
+
+  it('settles on a failed transcription, because failParentOnFailure ends the run', () => {
+    expect(isWorkflowSettled(snapshot('failed', 'failed'))).toBe(true)
+    expect(isWorkflowSettled(snapshot('failed', null))).toBe(true)
+  })
+
+  it('does not settle between the two jobs', () => {
+    // Transcript done, analysis not started: the stream must stay open or the
+    // client would never learn the analysis finished.
+    expect(isWorkflowSettled(snapshot('completed', null))).toBe(false)
+    expect(isWorkflowSettled(snapshot('completed', 'queued'))).toBe(false)
+  })
+
+  it('does not settle while transcription is still running', () => {
+    expect(isWorkflowSettled(snapshot('processing', 'queued'))).toBe(false)
+  })
+
+  it('is not settled without a snapshot', () => {
+    expect(isWorkflowSettled(null)).toBe(false)
+    expect(isWorkflowSettled({ transcript: null, analysisRun: null })).toBe(false)
   })
 })
