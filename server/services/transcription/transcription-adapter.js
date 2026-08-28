@@ -1,7 +1,9 @@
 import { createFixtureTranscriptionAdapter } from './fixture-transcription-adapter.js'
+import { createWhisperTranscriptionAdapter } from './whisper-transcription-adapter.js'
 
 const adapterFactories = {
   fixture: createFixtureTranscriptionAdapter,
+  whisper: createWhisperTranscriptionAdapter,
 }
 
 /**
@@ -15,13 +17,13 @@ const adapterFactories = {
  * @typedef {object} TranscriptionSegment
  * @property {number} startSeconds
  * @property {number} endSeconds
- * @property {string} speaker
+ * @property {string | null} speaker
  * @property {string} text
  *
  * @typedef {object} TranscriptionResult
  * @property {string} text
  * @property {TranscriptionSegment[]} segments
- * @property {number} durationSeconds
+ * @property {number | null} durationSeconds
  *
  * @typedef {object} TranscriptionAdapter
  * @property {string} name
@@ -44,5 +46,5 @@ export const getTranscriptionAdapter = (environment = process.env) => {
     throw new Error(`Unknown transcription provider: ${name}`)
   }
 
-  return factory()
+  return factory({ environment })
 }
