@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { AnalysisReviewPreview } from './AnalysisReviewPreview.jsx'
+import { TranscriptPanel } from './TranscriptPanel.jsx'
 import { Eye, FileAudio, Trash2, UploadCloud } from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
@@ -537,6 +538,7 @@ export const MeetingDetailView = ({
                     </div>
                   ) : null}
                 </div>
+                <TranscriptPanel transcript={detail.transcript} />
                 <AnalysisReviewPreview
                   review={analysisReview}
                   canApply={canManageMeeting}
