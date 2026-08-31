@@ -11,7 +11,6 @@ import {
   archiveRecording,
   createRecording,
   findActiveRecordingByMeetingId,
-  updateRecordingStatus,
 } from '../repositories/recording-repository.js'
 import {
   createTranscript,
@@ -251,33 +250,4 @@ export const archiveRecordingForMeeting = async (meetingId, callerId) => {
   await removeObject(existing.bucketName, existing.objectKey)
 
   return { recording }
-}
-
-export const generateMinutesFromRecording = async (meetingId, callerId) => {
-  const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanManageRecording(meeting, callerId)
-
-  const recording = await findActiveRecordingByMeetingId(meetingId)
-  if (!recording) {
-    throw createHttpError('Upload a meeting recording before generating minutes', 400)
-  }
-
-  const transcript = await createTranscript({
-    meetingId,
-    recordingId: recording.id,
-    createdBy: callerId,
-    status: 'failed',
-    errorMessage: 'Speech-to-text provider is not configured',
-  })
-  const updatedRecording = await updateRecordingStatus({
-    id: recording.id,
-    status: 'failed',
-    errorMessage: 'Speech-to-text provider is not configured',
-  })
-
-  return {
-    recording: updatedRecording,
-    transcript,
-    generationStatus: 'not_configured',
-  }
 }

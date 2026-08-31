@@ -2,7 +2,6 @@ import { Router } from 'express'
 import { body, param } from 'express-validator'
 
 import {
-  generateForMeeting,
   getAnalysisForMeeting,
   getForMeeting,
   removeForMeeting,
@@ -32,12 +31,5 @@ recordingRouter.put(
 recordingRouter.get('/analysis', meetingIdValidator, handleValidationErrors, getAnalysisForMeeting)
 
 recordingRouter.delete('/', meetingIdValidator, handleValidationErrors, removeForMeeting)
-
-recordingRouter.post(
-  '/generate-minutes',
-  meetingIdValidator,
-  handleValidationErrors,
-  generateForMeeting
-)
 
 export default recordingRouter

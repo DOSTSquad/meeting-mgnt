@@ -53,7 +53,6 @@ const {
   remove: removeHandler,
 } = await import('../controllers/file-controller.js')
 const {
-  generateForMeeting: generateRecordingHandler,
   getForMeeting: getRecordingHandler,
   removeForMeeting: removeRecordingHandler,
   uploadForMeeting: uploadRecordingHandler,
@@ -723,37 +722,6 @@ dbDescribe('File controller (DB-backed)', () => {
         [baseMeeting.id]
       )
       expect(countResult.rows[0].active_count).toBe(1)
-    })
-
-    it('generate minutes scaffold creates a failed transcript when STT is not configured', async () => {
-      const uploaded = await runHandler(
-        uploadRecordingHandler,
-        buildRequest({
-          params: { meetingId: baseMeeting.id },
-          user: { id: creatorUser.id },
-          file: makeFakeFile({ originalname: 'source.mp3', mimetype: 'audio/mpeg' }),
-        })
-      )
-
-      const { res, nextError } = await runHandler(
-        generateRecordingHandler,
-        buildRequest({
-          params: { meetingId: baseMeeting.id },
-          user: { id: creatorUser.id },
-        })
-      )
-
-      expect(uploaded.nextError).toBeUndefined()
-      expect(nextError).toBeUndefined()
-      expect(res.statusCode).toBe(202)
-      expect(res.body.generationStatus).toBe('not_configured')
-      expect(res.body.recording.status).toBe('failed')
-      expect(res.body.transcript).toMatchObject({
-        meetingId: baseMeeting.id,
-        recordingId: uploaded.res.body.recording.id,
-        status: 'failed',
-        errorMessage: 'Speech-to-text provider is not configured',
-      })
     })
 
     it('removes the active recording by archiving it and deleting the object', async () => {

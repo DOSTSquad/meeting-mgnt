@@ -360,7 +360,6 @@ const AppShell = ({ token, user, onLogout }) => {
     addPendingMeetingMaterialFiles,
     uploadRecording,
     removeRecording,
-    generateMinutesFromActiveRecording,
   } = meetingDetail
   const canManageSelectedMeeting = Boolean(
     selectedMeetingDetail?.meeting?.ownerId === user.id ||
@@ -467,7 +466,6 @@ const AppShell = ({ token, user, onLogout }) => {
                     onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
                     onUploadRecording={uploadRecording}
                     onRemoveRecording={removeRecording}
-                    onGenerateMinutesFromRecording={generateMinutesFromActiveRecording}
                     onDownloadMeetingFile={openUploadedFile}
                     onPreview={() => setIsPreviewOpen(true)}
                     canManageMeeting={canManageSelectedMeeting}

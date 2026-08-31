@@ -13,7 +13,6 @@ import { applyGeneratedMinutes, updateMeetingMinutes } from '../../services/minu
 import {
   acceptAnalysisSuggestion,
   editAnalysisSuggestion,
-  generateMinutesFromRecording,
   getMeetingAnalysis,
   rejectAnalysisSuggestion,
   removeMeetingRecording,
@@ -695,32 +694,6 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     }
   }, [onError, selectedMeetingId, token])
 
-  const generateMinutesFromActiveRecording = useCallback(async () => {
-    if (!selectedMeetingId) {
-      return
-    }
-
-    try {
-      const client = getApiClient(token)
-      const result = await generateMinutesFromRecording(client, selectedMeetingId)
-      setSelectedMeetingDetail((prev) =>
-        prev
-          ? {
-              ...prev,
-              recording: result.recording,
-              transcript: result.transcript,
-              analysisRun: result.analysisRun ?? prev.analysisRun,
-            }
-          : prev
-      )
-      if (result.generationStatus === 'not_configured') {
-        onError('Speech-to-text provider is not configured yet')
-      }
-    } catch (error) {
-      onError(error.response?.data?.error || 'Unable to generate minutes')
-    }
-  }, [onError, selectedMeetingId, token])
-
   // The null check has to come first. Optional chaining guards the read but not
   // the comparison: before any meeting is opened both sides are undefined, the
   // equality holds, and the true branch dereferences null.
@@ -756,6 +729,5 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     addPendingMeetingMaterialFiles,
     uploadRecording,
     removeRecording,
-    generateMinutesFromActiveRecording,
   }
 }
