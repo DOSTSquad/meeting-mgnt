@@ -4,23 +4,7 @@ from functools import lru_cache
 import torch
 import whisper
 
-SUPPORTED_LANGUAGE_ALIASES = {
-    "en": "en",
-    "english": "en",
-    "fil": "tl",
-    "filipino": "tl",
-    "tagalog": "tl",
-    "tl": "tl",
-}
-
-
-def normalize_language(language: str | None = "en") -> str:
-    normalized = (language or "en").strip().lower()
-
-    try:
-        return SUPPORTED_LANGUAGE_ALIASES[normalized]
-    except KeyError as error:
-        raise ValueError("language must be English (en) or Filipino/Tagalog (tl)") from error
+from app.languages import normalize_language
 
 
 def get_device() -> str:

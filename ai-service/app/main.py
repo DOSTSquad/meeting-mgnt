@@ -5,9 +5,10 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
+from app.languages import normalize_language
 from app.schemas import SummarizationRequest, SummarizationResponse, TranscriptionResponse
 from app.summarization import SummarizationProviderError, summarize_transcript
-from app.transcription import normalize_language, transcribe_audio
+from app.transcription import transcribe_audio
 
 app = FastAPI(
     title="Meeting AI Service",

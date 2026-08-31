@@ -3,13 +3,8 @@ import os
 
 import httpx
 
+from app.languages import LANGUAGE_NAMES, normalize_language
 from app.schemas import LlamaSummary, SummarizationResponse
-from app.transcription import normalize_language
-
-LANGUAGE_NAMES = {
-    "en": "English",
-    "tl": "Filipino (Tagalog)",
-}
 
 
 class SummarizationProviderError(RuntimeError):

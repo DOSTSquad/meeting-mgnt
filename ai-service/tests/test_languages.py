@@ -1,6 +1,6 @@
 import unittest
 
-from app.transcription import normalize_language
+from app.languages import normalize_language
 
 
 class NormalizeLanguageTest(unittest.TestCase):
