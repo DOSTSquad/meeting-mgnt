@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -8,7 +9,9 @@ from starlette.concurrency import run_in_threadpool
 from app.languages import normalize_language
 from app.schemas import SummarizationRequest, SummarizationResponse, TranscriptionResponse
 from app.summarization import SummarizationProviderError, summarize_transcript
-from app.transcription import transcribe_audio
+from app.transcription import UnusableAudioError, transcribe_audio
+
+logger = logging.getLogger("app.main")
 
 app = FastAPI(
     title="Meeting AI Service",
@@ -94,7 +97,24 @@ async def transcribe(
                 detail=str(error),
             ) from error
 
-        result = await run_in_threadpool(transcribe_audio, temp_path, normalized_language)
+        try:
+            result = await run_in_threadpool(transcribe_audio, temp_path, normalized_language)
+        except UnusableAudioError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
+        except HTTPException:
+            raise
+        except Exception as error:
+            # The caller retries 5xx, so an unexpected fault must not leak model
+            # internals into a message it will store or show. Keep the detail here.
+            logger.exception("Transcription failed for %s", file.filename)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Transcription failed.",
+            ) from error
+
         return TranscriptionResponse.model_validate(result)
     finally:
         await file.close()

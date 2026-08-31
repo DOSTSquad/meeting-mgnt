@@ -8,6 +8,11 @@ import whisper
 from app.languages import normalize_language
 
 
+class UnusableAudioError(ValueError):
+    """The upload cannot be decoded into audio. Retrying will not help."""
+
+
+
 def get_device() -> str:
     configured_device = os.getenv("WHISPER_DEVICE")
     if configured_device:
@@ -36,9 +41,20 @@ def transcribe_audio(file_path: str, language: str | None = "en") -> dict:
     whisper_language = normalize_language(language)
     model = get_model()
 
+    # Decode here rather than letting transcribe() do it, so a file ffmpeg cannot
+    # read is reported as a permanent client error instead of reaching the model
+    # and failing deep inside attention with an unrecognisable tensor error.
+    try:
+        audio = whisper.load_audio(file_path)
+    except RuntimeError as error:
+        raise UnusableAudioError("Audio could not be decoded.") from error
+
+    if audio.size == 0:
+        raise UnusableAudioError("Audio contains no decodable sound.")
+
     with _decode_lock:
         result = model.transcribe(
-            file_path,
+            audio,
             language=whisper_language,
             task="transcribe",
             fp16=device == "cuda",
