@@ -1,0 +1,58 @@
+Calculus 1 Tutorial Meeting – Differentiation and Integration
+
+Speakers:
+Professor Lee – Instructor
+Maya – Student 1
+Ben – Student 2
+
+Professor Lee: Okay, before we finish today, I want to spend a few minutes connecting two big ideas in Calculus One: differentiation and integration. You have both seen the formulas already, but I want you to think about what they actually mean. Maya, if I give you a function, say y equals x squared, what does the derivative tell us?
+
+Maya: Um, it tells us the slope, right? Like how steep the graph is?
+
+Professor Lee: Exactly. More generally, the derivative tells us the rate of change at a particular point. For y equals x squared, the derivative is two x. So at x equals three, the slope is six. That means the function is increasing quite quickly at that point.
+
+Ben: So it is kind of like speed? If the original function was distance?
+
+Professor Lee: Yes, that is a very good example. If position is a function of time, its derivative gives velocity. And if you differentiate velocity again, you get acceleration. So differentiation is useful whenever we want to know how something is changing.
+
+Maya: And integration is basically the opposite?
+
+Professor Lee: In many situations, yes. Think of integration as accumulation. Suppose you know the velocity of a car over time and you want to know how far it travelled. You can integrate the velocity. Graphically, a definite integral can also represent the area under a curve between two points.
+
+Ben: I always get confused about the plus C. Why do we need it?
+
+Professor Lee: Good question. The plus C appears with an indefinite integral because many different functions can have the same derivative. For example, the derivative of x squared is two x, but the derivative of x squared plus five is also two x. So when we integrate two x, we write x squared plus C to represent any possible constant.
+
+Maya: Okay, so differentiation removes a constant, and integration cannot know what that constant originally was.
+
+Professor Lee: Exactly. That is the right intuition. Now, there is also a very important connection called the Fundamental Theorem of Calculus. In simple terms, it tells us that differentiation and integration are closely related inverse processes. We will study that more carefully next week.
+
+Ben: For an exam question, how do we know whether we should differentiate or integrate?
+
+Professor Lee: Look at what the question is asking. If it asks for an instantaneous rate, a slope, a maximum or minimum, differentiation is often involved. If it asks for a total amount accumulated, an area, or later on a volume, integration is often involved. The wording gives you clues.
+
+Maya: That makes more sense than just memorising formulas.
+
+Professor Lee: Good. And that leads to your small research task for next class. I want each of you to explore one integration topic and explain it to the group in simple language.
+
+Maya: What topic do I have?
+
+Professor Lee: Maya, I want you to look at integration by parts. Find out where the formula comes from, when we normally use it, and prepare one easy example. You do not need anything too complicated. Something like integrating x times e to the x would be enough.
+
+Maya: Okay. So integration by parts, the idea behind the formula, and one example.
+
+Professor Lee: Correct. Ben, your topic is using integration to calculate volume in three dimensions. Focus on the basic idea of taking thin slices and adding their volumes together. You can look at the disk or washer method and bring one simple example.
+
+Ben: So maybe rotating a curve around the x-axis and finding the volume of the solid?
+
+Professor Lee: Exactly. That would be perfect. Try to explain why the integral represents the total volume rather than only giving the formula.
+
+Ben: Got it.
+
+Professor Lee: Great. Next class, each of you will have about three minutes to explain your topic. Do not worry about making it formal. I mainly want to see whether you can connect the mathematics to the idea behind it. Any last questions?
+
+Maya: No, I think I am good.
+
+Ben: Same here.
+
+Professor Lee: All right. Then we are done for today. Thanks, both of you. See you next class.

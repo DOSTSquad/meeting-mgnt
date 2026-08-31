@@ -1,0 +1,113 @@
+Whisper transcription test result
+=================================
+
+Audio file: ../input/power_system_meeting_3min_final.mp3
+Model: tiny
+Requested language: English (en)
+Detected/result language: en
+Audio duration: 183.62 seconds
+Segment count: 37
+
+Raw transcript
+--------------
+
+Alright, thanks everyone.
+Let's keep this short.
+
+The main issue today is the voltage drop with seeing on feeders haven't during the
+evening peak. The substation lock shows the mass voltage is fine, but customers near
+the end of the feeder are getting close to the lower operating limit.
+
+Yeah, I checked yesterday's data that we about 530 and 7, the feeder current line and
+sharply. The lowest recorded feed voltage was around 210 and 17 volts. That's not up
+earlier, but it's definitely lower than we'd like.
+
+Do we know when the main load growth, or are we looking at a reactive power problem
+as well? Because if the power factor is poor, adding conduct to capacity alone when
+really solve the voltage profile.
+
+I had the same question. I called the smart meter estimates from the industrial
+customers. Do not let our sites have induction more to slow that almost the same
+time. I combined reactive demand is quite noticeable.
+
+Okay, so at point to world local compensation, we're really a bid you run the load
+flow with a capacitor mancat at the midpoint.
+
+I did, when a 300K mass which capacitor, the minimum voltage improves about 4 volts
+and the feeder current fall now little loss and also decrease, but in a car, you're
+in light load if the capacitor stays connected, we could push the voltage to high.
+
+Right, so it needs more to max switching, not a fixed bank. We could trigger it from
+voltage, reactive power, or time of day.
+
+I prefer reactive power because the load pattern can change on weekend. If we're not
+more industrial sites changing it's operating schedule, we might get a mess of
+switching.
+
+Maybe use voltage at the mid-condition and reactive power on the second of each act.
+
+That makes sense. Work about the transformer and the thermal concern if the load
+keeps slowing.
+
+At the moment, no minute problem. The loading in the run is 78% of the transformer
+is in. The temperature model statement side is at 70 or range, but if demand will
+amount of 10%, we'd have much less margin on hot days.
+
+Then I think we should separate the short term fixed from the long term plan.
+
+Short term, install the switch to capacitor and update the control settings.
+
+Long term, review conductor reinforcement and maybe transform a capacity as part of
+next year network upgrade.
+
+Can we also add more to infor fail in balance? I noticed fail me once consistently a
+little higher than empty, it's not huge, but balancing some single failed loads might
+give us another small improvement without major equipment.
+
+Good point, let's include that, so action.
+
+Pre-a-will refine the load flow model and test the control thresholds.
+
+Manual will check protection coordination and switching trends.
+
+May a review of same balance and customer load patterns.
+
+I prepare the cost comparison for the capacitor option versus scenery enforcement.
+
+Sounds good. I also like worst case summer scenario, just to make sure the voltage
+stay maximum when demand and temperature are both high.
+
+And I'll check whether the capacitor switching creates any resonance concern with
+the existing harmonic levels. Probably fine, but we should confirm it before
+recommending installation.
+
+Yeah, if we can get more Reynolds side-riding, we should have enough evidence for
+the D-line review next week.
+
+Perfect. Let's do that.
+Thanks everyone.
+
+Accuracy Evaluation
+-------------------
+
+Reference file: ../input/power_system_meeting_3min_final.txt
+Approximate word accuracy: 71.75%
+Word Error Rate (WER): 28.25%
+
+Reference word count: 577
+Transcribed word count: 585
+Substitutions: 115
+Deletions: 20
+Insertions: 28
+Total word errors: 163
+
+Method: Speaker labels were excluded. Both texts were converted to lowercase, and
+punctuation was removed before calculating WER. Approximate word accuracy was
+calculated as 100% minus WER.
+
+Notes
+-----
+
+This is the unedited output from the tiny model. It contains recognition errors,
+especially for engineering terms, names, and numbers. The small model configured
+by the service should be more accurate but requires more processing time and memory.

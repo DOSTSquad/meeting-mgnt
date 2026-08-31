@@ -29,7 +29,7 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
 8. Start the client with `npm run dev --workspace=client`.
 
-The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional Whisper FastAPI container is in the `ai` profile; start it with `docker compose --profile ai up -d --build ai-service`.
+The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (Whisper transcription and Llama 3 summarization) and `ollama` (the local model runtime it calls). Start both with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
 
@@ -245,7 +245,8 @@ FastAPI container on the VPS before restarting the worker:
 
 ```bash
 cd /srv/meeting-mgnt
-docker compose --profile ai up -d --build --wait ai-service
+docker compose --profile ai up -d --build --wait ai-service ollama
+docker compose exec ollama ollama pull llama3
 curl --fail http://127.0.0.1:8000/health
 sudo systemctl restart meeting-mgnt-worker
 ```

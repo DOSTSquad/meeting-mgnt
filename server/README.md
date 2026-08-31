@@ -278,9 +278,16 @@ WHISPER_DEVICE=cpu
 Start the existing FastAPI service locally with:
 
 ```bash
-docker compose --profile ai up -d --build ai-service
-docker compose ps ai-service
+docker compose --profile ai up -d --build ai-service ollama
+docker compose exec ollama ollama pull llama3
+docker compose ps ai-service ollama
 ```
+
+The same container also exposes `POST /v1/summarize`, which asks Llama 3 through `ollama` for a
+structured summary, key points, decisions, and action-item suggestions. Nothing in the Node worker
+calls it yet — `AI_ANALYSIS_PROVIDER` still has only a `fixture` adapter, and wiring the LLM
+analysis adapter to this endpoint is #67. The `ollama` pull is therefore only needed when working
+on that endpoint.
 
 The service loads the Whisper model lazily on the first transcription request and caches the
 download in the `whisper-models` volume, so the first request after a fresh volume is much slower
