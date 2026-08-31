@@ -1,3 +1,7 @@
+import { useState } from 'react'
+
+import { CollapsibleSection } from './CollapsibleSection.jsx'
+
 const STATUS_CLASS = {
   proposed: 'bg-slate-100 text-slate-500',
   accepted: 'bg-emerald-50 text-emerald-700',
@@ -59,6 +63,7 @@ export const AnalysisReviewPreview = ({
   onAcceptSuggestion,
   onRejectSuggestion,
 }) => {
+  const [isOpen, setIsOpen] = useState(false)
   const run = review?.analysisRun
 
   if (!run || run.status !== 'ready_for_review') {
@@ -66,19 +71,28 @@ export const AnalysisReviewPreview = ({
   }
 
   const suggestions = review.suggestions ?? []
+  const counts = [
+    run.keyDiscussions?.length ? `${run.keyDiscussions.length} discussions` : null,
+    run.decisions?.length ? `${run.decisions.length} decisions` : null,
+    suggestions.length ? `${suggestions.length} suggestions` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <section className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/30 p-4">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">Generated analysis</h3>
-          <p className="text-xs text-slate-500">
-            {applyState.status === 'applied'
-              ? 'Applied to the draft minutes. Review and edit them before approving.'
-              : 'Preview only. Nothing has been added to the minutes or action items yet.'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <CollapsibleSection
+      tone="accent"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+      title="Generated analysis"
+      meta={counts}
+      description={
+        applyState.status === 'applied'
+          ? 'Applied to the draft minutes. Review and edit them before approving.'
+          : 'Preview only. Nothing has been added to the minutes or action items yet.'
+      }
+      actions={
+        <>
           <span className="rounded-full border border-blue-100 bg-white px-2 py-1 text-[11px] font-semibold text-blue-700">
             {run.provider} · {run.model} · prompt {run.promptVersion}
           </span>
@@ -96,32 +110,33 @@ export const AnalysisReviewPreview = ({
                   : 'Apply to minutes'}
             </button>
           ) : null}
-        </div>
-      </header>
-
-      {applyState.status === 'conflict' ? (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm font-bold text-amber-900">
-            The minutes changed while you were reviewing
-          </p>
-          <p className="mt-1 text-xs text-amber-800">
-            Someone else saved an edit
-            {typeof applyState.currentVersion === 'number'
-              ? ` (now version ${applyState.currentVersion})`
-              : ''}
-            , so nothing was overwritten. The minutes above have been refreshed to what is saved.
-            Read them, then apply again if you still want the generated content.
-          </p>
-          <button
-            type="button"
-            onClick={onDismissApplyState}
-            className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-900"
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-
+        </>
+      }
+      notice={
+        applyState.status === 'conflict' ? (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-bold text-amber-900">
+              The minutes changed while you were reviewing
+            </p>
+            <p className="mt-1 text-xs text-amber-800">
+              Someone else saved an edit
+              {typeof applyState.currentVersion === 'number'
+                ? ` (now version ${applyState.currentVersion})`
+                : ''}
+              , so nothing was overwritten. The minutes above have been refreshed to what is saved.
+              Read them, then apply again if you still want the generated content.
+            </p>
+            <button
+              type="button"
+              onClick={onDismissApplyState}
+              className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-900"
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null
+      }
+    >
       <div className="mt-3 rounded-xl bg-white p-3">
         <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Summary</h4>
         <p className="mt-1 text-sm text-slate-800">{run.summary}</p>
@@ -217,6 +232,6 @@ export const AnalysisReviewPreview = ({
           </ul>
         </div>
       ) : null}
-    </section>
+    </CollapsibleSection>
   )
 }
