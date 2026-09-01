@@ -414,6 +414,40 @@ dbDescribe('analysis workflow transitions', () => {
     expect(suggestions[0]).toMatchObject({ title: 'First task', priority: 'high', evidence: [0] })
   })
 
+  it('withdraws an accepted suggestion when its action item is deleted', async () => {
+    await completeTranscriptFirst()
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+    await completeAnalysis({ analysisRunId, transcriptId, recordingId, result: ANALYSIS_RESULT })
+
+    const [suggestion] = await listSuggestionsForAnalysisRun(analysisRunId)
+    const item = await query(
+      `INSERT INTO action_items (meeting_id, title, created_by, source)
+       VALUES ($1, 'Accepted task', $2, 'ai') RETURNING id`,
+      [meetingId, userId]
+    )
+    await query(
+      `UPDATE analysis_action_item_suggestions
+          SET status = 'accepted', accepted_action_item_id = $2,
+              reviewed_by = $3, reviewed_at = NOW()
+        WHERE id = $1`,
+      [suggestion.id, item.rows[0].id, userId]
+    )
+
+    // 0035 gave the link ON DELETE SET NULL while also requiring an accepted
+    // suggestion to have one, so this delete used to fail outright.
+    await expect(
+      query('DELETE FROM action_items WHERE id = $1', [item.rows[0].id])
+    ).resolves.toBeDefined()
+
+    const [withdrawn] = await listSuggestionsForAnalysisRun(analysisRunId)
+
+    expect(withdrawn.status).toBe('withdrawn')
+    expect(withdrawn.acceptedActionItemId ?? null).toBeNull()
+    // What was proposed and who reviewed it stays on the record.
+    expect(withdrawn.title).toBe(suggestion.title)
+    expect(withdrawn.reviewedBy ?? null).not.toBeNull()
+  })
+
   it("replaces a previous attempt's suggestions rather than accumulating them", async () => {
     await completeTranscriptFirst()
     await startAnalysis({ analysisRunId, transcriptId, recordingId })

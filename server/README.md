@@ -285,7 +285,7 @@ Owner or organizer only.
 | `POST`  | `/:suggestionId/accept` | Create the official action item and mark the suggestion accepted                |
 | `POST`  | `/:suggestionId/reject` | Mark rejected, keeping the record                                               |
 
-`proposed` is the only editable state. Once accepted or rejected a suggestion is
+`proposed` is the only editable state. Once accepted, rejected, or withdrawn a suggestion is
 a record of what was decided, not a draft, and `0035` enforces that a reviewed
 suggestion carries its reviewer and timestamp.
 
