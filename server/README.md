@@ -299,6 +299,26 @@ controls only the provider HTTP request; `RECORDING_TRANSCRIPTION_TIMEOUT_MS` re
 duration. Recording uploads are capped at 50 MB by Express, so that is the effective limit even
 though the current FastAPI implementation accepts a larger request.
 
+Set `AI_ANALYSIS_PROVIDER=llm` to summarise through the FastAPI service instead of the fixture.
+The adapter posts the transcript to `POST /v1/summarize` as **numbered segments**, because every
+key discussion, decision, and suggestion has to cite the segments it came from and cannot do that
+against one undifferentiated blob. `analysis-schema.js` then checks those citations point inside
+this transcript, so a reviewer can follow every claim back to what was said.
+
+An owner the model names resolves to a meeting participant only on an exact, unambiguous
+name match; anything else leaves the assignee empty. A due date is kept only when it is an
+unambiguous calendar date. Both follow the same rule: a wrong assignee or invented deadline is
+worse than an empty field a reviewer fills in, and acceptance re-checks participation regardless.
+
+```env
+AI_ANALYSIS_PROVIDER=llm
+AI_SERVICE_URL=http://127.0.0.1:8000
+AI_ANALYSIS_LANGUAGE=en
+AI_ANALYSIS_REQUEST_TIMEOUT_MS=300000
+```
+
+This needs the `ollama` container and the `llama3` pull described in the AI service README.
+
 Each transition is a guarded transaction. The recording must still be active and the transcript must
 still be `processing` and still attached to that recording; a guard matching nothing means the job is
 stale (the recording was archived or replaced, or another attempt already finished) and it is skipped

@@ -1,13 +1,17 @@
 import { createFixtureAnalysisAdapter } from './fixture-analysis-adapter.js'
+import { createLlmAnalysisAdapter } from './llm-analysis-adapter.js'
 
 const adapterFactories = {
   fixture: createFixtureAnalysisAdapter,
+  llm: createLlmAnalysisAdapter,
 }
 
 /**
  * @typedef {object} AnalysisRequest
  * @property {{ id: string, transcriptText: string, segments: object[] }} transcript
  * @property {{ id: string, meetingId: string }} recording
+ * @property {{ id: string, name: string }[]} participants Candidates an owner named
+ *   by the provider may resolve to. Never anyone outside the meeting.
  */
 
 export const getAnalysisAdapter = (environment = process.env) => {
@@ -26,5 +30,5 @@ export const getAnalysisAdapter = (environment = process.env) => {
     throw new Error(`Unknown analysis provider: ${name}`)
   }
 
-  return factory()
+  return factory({ environment })
 }

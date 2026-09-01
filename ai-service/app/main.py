@@ -43,7 +43,7 @@ async def summarize(request: SummarizationRequest) -> SummarizationResponse:
         ) from error
 
     try:
-        return await run_in_threadpool(summarize_transcript, request.transcript, language)
+        return await run_in_threadpool(summarize_transcript, request.segments, language)
     except SummarizationProviderError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
