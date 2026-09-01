@@ -92,7 +92,6 @@ export const MeetingDetailView = ({
   onAddPendingMaterialFiles,
   onUploadRecording,
   onRemoveRecording,
-  onGenerateMinutesFromRecording,
   onDownloadMeetingFile,
   onPreview,
   canManageMeeting = false,
@@ -509,13 +508,6 @@ export const MeetingDetailView = ({
                   </div>
                   {canManageMeeting ? (
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={onGenerateMinutesFromRecording}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700"
-                      >
-                        Test generation
-                      </button>
                       <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
                         Replace
                         <input

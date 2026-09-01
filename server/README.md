@@ -241,12 +241,11 @@ Any meeting participant can read minutes. Only the meeting owner or a participan
 
 Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
 
-| Method | Path                | Body / Query                                            | Returns                                           |
-| ------ | ------------------- | ------------------------------------------------------- | ------------------------------------------------- |
-| GET    | `/`                 | —                                                       | `200 { recording, transcript, analysisRun }`      |
-| PUT    | `/`                 | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript, analysisRun }`      |
-| DELETE | `/`                 | —                                                       | `204`                                             |
-| POST   | `/generate-minutes` | —                                                       | `202 { recording, transcript, generationStatus }` |
+| Method | Path | Body / Query                                            | Returns                                      |
+| ------ | ---- | ------------------------------------------------------- | -------------------------------------------- |
+| GET    | `/`  | —                                                       | `200 { recording, transcript, analysisRun }` |
+| PUT    | `/`  | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript, analysisRun }` |
+| DELETE | `/`  | —                                                       | `204`                                        |
 
 Any meeting participant can read recording metadata, transcript status, and analysis-run status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
@@ -438,8 +437,6 @@ between them, which is where a dropped first status invalidation was found.
 
 Worker tuning: `RECORDING_TRANSCRIPTION_CONCURRENCY` (default `2`) and
 `RECORDING_TRANSCRIPTION_TIMEOUT_MS` (default `120000`, used as the BullMQ lock duration).
-
-`POST /generate-minutes` is currently a scaffold: because no speech-to-text/LLM provider is configured, it creates a failed transcript with `generationStatus='not_configured'`. This preserves the workflow shape without generating fake minutes.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)
 
