@@ -1,3 +1,17 @@
+## Tests
+
+Vitest with Testing Library, in jsdom. No browser, no server, no database.
+
+```bash
+npm test --workspace=client        # once
+npm run test:watch --workspace=client
+```
+
+Tests live beside the component as `*.test.jsx`. They cover what a component
+decides to render, which is where the bugs have been: a panel that stayed hidden
+because its data had not arrived, an analysis that rendered before the transcript
+it cites, a warning that has to appear only when there is something to lose.
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

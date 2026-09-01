@@ -29,6 +29,8 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
 8. Start the client with `npm run dev --workspace=client`.
 
+Run `npm test` from the root for both workspaces: Jest for the server, Vitest for the client.
+
 The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (Whisper transcription and Llama 3 summarization) and `ollama` (the local model runtime it calls). Start both with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
