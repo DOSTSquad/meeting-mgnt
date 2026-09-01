@@ -95,13 +95,22 @@ export const AnalysisReviewPreview = ({
   }
 
   const suggestions = review.suggestions ?? []
-  const counts = [
-    run.keyDiscussions?.length ? `${run.keyDiscussions.length} discussions` : null,
-    run.decisions?.length ? `${run.decisions.length} decisions` : null,
-    suggestions.length ? `${suggestions.length} suggestions` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const isApplied = applyState.status === 'applied'
+  const undecided = suggestions.filter((item) => item.status === 'proposed').length
+  // Once applied, the summary, discussions, and decisions live in the minutes
+  // above. Only the suggestions still need a decision, so the header counts what
+  // is left rather than restating what was generated.
+  const counts = isApplied
+    ? undecided > 0
+      ? `${undecided} ${undecided === 1 ? 'suggestion' : 'suggestions'} to review`
+      : 'all reviewed'
+    : [
+        run.keyDiscussions?.length ? `${run.keyDiscussions.length} discussions` : null,
+        run.decisions?.length ? `${run.decisions.length} decisions` : null,
+        suggestions.length ? `${suggestions.length} suggestions` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
 
   return (
     <CollapsibleSection
@@ -169,42 +178,54 @@ export const AnalysisReviewPreview = ({
         ) : null
       }
     >
-      <div className="mt-3 rounded-xl bg-white p-3">
-        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Summary</h4>
-        <p className="mt-1 text-sm text-slate-800">{run.summary}</p>
-      </div>
+      {isApplied ? (
+        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
+          Summary, key discussions, and decisions are in the minutes above. Edit them there.
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 rounded-xl bg-white p-3">
+            <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Summary</h4>
+            <p className="mt-1 text-sm text-slate-800">{run.summary}</p>
+          </div>
 
-      {run.keyDiscussions?.length ? (
-        <div className="mt-3 rounded-xl bg-white p-3">
-          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">
-            Key discussions
-          </h4>
-          <ul className="mt-2 space-y-3">
-            {run.keyDiscussions.map((item, index) => (
-              <li key={`${item.topic}-${index}`}>
-                <p className="text-sm font-semibold text-slate-800">{item.topic}</p>
-                <p className="text-sm text-slate-600">{item.detail}</p>
-                <Evidence evidence={item.evidence} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+          {run.keyDiscussions?.length ? (
+            <div className="mt-3 rounded-xl bg-white p-3">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                Key discussions
+              </h4>
+              <ul className="mt-2 space-y-3">
+                {run.keyDiscussions.map((item, index) => (
+                  <li key={`${item.topic}-${index}`}>
+                    <p className="text-sm font-semibold text-slate-800">{item.topic}</p>
+                    <p className="text-sm text-slate-600">{item.detail}</p>
+                    <Evidence evidence={item.evidence} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
-      {run.decisions?.length ? (
-        <div className="mt-3 rounded-xl bg-white p-3">
-          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Decisions</h4>
-          <ul className="mt-2 space-y-3">
-            {run.decisions.map((item, index) => (
-              <li key={`${item.decision}-${index}`}>
-                <p className="text-sm font-semibold text-slate-800">{item.decision}</p>
-                {item.rationale ? <p className="text-sm text-slate-600">{item.rationale}</p> : null}
-                <Evidence evidence={item.evidence} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+          {run.decisions?.length ? (
+            <div className="mt-3 rounded-xl bg-white p-3">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                Decisions
+              </h4>
+              <ul className="mt-2 space-y-3">
+                {run.decisions.map((item, index) => (
+                  <li key={`${item.decision}-${index}`}>
+                    <p className="text-sm font-semibold text-slate-800">{item.decision}</p>
+                    {item.rationale ? (
+                      <p className="text-sm text-slate-600">{item.rationale}</p>
+                    ) : null}
+                    <Evidence evidence={item.evidence} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
+      )}
 
       {suggestions.length ? (
         <div className="mt-3 rounded-xl bg-white p-3">
