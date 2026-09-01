@@ -1,4 +1,4 @@
-import { Worker } from 'bullmq'
+import { UnrecoverableError, Worker } from 'bullmq'
 
 import { BUCKET_AUDIO, getObject } from './minio-client.js'
 import { TRANSCRIPTION_QUEUE_NAME } from './recording-workflow-queue.js'
@@ -35,6 +35,9 @@ export const getTranscriptionWorkerConfig = (environment = process.env) => ({
 // so the run that satisfies this predicate is the last one. Terminal database
 // state is only written on that run; earlier failures stay retryable.
 const isFinalAttempt = (job) => (job.attemptsMade ?? 0) + 1 >= (job.opts?.attempts ?? 1)
+const permanentStorageErrorCodes = new Set(['NoSuchKey', 'NoSuchObject', 'NoSuchBucket'])
+const isPermanentFailure = (error) =>
+  error.retryable === false || permanentStorageErrorCodes.has(error.code)
 
 const openRecordingAudioStream = (recording) =>
   getObject(recording.bucketName || BUCKET_AUDIO, recording.objectKey)
@@ -114,7 +117,9 @@ export const createTranscriptionJobProcessor = ({
 
       return { status: 'completed', transcriptId }
     } catch (error) {
-      if (!isFinalAttempt(job)) {
+      const permanentFailure = isPermanentFailure(error)
+
+      if (!permanentFailure && !isFinalAttempt(job)) {
         logger.warn?.('Transcription attempt failed, will retry', {
           recordingId,
           transcriptId,
@@ -132,6 +137,10 @@ export const createTranscriptionJobProcessor = ({
 
       if (!failed.stale) {
         await publishAfterCommit(failed)
+      }
+
+      if (permanentFailure) {
+        throw new UnrecoverableError(error.message || 'Transcription failed')
       }
 
       // Rethrow so BullMQ marks the job failed and `failParentOnFailure` on the

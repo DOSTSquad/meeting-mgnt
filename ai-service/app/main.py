@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -5,8 +6,12 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
-from app.schemas import TranscriptionResponse
-from app.transcription import transcribe_audio
+from app.languages import normalize_language
+from app.schemas import SummarizationRequest, SummarizationResponse, TranscriptionResponse
+from app.summarization import SummarizationProviderError, summarize_transcript
+from app.transcription import UnusableAudioError, transcribe_audio
+
+logger = logging.getLogger("app.main")
 
 app = FastAPI(
     title="Meeting AI Service",
@@ -24,13 +29,36 @@ def health() -> dict[str, str]:
 
 
 @app.post(
+    "/v1/summarize",
+    response_model=SummarizationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def summarize(request: SummarizationRequest) -> SummarizationResponse:
+    try:
+        language = normalize_language(request.language)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+    try:
+        return await run_in_threadpool(summarize_transcript, request.transcript, language)
+    except SummarizationProviderError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from error
+
+
+@app.post(
     "/v1/transcribe",
     response_model=TranscriptionResponse,
     status_code=status.HTTP_200_OK,
 )
 async def transcribe(
     file: UploadFile = File(...),
-    language: str | None = Query(default="th", min_length=2, max_length=10),
+    language: str | None = Query(default="en", min_length=2, max_length=10),
 ) -> TranscriptionResponse:
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in ALLOWED_AUDIO_SUFFIXES:
@@ -61,7 +89,32 @@ async def transcribe(
                 detail="Audio file is empty.",
             )
 
-        result = await run_in_threadpool(transcribe_audio, temp_path, language)
+        try:
+            normalized_language = normalize_language(language)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
+
+        try:
+            result = await run_in_threadpool(transcribe_audio, temp_path, normalized_language)
+        except UnusableAudioError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(error),
+            ) from error
+        except HTTPException:
+            raise
+        except Exception as error:
+            # The caller retries 5xx, so an unexpected fault must not leak model
+            # internals into a message it will store or show. Keep the detail here.
+            logger.exception("Transcription failed for %s", file.filename)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Transcription failed.",
+            ) from error
+
         return TranscriptionResponse.model_validate(result)
     finally:
         await file.close()

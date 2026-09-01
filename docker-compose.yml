@@ -57,7 +57,50 @@ services:
     entrypoint: ['/bin/sh', '/usr/local/bin/minio-init.sh']
     restart: 'no'
 
+  # Both AI containers sit behind the `ai` profile so a plain `docker compose up`
+  # does not build torch or start a 4.7 GB language model.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ['ai']
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:11434:11434'
+    volumes:
+      - ollama-data:/root/.ollama
+
+  ai-service:
+    build: ./ai-service
+    profiles: ['ai']
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-300}
+    volumes:
+      # The model is downloaded on the first transcription request; keep it out of
+      # the image layer so a rebuild does not re-download it.
+      - whisper-models:/root/.cache/whisper
+    ports:
+      - '127.0.0.1:8000:8000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres-data:
   redis-data:
   minio-data:
+  whisper-models:
+  ollama-data:

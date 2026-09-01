@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "migrate": "node scripts/migrate.js",
     "check:workflow": "node scripts/check-recording-workflow.js",
+    "check:whisper": "node scripts/check-whisper-smoke.js",
     "seed": "node scripts/seed.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:db": "RUN_DB_TESTS=true NODE_OPTIONS=--experimental-vm-modules jest --runInBand"

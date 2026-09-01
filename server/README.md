@@ -258,14 +258,57 @@ The `fixture` adapter returns deterministic text, segments, and duration, and st
 stream chunk by chunk so the interface matches a real speech-to-text provider. Audio is never
 buffered whole in the worker and never stored in Redis.
 
+Set `AI_TRANSCRIPTION_PROVIDER=whisper` to use the FastAPI service in `ai-service/`. The adapter
+streams the MinIO object to `POST /v1/transcribe` as multipart data and maps the service response to
+the same transcript interface used by the fixture adapter. Whisper does not provide speaker
+diarization, so persisted segments have `speaker: null` rather than an invented speaker label.
+Fractional segment timestamps are retained; the total duration is rounded up to the integer seconds
+used by the recording and transcript tables.
+
+```env
+AI_TRANSCRIPTION_PROVIDER=whisper
+AI_SERVICE_URL=http://127.0.0.1:8000
+AI_TRANSCRIPTION_LANGUAGE=en
+AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS=600000
+WHISPER_MODEL=small
+WHISPER_DEVICE=cpu
+```
+
+Start the existing FastAPI service locally with:
+
+```bash
+docker compose --profile ai up -d --build ai-service ollama
+docker compose exec ollama ollama pull llama3
+docker compose ps ai-service ollama
+```
+
+The same container also exposes `POST /v1/summarize`, which asks Llama 3 through `ollama` for a
+structured summary, key points, decisions, and action-item suggestions. Nothing in the Node worker
+calls it yet — `AI_ANALYSIS_PROVIDER` still has only a `fixture` adapter, and wiring the LLM
+analysis adapter to this endpoint is #67. The `ollama` pull is therefore only needed when working
+on that endpoint.
+
+The service loads the Whisper model lazily on the first transcription request and caches the
+download in the `whisper-models` volume, so the first request after a fresh volume is much slower
+than later ones; the `/health` check passes before the model is loaded.
+
+The Compose port is bound to `127.0.0.1`; it is not a public application endpoint. The current
+FastAPI service has no request authentication, so production deployment must keep port `8000`
+restricted to the worker host or a private container network. `AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS`
+controls only the provider HTTP request; `RECORDING_TRANSCRIPTION_TIMEOUT_MS` remains the BullMQ lock
+duration. Recording uploads are capped at 50 MB by Express, so that is the effective limit even
+though the current FastAPI implementation accepts a larger request.
+
 Each transition is a guarded transaction. The recording must still be active and the transcript must
 still be `processing` and still attached to that recording; a guard matching nothing means the job is
 stale (the recording was archived or replaced, or another attempt already finished) and it is skipped
-without touching current state. Retries only rewrite state on the final attempt: earlier failures
-rethrow so BullMQ can back off, and the last attempt fails the transcript, the recording, and every
-`queued` or `processing` analysis run for that transcript in one transaction. The transcription child
-carries `failParentOnFailure: true`, so an exhausted transcription cannot leave analysis waiting
-forever.
+without touching current state. Network failures, timeouts, interrupted responses, `408`, `429`, and
+provider `5xx` responses use BullMQ's bounded retries. Rejected audio and other provider `4xx`
+responses are permanent, as is a missing MinIO object: they fail the transcript immediately instead
+of consuming the remaining attempts. A terminal failure updates the transcript, recording, and every
+`queued` or `processing` analysis run for that transcript in one transaction. The transcription
+child carries `failParentOnFailure: true`, so an exhausted or unrecoverable transcription cannot
+leave analysis waiting forever.
 
 After each transition commits, the worker publishes a recording-status invalidation on the
 `WORKFLOW_STATUS_CHANNEL` Redis channel using a dedicated publisher connection. The payload carries

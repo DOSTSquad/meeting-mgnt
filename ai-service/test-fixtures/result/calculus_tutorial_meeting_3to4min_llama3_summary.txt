@@ -1,0 +1,52 @@
+Llama 3 meeting summary
+=======================
+
+Source transcript: calculus_tutorial_meeting_3to4min_whisper_small_result.txt
+Model: llama3
+Language: English (en)
+
+Summary
+-------
+
+Connecting differentiation and integration in calculus, discussing their meanings
+and applications.
+
+Key Points
+----------
+
+- Differentiation tells us the rate of change at a particular point.
+
+- Integration is the opposite of differentiation, representing accumulation.
+
+- The fundamental theorem of calculus connects differentiation and integration.
+
+- The choice between differentiation and integration depends on the question being
+  asked.
+
+Decisions
+---------
+
+- No explicit decisions were identified by the model.
+
+Action Items
+------------
+
+1. Explore one integration topic and explain it to the group in simple language.
+   Owner: Not specified
+   Due date: Not specified
+
+2. Look at integration by parts, find out where the formula comes from, and prepare
+   one easy example.
+   Owner: Maya
+   Due date: Not specified
+
+3. Use integration to calculate volume in three dimensions, focusing on the basic
+   idea of taking thin slices and adding their volumes together.
+   Owner: Not specified
+   Due date: Not specified
+
+Notes
+-----
+
+This summary was generated from the unedited Whisper small transcript. Any
+recognition errors in mathematical expressions or names may affect the summary.

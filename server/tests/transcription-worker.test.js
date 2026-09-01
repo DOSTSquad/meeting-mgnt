@@ -110,6 +110,15 @@ describe('transcription adapter selection', () => {
     expect(getTranscriptionAdapter({ AI_TRANSCRIPTION_PROVIDER: 'fixture' }).name).toBe('fixture')
   })
 
+  it('resolves the Whisper adapter with its required service URL', () => {
+    expect(
+      getTranscriptionAdapter({
+        AI_TRANSCRIPTION_PROVIDER: 'whisper',
+        AI_SERVICE_URL: 'http://127.0.0.1:8000',
+      }).name
+    ).toBe('whisper')
+  })
+
   it('refuses to default when the provider is unset', () => {
     expect(() => getTranscriptionAdapter({})).toThrow('AI_TRANSCRIPTION_PROVIDER is not configured')
     expect(() => getTranscriptionAdapter({ AI_TRANSCRIPTION_PROVIDER: '' })).toThrow(
@@ -118,8 +127,8 @@ describe('transcription adapter selection', () => {
   })
 
   it('rejects an unknown provider', () => {
-    expect(() => getTranscriptionAdapter({ AI_TRANSCRIPTION_PROVIDER: 'whisper' })).toThrow(
-      'Unknown transcription provider: whisper'
+    expect(() => getTranscriptionAdapter({ AI_TRANSCRIPTION_PROVIDER: 'other' })).toThrow(
+      'Unknown transcription provider: other'
     )
   })
 })
@@ -214,6 +223,47 @@ describe('transcription job processor', () => {
       'storage unavailable'
     )
     expect(deps.onFail).not.toHaveBeenCalled()
+  })
+
+  it('writes terminal state immediately for a permanent provider failure', async () => {
+    const error = Object.assign(new Error('Whisper rejected the transcription request'), {
+      retryable: false,
+    })
+    deps = createDeps({
+      adapter: { name: 'whisper', transcribe: jest.fn(async () => Promise.reject(error)) },
+    })
+    const processJob = createTranscriptionJobProcessor(deps)
+
+    await expect(processJob(createJob({ attemptsMade: 0, attempts: 3 }))).rejects.toMatchObject({
+      name: 'UnrecoverableError',
+      message: 'Whisper rejected the transcription request',
+    })
+    expect(deps.onFail).toHaveBeenCalledWith({
+      recordingId: RECORDING_ID,
+      transcriptId: TRANSCRIPT_ID,
+      errorMessage: 'Whisper rejected the transcription request',
+    })
+    expect(deps.publishStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({ recordingStatus: 'failed', transcriptStatus: 'failed' }),
+      expect.anything()
+    )
+  })
+
+  it('does not retry when the recording object is missing', async () => {
+    const error = Object.assign(new Error('The specified key does not exist'), {
+      code: 'NoSuchKey',
+    })
+    deps = createDeps({
+      openAudioStream: jest.fn(async () => Promise.reject(error)),
+    })
+    const processJob = createTranscriptionJobProcessor(deps)
+
+    await expect(processJob(createJob({ attemptsMade: 0, attempts: 3 }))).rejects.toMatchObject({
+      name: 'UnrecoverableError',
+      message: 'The specified key does not exist',
+    })
+    expect(deps.onFail).toHaveBeenCalledTimes(1)
+    expect(deps.logger.warn).not.toHaveBeenCalled()
   })
 
   it('writes terminal failure on the final attempt and still rethrows', async () => {

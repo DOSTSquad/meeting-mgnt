@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 
 import { describe, beforeAll, beforeEach, afterAll, it, expect } from '@jest/globals'
@@ -20,6 +21,8 @@ const { runMigrations } = await import('../db/migrate.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { completeTranscription, failTranscription, startTranscription } =
   await import('../services/transcription-workflow-service.js')
+const { createWhisperTranscriptionAdapter } =
+  await import('../services/transcription/whisper-transcription-adapter.js')
 const { completeAnalysis, failAnalysis, startAnalysis } =
   await import('../services/analysis-workflow-service.js')
 const { listSuggestionsForAnalysisRun } =
@@ -187,6 +190,38 @@ dbDescribe('transcription workflow transitions', () => {
     expect(transcript.transcript_text).toBe(FIXTURE_RESULT.text)
     expect(transcript.segments).toEqual(FIXTURE_RESULT.segments)
     expect(transcript.completed_at).not.toBeNull()
+  })
+
+  it('persists a fractional Whisper duration after adapter normalization', async () => {
+    const adapter = createWhisperTranscriptionAdapter({
+      environment: { AI_SERVICE_URL: 'http://ai-service.test' },
+      request: async (_url, options) => {
+        for await (const chunk of options.body) {
+          void chunk
+        }
+
+        return new Response(
+          JSON.stringify({
+            text: 'A short transcript.',
+            language: 'en',
+            duration_seconds: 12.5,
+            model: 'small',
+            segments: [{ id: 0, start: 0, end: 12.5, text: 'A short transcript.' }],
+          }),
+          { headers: { 'Content-Type': 'application/json' } }
+        )
+      },
+    })
+    const result = await adapter.transcribe({
+      recording: { fileName: 'meeting.wav', mimeType: 'audio/wav' },
+      audioStream: Readable.from([Buffer.from('audio')]),
+    })
+
+    await startTranscription({ recordingId, transcriptId })
+    await completeTranscription({ recordingId, transcriptId, result })
+
+    expect((await readRecording(recordingId)).duration_seconds).toBe(13)
+    expect((await readTranscript(transcriptId)).duration_seconds).toBe(13)
   })
 
   it('treats a duplicate completion as stale instead of rewriting state', async () => {
