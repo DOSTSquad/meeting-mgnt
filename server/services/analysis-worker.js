@@ -1,5 +1,6 @@
 import { Worker } from 'bullmq'
 
+import { listByMeeting as listParticipantsByMeeting } from '../repositories/participant-repository.js'
 import { getAnalysisAdapter } from './analysis/analysis-adapter.js'
 import { validateAnalysisResult } from './analysis/analysis-schema.js'
 import { completeAnalysis, failAnalysis, startAnalysis } from './analysis-workflow-service.js'
@@ -45,6 +46,7 @@ export const createAnalysisJobProcessor = ({
   onFail = failAnalysis,
   publishStatus = publishWorkflowStatus,
   validate = validateAnalysisResult,
+  loadParticipants = listParticipantsByMeeting,
 } = {}) => {
   if (!adapter) {
     throw new Error('Analysis job processor requires an adapter')
@@ -85,9 +87,15 @@ export const createAnalysisJobProcessor = ({
     await publishAfterCommit(started)
 
     try {
+      // An owner the provider names can only resolve to someone in this
+      // meeting. Passing the roster in keeps that decision with the adapter's
+      // mapping while the rule itself stays here, out of the provider client.
+      const participants = await loadParticipants(started.analysisRun.meetingId)
+
       const result = await adapter.analyse({
         transcript: started.transcript,
         analysisRun: started.analysisRun,
+        participants: participants.map((person) => ({ id: person.userId, name: person.name })),
       })
 
       // Adapter output is untrusted, including the fixture's. Validating before

@@ -91,9 +91,9 @@ export const replaceSuggestionsForAnalysisRun = async (
       `
         INSERT INTO analysis_action_item_suggestions (
           analysis_run_id, meeting_id, title, description, priority, status, source_ref,
-          evidence, position
+          evidence, position, assignee_id, due_date
         )
-        VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7::jsonb, $8)
+        VALUES ($1, $2, $3, $4, $5, 'proposed', $6, $7::jsonb, $8, $9, $10)
         RETURNING ${SUGGESTION_COLUMNS}
       `,
       [
@@ -105,6 +105,11 @@ export const replaceSuggestionsForAnalysisRun = async (
         suggestion.sourceRef ?? null,
         JSON.stringify(suggestion.evidence ?? []),
         position,
+        // Both stay null unless the provider named someone in this meeting and
+        // gave a date that parsed. A guess here would put a task in someone's
+        // list that was never theirs.
+        suggestion.assigneeId ?? null,
+        suggestion.dueDate ?? null,
       ]
     )
 

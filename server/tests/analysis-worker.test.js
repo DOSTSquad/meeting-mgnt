@@ -44,6 +44,9 @@ const createJob = ({ attemptsMade = 0, attempts = 3, data } = {}) => ({
 const createDeps = (overrides = {}) => ({
   adapter: createFixtureAnalysisAdapter(),
   logger: { log: jest.fn(), warn: jest.fn(), error: jest.fn() },
+  // The roster only matters to a provider that names owners; the fixture ignores
+  // it, and injecting keeps these unit tests off the database.
+  loadParticipants: jest.fn(async () => []),
   onStart: jest.fn(async () => ({ stale: false, analysisRun: analysisRun(), transcript })),
   onComplete: jest.fn(async () => ({
     stale: false,
