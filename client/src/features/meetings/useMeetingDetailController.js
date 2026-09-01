@@ -14,6 +14,7 @@ import {
   acceptAnalysisSuggestion,
   editAnalysisSuggestion,
   getMeetingAnalysis,
+  getMeetingRecording,
   rejectAnalysisSuggestion,
   removeMeetingRecording,
   uploadMeetingRecording,
@@ -477,6 +478,39 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
       cancelled = true
     }
   }, [analysisStatus, selectedMeetingId, token])
+
+  // The same applies to the transcript. Upload creates an empty row, so the
+  // client has no body to merge the stream's status onto: without this the
+  // panel stays hidden until a reload, and the analysis preview appears first
+  // even though transcription finished before it.
+  useEffect(() => {
+    if (!token || !selectedMeetingId || transcriptStatus !== 'completed') {
+      return
+    }
+
+    let cancelled = false
+
+    getMeetingRecording(getApiClient(token), selectedMeetingId)
+      .then((result) => {
+        if (cancelled || !result?.transcript) {
+          return
+        }
+
+        setSelectedMeetingDetail((prev) =>
+          prev && prev.meeting?.id === selectedMeetingId
+            ? { ...prev, transcript: { ...prev.transcript, ...result.transcript } }
+            : prev
+        )
+      })
+      .catch(() => {
+        // The status is already visible; a failed fetch only costs the body,
+        // which the next page load recovers.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedMeetingId, token, transcriptStatus])
 
   useEffect(() => {
     if (!token || !selectedMeetingId || !isWorkflowInFlight) {
