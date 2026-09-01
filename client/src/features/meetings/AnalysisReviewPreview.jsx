@@ -178,11 +178,10 @@ export const AnalysisReviewPreview = ({
         ) : null
       }
     >
-      {isApplied ? (
-        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700">
-          Summary, key discussions, and decisions are in the minutes above. Edit them there.
-        </p>
-      ) : (
+      {/* Applied sections are not repeated here: they are in the minutes fields
+          above, and the header already says so. Only the suggestions remain,
+          because those never enter the minutes. */}
+      {isApplied ? null : (
         <>
           <div className="mt-3 rounded-xl bg-white p-3">
             <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Summary</h4>
