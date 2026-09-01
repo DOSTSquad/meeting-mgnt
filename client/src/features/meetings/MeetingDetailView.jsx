@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { AnalysisReviewPreview } from './AnalysisReviewPreview.jsx'
 import { TranscriptPanel } from './TranscriptPanel.jsx'
+import { hasTranscriptBody } from './transcript.js'
 import { Eye, FileAudio, Trash2, UploadCloud } from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
@@ -531,15 +532,22 @@ export const MeetingDetailView = ({
                   ) : null}
                 </div>
                 <TranscriptPanel transcript={detail.transcript} />
-                <AnalysisReviewPreview
-                  review={analysisReview}
-                  canApply={canManageMeeting}
-                  applyState={applyMinutesState}
-                  onApply={onApplyGeneratedMinutes}
-                  onDismissApplyState={onDismissApplyMinutesState}
-                  onAcceptSuggestion={onAcceptSuggestion}
-                  onRejectSuggestion={onRejectSuggestion}
-                />
+                {/* The analysis cites transcript segments, so it waits for the
+                    transcript rather than racing it: both arrive by their own
+                    fetch, and showing citations before the cited text reads
+                    backwards. "Analysis is ready for review." above already
+                    reports the status while this waits. */}
+                {hasTranscriptBody(detail.transcript) ? (
+                  <AnalysisReviewPreview
+                    review={analysisReview}
+                    canApply={canManageMeeting}
+                    applyState={applyMinutesState}
+                    onApply={onApplyGeneratedMinutes}
+                    onDismissApplyState={onDismissApplyMinutesState}
+                    onAcceptSuggestion={onAcceptSuggestion}
+                    onRejectSuggestion={onRejectSuggestion}
+                  />
+                ) : null}
               </div>
             ) : canManageMeeting ? (
               <label
