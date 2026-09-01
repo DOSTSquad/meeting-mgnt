@@ -2,6 +2,25 @@ import { useState } from 'react'
 
 import { CollapsibleSection } from './CollapsibleSection.jsx'
 
+/**
+ * The minutes columns applying an analysis overwrites.
+ *
+ * applyGeneratedMinuteContent SETs all three rather than merging, so anything a
+ * recorder has already typed in them is replaced. The optimistic version check
+ * guards against someone else's concurrent edit, not against losing your own
+ * work, so the warning has to come from the interface.
+ */
+const OVERWRITTEN_FIELDS = [
+  ['content', 'Minutes'],
+  ['keyDiscussions', 'Key Discussions'],
+  ['decisions', 'Decisions'],
+]
+
+const fieldsWithContent = (minutes) =>
+  OVERWRITTEN_FIELDS.filter(([key]) => (minutes?.[key] ?? '').trim().length > 0).map(
+    ([, label]) => label
+  )
+
 const STATUS_CLASS = {
   proposed: 'bg-slate-100 text-slate-500',
   accepted: 'bg-emerald-50 text-emerald-700',
@@ -59,6 +78,7 @@ const Evidence = ({ evidence }) => {
  */
 export const AnalysisReviewPreview = ({
   review,
+  minutes,
   canApply = false,
   applyState = { status: 'idle' },
   onApply,
@@ -68,6 +88,7 @@ export const AnalysisReviewPreview = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const run = review?.analysisRun
+  const willReplace = fieldsWithContent(minutes)
 
   if (!run || run.status !== 'ready_for_review') {
     return null
@@ -110,13 +131,21 @@ export const AnalysisReviewPreview = ({
                 ? 'Applying...'
                 : applyState.status === 'applied'
                   ? 'Apply again'
-                  : 'Apply to minutes'}
+                  : willReplace.length > 0
+                    ? 'Replace draft minutes'
+                    : 'Apply to minutes'}
             </button>
           ) : null}
         </>
       }
       notice={
-        applyState.status === 'conflict' ? (
+        willReplace.length > 0 && applyState.status !== 'applied' ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Applying replaces the {willReplace.join(', ')}{' '}
+            {willReplace.length === 1 ? 'field' : 'fields'} above. What is written there now is
+            overwritten, not merged.
+          </p>
+        ) : applyState.status === 'conflict' ? (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
             <p className="text-sm font-bold text-amber-900">
               The minutes changed while you were reviewing

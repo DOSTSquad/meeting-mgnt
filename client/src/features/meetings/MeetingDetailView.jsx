@@ -540,6 +540,7 @@ export const MeetingDetailView = ({
                 {hasTranscriptBody(detail.transcript) ? (
                   <AnalysisReviewPreview
                     review={analysisReview}
+                    minutes={detail.minutes}
                     canApply={canManageMeeting}
                     applyState={applyMinutesState}
                     onApply={onApplyGeneratedMinutes}
