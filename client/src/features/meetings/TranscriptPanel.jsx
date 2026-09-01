@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import { hasTranscriptBody } from './transcript.js'
+
 import { CollapsibleSection } from './CollapsibleSection.jsx'
 
 const formatTimestamp = (seconds) => {
@@ -34,16 +36,12 @@ export const TranscriptPanel = ({ transcript }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [visibleCount, setVisibleCount] = useState(FIRST_PAGE)
 
-  if (transcript?.status !== 'completed') {
+  if (!hasTranscriptBody(transcript)) {
     return null
   }
 
   const segments = Array.isArray(transcript.segments) ? transcript.segments : []
   const text = transcript.transcriptText || ''
-
-  if (segments.length === 0 && !text) {
-    return null
-  }
 
   const duration = formatDuration(transcript.durationSeconds)
   const summary = [segments.length > 0 ? `${segments.length} segments` : null, duration]
