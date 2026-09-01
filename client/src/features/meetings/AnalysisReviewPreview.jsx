@@ -2,6 +2,9 @@ const STATUS_CLASS = {
   proposed: 'bg-slate-100 text-slate-500',
   accepted: 'bg-emerald-50 text-emerald-700',
   rejected: 'bg-slate-100 text-slate-400',
+  // Accepted, then the action item it created was deleted. Terminal, so it reads
+  // like rejected rather than like a proposal still awaiting a decision.
+  withdrawn: 'bg-slate-100 text-slate-400',
 }
 
 const PRIORITY_CLASS = {
