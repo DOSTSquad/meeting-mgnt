@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 
+import { Agent, fetch as undiciFetch } from 'undici'
+
 const DEFAULT_TIMEOUT_MS = 600000
 
 export class TranscriptionProviderError extends Error {
@@ -70,9 +72,29 @@ const discardResponseBody = async (response) => {
   }
 }
 
+/**
+ * Node's built-in fetch gives up after 300 seconds of waiting for response
+ * headers, whatever AbortSignal.timeout says, because undici applies its own
+ * headersTimeout first.
+ *
+ * /v1/transcribe is not a streaming endpoint: it sends no headers until Whisper
+ * has finished, so a recording that takes longer than five minutes to transcribe
+ * failed with "fetch failed" no matter how large
+ * AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS was set. At roughly 0.25x realtime that
+ * capped usable recordings at about twenty minutes, and the service went on
+ * transcribing to completion for a client that had already left.
+ *
+ * A dispatcher built from the configured timeout makes that one setting mean
+ * what it says. undici's own fetch is used with it, since the global fetch comes
+ * from a different copy of undici and will not accept this dispatcher.
+ */
+const createDispatcher = (timeoutMs) =>
+  new Agent({ headersTimeout: timeoutMs, bodyTimeout: timeoutMs })
+
 export const createWhisperTranscriptionAdapter = ({
   environment = process.env,
-  request = fetch,
+  request = undiciFetch,
+  dispatcher,
 } = {}) => {
   const configuredUrl = environment.AI_SERVICE_URL
 
@@ -99,6 +121,7 @@ export const createWhisperTranscriptionAdapter = ({
     environment.AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
     DEFAULT_TIMEOUT_MS
   )
+  const requestDispatcher = createDispatcher(timeoutMs)
 
   return {
     name: 'whisper',
@@ -125,6 +148,7 @@ export const createWhisperTranscriptionAdapter = ({
           }),
           duplex: 'half',
           signal: AbortSignal.timeout(timeoutMs),
+          dispatcher: dispatcher ?? requestDispatcher,
         })
       } catch (error) {
         throw new TranscriptionProviderError('Whisper service request failed', {

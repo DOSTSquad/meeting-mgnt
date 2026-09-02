@@ -295,7 +295,7 @@ than later ones; the `/health` check passes before the model is loaded.
 The Compose port is bound to `127.0.0.1`; it is not a public application endpoint. The current
 FastAPI service has no request authentication, so production deployment must keep port `8000`
 restricted to the worker host or a private container network. `AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS`
-controls only the provider HTTP request; `RECORDING_TRANSCRIPTION_TIMEOUT_MS` remains the BullMQ lock
+covers the whole provider request, including the wait for response headers. That distinction matters: Node's built-in `fetch` abandons a request after 300 seconds of waiting for headers whatever the abort signal says, and `/v1/transcribe` sends none until Whisper has finished, so the adapter supplies its own dispatcher built from this value. Without it, roughly twenty minutes of audio was the ceiling regardless of configuration. It controls only the provider HTTP request; `RECORDING_TRANSCRIPTION_TIMEOUT_MS` remains the BullMQ lock
 duration. Recording uploads are capped at 50 MB by Express, so that is the effective limit even
 though the current FastAPI implementation accepts a larger request.
 

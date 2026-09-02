@@ -30,7 +30,8 @@
     "minio": "^8.0.5",
     "multer": "^2.0.1",
     "nodemailer": "^9.0.4",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "undici": "^7.29.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

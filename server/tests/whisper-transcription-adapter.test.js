@@ -1,6 +1,8 @@
 import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
 
+import { Agent } from 'undici'
+
 import { afterEach, describe, expect, it } from '@jest/globals'
 
 const { createWhisperTranscriptionAdapter } =
@@ -238,6 +240,41 @@ describe('Whisper transcription adapter', () => {
       retryable: false,
       message: 'Whisper rejected the transcription request',
     })
+  })
+
+  // Node's built-in fetch abandons a request after 300s of waiting for headers
+  // whatever AbortSignal.timeout says, and /v1/transcribe sends none until
+  // Whisper finishes, so anything over about twenty minutes of audio failed. The
+  // fix is a dispatcher carrying the configured timeout.
+  //
+  // Only its presence is asserted. undici keeps headersTimeout on a private
+  // symbol, so reading it would break on an upgrade, and proving the value
+  // behaviourally needs a server that stalls past undici's default — a
+  // five-minute test. This still catches the regression that matters: dropping
+  // the dispatcher, or going back to the global fetch that ignores it.
+  it('sends a dispatcher so the configured timeout covers waiting for headers', async () => {
+    let seen
+
+    const adapter = createWhisperTranscriptionAdapter({
+      environment: {
+        AI_SERVICE_URL: 'http://127.0.0.1:9',
+        AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS: '1800000',
+      },
+      request: async (_url, options) => {
+        seen = options.dispatcher
+        return new Response(
+          JSON.stringify({ text: '', duration_seconds: null, segments: [], model: 'small' }),
+          { headers: { 'Content-Type': 'application/json' } }
+        )
+      },
+    })
+
+    await adapter.transcribe({
+      recording: { fileName: 'meeting.wav', mimeType: 'audio/wav' },
+      audioStream: Readable.from([Buffer.from('audio')]),
+    })
+
+    expect(seen).toBeInstanceOf(Agent)
   })
 
   it('reports a request timeout as a retryable provider error', async () => {

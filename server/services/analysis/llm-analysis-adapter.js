@@ -1,3 +1,5 @@
+import { Agent, fetch as undiciFetch } from 'undici'
+
 const DEFAULT_TIMEOUT_MS = 300000
 
 export class AnalysisProviderError extends Error {
@@ -87,7 +89,22 @@ const resolveAssignee = (owner, participants) => {
   return matches.length === 1 ? matches[0].id : null
 }
 
-export const createLlmAnalysisAdapter = ({ environment = process.env, request = fetch } = {}) => {
+/**
+ * Same reason as the transcription adapter: Node's built-in fetch abandons a
+ * request after 300 seconds of waiting for headers regardless of
+ * AbortSignal.timeout, and /v1/summarize sends none until Llama 3 has finished.
+ *
+ * It is harder to spot here, because OLLAMA_TIMEOUT_SECONDS also defaults to 300
+ * and a long transcript can plausibly exhaust either one.
+ */
+const createDispatcher = (timeoutMs) =>
+  new Agent({ headersTimeout: timeoutMs, bodyTimeout: timeoutMs })
+
+export const createLlmAnalysisAdapter = ({
+  environment = process.env,
+  request = undiciFetch,
+  dispatcher,
+} = {}) => {
   const configuredUrl = environment.AI_SERVICE_URL
 
   if (!configuredUrl) {
@@ -112,6 +129,7 @@ export const createLlmAnalysisAdapter = ({ environment = process.env, request = 
     environment.AI_ANALYSIS_REQUEST_TIMEOUT_MS,
     DEFAULT_TIMEOUT_MS
   )
+  const requestDispatcher = createDispatcher(timeoutMs)
 
   return {
     name: 'llm',
@@ -135,6 +153,7 @@ export const createLlmAnalysisAdapter = ({ environment = process.env, request = 
             segments: segments.map((segment, index) => ({ index, text: segment.text ?? '' })),
           }),
           signal: AbortSignal.timeout(timeoutMs),
+          dispatcher: dispatcher ?? requestDispatcher,
         })
       } catch (error) {
         throw new AnalysisProviderError('Analysis service request failed', {

@@ -1,5 +1,7 @@
 import { createServer } from 'node:http'
 
+import { Agent } from 'undici'
+
 import { afterEach, describe, expect, it } from '@jest/globals'
 
 const { createLlmAnalysisAdapter } = await import('../services/analysis/llm-analysis-adapter.js')
@@ -202,6 +204,27 @@ describe('LLM analysis adapter', () => {
       retryable: false,
       message: 'Analysis service rejected the request',
     })
+  })
+
+  // Same trap as transcription: the global fetch gives up after 300s of waiting
+  // for headers, and /v1/summarize sends none until Llama 3 finishes. Harder to
+  // spot here because OLLAMA_TIMEOUT_SECONDS also defaults to 300.
+  it('sends a dispatcher so the configured timeout covers waiting for headers', async () => {
+    let seen
+
+    const adapter = createLlmAnalysisAdapter({
+      environment: { AI_SERVICE_URL: 'http://127.0.0.1:9' },
+      request: async (_url, options) => {
+        seen = options.dispatcher
+        return new Response(JSON.stringify(SUMMARY), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      },
+    })
+
+    await adapter.analyse({ transcript: TRANSCRIPT, participants: PARTICIPANTS })
+
+    expect(seen).toBeInstanceOf(Agent)
   })
 
   it('refuses a transcript with no segments before calling the provider', async () => {
