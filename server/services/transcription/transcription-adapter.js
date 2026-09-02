@@ -43,7 +43,11 @@ export const getTranscriptionAdapter = (environment = process.env) => {
   const factory = adapterFactories[name]
 
   if (!factory) {
-    throw new Error(`Unknown transcription provider: ${name}`)
+    // Naming the alternatives distinguishes a typo from a provider this build
+    // does not have, which the name alone never did.
+    throw new Error(
+      `Unknown transcription provider: ${name} (available: ${Object.keys(adapterFactories).join(', ')})`
+    )
   }
 
   return factory({ environment })

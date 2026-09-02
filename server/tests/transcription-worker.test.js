@@ -126,9 +126,12 @@ describe('transcription adapter selection', () => {
     )
   })
 
-  it('rejects an unknown provider', () => {
+  // The message names the alternatives because the failure is usually either a
+  // typo or a provider this build does not carry, and the name alone told the
+  // reader neither.
+  it('rejects an unknown provider and says what it does have', () => {
     expect(() => getTranscriptionAdapter({ AI_TRANSCRIPTION_PROVIDER: 'other' })).toThrow(
-      'Unknown transcription provider: other'
+      'Unknown transcription provider: other (available: fixture, whisper)'
     )
   })
 })

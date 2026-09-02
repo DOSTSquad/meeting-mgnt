@@ -98,8 +98,11 @@ describe('analysis adapter selection', () => {
   it('resolves fixture by name and refuses to default', () => {
     expect(getAnalysisAdapter({ AI_ANALYSIS_PROVIDER: 'fixture' }).name).toBe('fixture')
     expect(() => getAnalysisAdapter({})).toThrow('AI_ANALYSIS_PROVIDER is not configured')
+    // 'llama' is the kind of near-miss the old message left unexplained: the
+    // list shows at a glance whether it is a typo or a build without that
+    // provider.
     expect(() => getAnalysisAdapter({ AI_ANALYSIS_PROVIDER: 'llama' })).toThrow(
-      'Unknown analysis provider: llama'
+      'Unknown analysis provider: llama (available: fixture, llm)'
     )
   })
 })
