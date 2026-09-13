@@ -23,7 +23,7 @@ const mockRemoveObject = jest.fn().mockResolvedValue(undefined)
 const mockGetObject = jest.fn().mockResolvedValue({
   pipe: jest.fn(),
 })
-const mockQueueRecordingAnalysisWorkflow = jest.fn().mockResolvedValue(undefined)
+const mockPublishAiJob = jest.fn().mockResolvedValue({ messageId: '1-0' })
 
 jest.unstable_mockModule('../services/minio-client.js', () => ({
   BUCKET_FILES: 'meeting-files',
@@ -36,8 +36,10 @@ jest.unstable_mockModule('../services/minio-client.js', () => ({
   removeObject: mockRemoveObject,
 }))
 
-jest.unstable_mockModule('../services/recording-workflow-queue.js', () => ({
-  queueRecordingAnalysisWorkflow: mockQueueRecordingAnalysisWorkflow,
+jest.unstable_mockModule('../services/ai-streams.js', () => ({
+  ANALYSIS_STREAM: 'ai.analysis.jobs',
+  TRANSCRIPTION_STREAM: 'ai.transcription.jobs',
+  publishAiJob: mockPublishAiJob,
 }))
 
 // Now import everything that transitively pulls in minio-client.
@@ -194,8 +196,8 @@ beforeEach(async () => {
   mockPresignedGetObject.mockClear()
   mockRemoveObject.mockClear()
   mockGetObject.mockClear()
-  mockQueueRecordingAnalysisWorkflow.mockClear()
-  mockQueueRecordingAnalysisWorkflow.mockResolvedValue(undefined)
+  mockPublishAiJob.mockClear()
+  mockPublishAiJob.mockResolvedValue({ messageId: '1-0' })
   process.env.AI_PIPELINE_ENABLED = 'false'
 
   await query('TRUNCATE TABLE workflow_outbox RESTART IDENTITY')
@@ -406,7 +408,7 @@ dbDescribe('File controller (DB-backed)', () => {
       )
       expect(res.body.transcript).toBeNull()
       expect(res.body.analysisRun).toBeNull()
-      expect(mockQueueRecordingAnalysisWorkflow).not.toHaveBeenCalled()
+      expect(mockPublishAiJob).not.toHaveBeenCalled()
     })
 
     it('creates durable workflow rows when the AI pipeline is enabled', async () => {
@@ -438,7 +440,7 @@ dbDescribe('File controller (DB-backed)', () => {
         transcriptId: res.body.transcript.id,
         status: 'queued',
       })
-      expect(mockQueueRecordingAnalysisWorkflow).not.toHaveBeenCalled()
+      expect(mockPublishAiJob).not.toHaveBeenCalled()
 
       const outboxResult = await query(
         `
@@ -459,6 +461,10 @@ dbDescribe('File controller (DB-backed)', () => {
         recordingId: res.body.recording.id,
         transcriptId: res.body.transcript.id,
         analysisRunId: res.body.analysisRun.id,
+        bucketName: 'meeting-audio',
+        objectKey: res.body.recording.objectKey,
+        fileName: 'pipeline-recording.mp3',
+        mimeType: 'audio/mpeg',
       })
     })
 
@@ -482,7 +488,7 @@ dbDescribe('File controller (DB-backed)', () => {
       expect(nextError).toBeUndefined()
       expect(res.statusCode).toBe(201)
       expect(res.body.analysisRun.status).toBe('queued')
-      expect(mockQueueRecordingAnalysisWorkflow).not.toHaveBeenCalled()
+      expect(mockPublishAiJob).not.toHaveBeenCalled()
 
       const outboxResult = await query(
         `
@@ -611,12 +617,12 @@ dbDescribe('File controller (DB-backed)', () => {
         })
       )
       expect(uploaded.nextError).toBeUndefined()
-      mockQueueRecordingAnalysisWorkflow.mockRejectedValueOnce(new Error('Redis unavailable'))
+      mockPublishAiJob.mockRejectedValueOnce(new Error('Redis unavailable'))
 
       await dispatchPendingWorkflowOutbox({ limit: 1, retryDelaySeconds: 1 })
 
-      mockQueueRecordingAnalysisWorkflow.mockClear()
-      mockQueueRecordingAnalysisWorkflow.mockResolvedValueOnce(undefined)
+      mockPublishAiJob.mockClear()
+      mockPublishAiJob.mockResolvedValueOnce({ messageId: '2-0' })
 
       await query(
         `
@@ -629,11 +635,18 @@ dbDescribe('File controller (DB-backed)', () => {
 
       await dispatchPendingWorkflowOutbox({ limit: 1 })
 
-      expect(mockQueueRecordingAnalysisWorkflow).toHaveBeenCalledWith({
-        recordingId: uploaded.res.body.recording.id,
-        transcriptId: uploaded.res.body.transcript.id,
-        analysisRunId: uploaded.res.body.analysisRun.id,
-      })
+      expect(mockPublishAiJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stream: 'ai.transcription.jobs',
+          eventType: 'transcription.requested',
+          jobId: `transcription-${uploaded.res.body.transcript.id}`,
+          payload: expect.objectContaining({
+            recordingId: uploaded.res.body.recording.id,
+            transcriptId: uploaded.res.body.transcript.id,
+            analysisRunId: uploaded.res.body.analysisRun.id,
+          }),
+        })
+      )
 
       const outboxResult = await query(
         `

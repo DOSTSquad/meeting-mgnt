@@ -1,7 +1,6 @@
 // Drives the recording workflow end to end against the running local stack:
-// upload -> workflow outbox -> outbox dispatcher -> BullMQ flow -> transcription
-// worker -> MinIO stream -> transcription adapter -> guarded transactions ->
-// Redis status invalidation.
+// upload -> workflow outbox -> Redis Streams -> ai-worker -> result stream ->
+// guarded transactions -> Redis status invalidation.
 //
 // The unit and database suites cover each of those pieces in isolation. This
 // covers the seams between them, which is where the dropped first invalidation
@@ -35,32 +34,30 @@ process.env.AI_PIPELINE_ENABLED = 'true'
 process.env.WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS = '500'
 process.env.WORKFLOW_SSE_HEARTBEAT_MS = process.env.WORKFLOW_SSE_HEARTBEAT_MS || '1000'
 
-// Queue and channel names are deliberately NOT scoped per run. server/app.js
+// Stream and channel names are deliberately NOT scoped per run. server/app.js
 // reloads .env with override: true at module scope, so anything set here is
 // overwritten the moment the app is imported, and a scoped name would only
-// half-apply. The check therefore shares the configured queues: stop a local
-// worker first, or it may be the one that picks the job up. Either worker
-// produces the same fixture result, so a shared run still settles correctly.
+// half-apply. The check therefore shares the configured streams: start the
+// Python ai-worker first, or the event will remain pending until it is available.
 
 const jwt = (await import('jsonwebtoken')).default
 const IORedis = (await import('ioredis')).default
 const { createApp } = await import('../app.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { uploadRecordingForMeeting } = await import('../services/recording-service.js')
-const { createTranscriptionWorker } = await import('../services/transcription-worker.js')
-const { createAnalysisWorker } = await import('../services/analysis-worker.js')
+const { createAiResultConsumerService } = await import('../services/ai-result-consumer.js')
 const { createWorkerRuntime } = await import('../worker-runtime.js')
 const { WORKFLOW_STATUS_CHANNEL } = await import('../services/workflow-status-publisher.js')
 
 // Re-asserted after the imports: app.js reloads .env with override: true at
 // module scope, so anything set before importing it is overwritten. .env ships
-// these empty, and the adapters refuse to default.
+// these empty, and the AI worker refuses to default in production.
 process.env.AI_PIPELINE_ENABLED = 'true'
 process.env.AI_TRANSCRIPTION_PROVIDER = process.env.AI_TRANSCRIPTION_PROVIDER || 'fixture'
 process.env.AI_ANALYSIS_PROVIDER = process.env.AI_ANALYSIS_PROVIDER || 'fixture'
 const { closeWorkflowStatusSubscriber } = await import('../services/workflow-status-subscriber.js')
 
-const TIMEOUT_MS = 60000
+const TIMEOUT_MS = Number.parseInt(process.env.WORKFLOW_CHECK_TIMEOUT_MS || '120000', 10)
 const POLL_MS = 250
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -133,7 +130,7 @@ try {
 
   console.log('Starting the worker runtime')
   runtime = createWorkerRuntime({
-    services: [createTranscriptionWorker(), createAnalysisWorker()],
+    services: [createAiResultConsumerService()],
   })
   if (!runtime.start()) {
     throw new Error('Worker runtime refused to start')

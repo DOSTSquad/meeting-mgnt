@@ -33,30 +33,30 @@ class SummarizationRequest(BaseModel):
 
 
 class KeyDiscussion(BaseModel):
-    topic: str
-    detail: str
-    evidence: list[int] = Field(default_factory=list)
+    topic: str = Field(min_length=1, max_length=120)
+    detail: str = Field(min_length=1, max_length=400)
+    evidence: list[int] = Field(default_factory=list, max_length=4)
 
 
 class Decision(BaseModel):
-    decision: str
-    rationale: str = ""
-    evidence: list[int] = Field(default_factory=list)
+    decision: str = Field(min_length=1, max_length=400)
+    rationale: str = Field(default="", max_length=400)
+    evidence: list[int] = Field(default_factory=list, max_length=4)
 
 
 class ActionItemSuggestion(BaseModel):
-    task: str
-    owner: str | None = None
-    due_date: str | None = None
+    task: str = Field(min_length=1, max_length=240)
+    owner: str | None = Field(default=None, max_length=120)
+    due_date: str | None = Field(default=None, max_length=10)
     priority: Literal["low", "medium", "high"] = "medium"
-    evidence: list[int] = Field(default_factory=list)
+    evidence: list[int] = Field(default_factory=list, max_length=4)
 
 
 class LlamaSummary(BaseModel):
-    summary: str
-    key_discussions: list[KeyDiscussion]
-    decisions: list[Decision]
-    action_items: list[ActionItemSuggestion]
+    summary: str = Field(min_length=1, max_length=1200)
+    key_discussions: list[KeyDiscussion] = Field(default_factory=list, max_length=6)
+    decisions: list[Decision] = Field(default_factory=list, max_length=6)
+    action_items: list[ActionItemSuggestion] = Field(default_factory=list, max_length=8)
 
 
 class SummarizationResponse(LlamaSummary):

@@ -9,14 +9,10 @@ const workerPositiveIntegerConfig = [
   'WORKFLOW_OUTBOX_DISPATCH_LIMIT',
   'WORKFLOW_OUTBOX_LEASE_SECONDS',
   'WORKFLOW_OUTBOX_RETRY_DELAY_SECONDS',
+  'AI_STREAM_MAXLEN',
+  'AI_STREAM_READ_BLOCK_MS',
+  'AI_STREAM_CLAIM_IDLE_MS',
 ]
-
-const workerQueueNameConfig = [
-  'RECORDING_TRANSCRIPTION_QUEUE_NAME',
-  'RECORDING_ANALYSIS_QUEUE_NAME',
-]
-
-const fixtureProviderConfig = ['AI_TRANSCRIPTION_PROVIDER', 'AI_ANALYSIS_PROVIDER']
 
 const isInvalidPositiveInteger = (value) => {
   if (value === undefined) {
@@ -29,11 +25,7 @@ const isInvalidPositiveInteger = (value) => {
 
 const getInvalidWorkerConfig = (environment) => [
   ...workerPositiveIntegerConfig.filter((name) => isInvalidPositiveInteger(environment[name])),
-  ...workerQueueNameConfig.filter((name) => environment[name] !== undefined && !environment[name]),
 ]
-
-const getUnsafeFixtureConfig = (environment) =>
-  fixtureProviderConfig.filter((name) => environment[name] === 'fixture')
 
 export const validateWorkerRuntimeConfig = (environment = process.env) => {
   const missingConfig = getMissingWorkerConfig(environment)
@@ -44,17 +36,6 @@ export const validateWorkerRuntimeConfig = (environment = process.env) => {
   const invalidConfig = getInvalidWorkerConfig(environment)
   if (invalidConfig.length > 0) {
     throw new Error(`Worker runtime invalid config: ${invalidConfig.join(', ')}`)
-  }
-
-  const unsafeFixtureConfig = getUnsafeFixtureConfig(environment)
-  if (
-    environment.NODE_ENV === 'production' &&
-    unsafeFixtureConfig.length > 0 &&
-    environment.ALLOW_UNSAFE_FIXTURE_PROVIDERS !== 'true'
-  ) {
-    throw new Error(
-      `Worker runtime fixture providers require ALLOW_UNSAFE_FIXTURE_PROVIDERS=true: ${unsafeFixtureConfig.join(', ')}`
-    )
   }
 }
 

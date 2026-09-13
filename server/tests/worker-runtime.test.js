@@ -71,23 +71,6 @@ describe('worker runtime', () => {
     expect(dispatcher.start).not.toHaveBeenCalled()
   })
 
-  it('blocks fixture providers in production without an explicit unsafe override', () => {
-    const runtime = createWorkerRuntime({
-      dispatcher: createDispatcher(),
-      logger: createLogger(),
-      environment: {
-        NODE_ENV: 'production',
-        DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/meeting_mgnt',
-        REDIS_URL: 'redis://localhost:6379',
-        AI_TRANSCRIPTION_PROVIDER: 'fixture',
-      },
-    })
-
-    expect(() => runtime.start()).toThrow(
-      'Worker runtime fixture providers require ALLOW_UNSAFE_FIXTURE_PROVIDERS=true: AI_TRANSCRIPTION_PROVIDER'
-    )
-  })
-
   it('does not start the dispatcher when the AI pipeline is disabled', () => {
     const dispatcher = createDispatcher({ enabled: false })
     const logger = createLogger()

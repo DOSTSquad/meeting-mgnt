@@ -6,7 +6,7 @@ import { WORKFLOW_STATUS_CHANNEL } from './workflow-status-publisher.js'
  * Fans workflow status invalidations out to open SSE streams.
  *
  * A Redis client in subscriber mode cannot run ordinary commands, so this owns a
- * connection of its own and never borrows the BullMQ producer, worker, or outbox
+ * connection of its own and never borrows the stream producer, result consumer, or outbox
  * connections from redis-connections.js.
  *
  * One connection serves every stream in the process: a Redis subscription per

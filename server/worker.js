@@ -14,7 +14,7 @@ const loaded = loadDotenv({
 // shell silently wins. A stray DATABASE_URL from another project sends the worker
 // at the wrong database and the only symptom is an authentication failure from
 // the outbox dispatcher, with nothing pointing at the cause.
-const SHADOW_SENSITIVE = ['DATABASE_URL', 'REDIS_URL', 'MINIO_ENDPOINT', 'AI_SERVICE_URL']
+const SHADOW_SENSITIVE = ['DATABASE_URL', 'REDIS_URL', 'MINIO_ENDPOINT']
 const shadowed = SHADOW_SENSITIVE.filter(
   (key) => key in (loaded.parsed ?? {}) && process.env[key] !== loaded.parsed[key]
 )
@@ -29,13 +29,12 @@ if (shadowed.length > 0) {
 }
 
 const { createWorkerRuntime } = await import('./worker-runtime.js')
-const { createTranscriptionWorker } = await import('./services/transcription-worker.js')
-const { createAnalysisWorker } = await import('./services/analysis-worker.js')
+const { createAiResultConsumerService } = await import('./services/ai-result-consumer.js')
 
 // Queue consumers are registered here, never from the Express entrypoint.
 // Order matters only for shutdown, which stops them in reverse.
 const workerRuntime = createWorkerRuntime({
-  services: [createTranscriptionWorker(), createAnalysisWorker()],
+  services: [createAiResultConsumerService()],
 })
 
 try {

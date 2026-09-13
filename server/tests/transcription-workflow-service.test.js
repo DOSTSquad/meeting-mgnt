@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 
 import { describe, beforeAll, beforeEach, afterAll, it, expect } from '@jest/globals'
@@ -21,8 +20,6 @@ const { runMigrations } = await import('../db/migrate.js')
 const { closePool, query } = await import('../db/postgres.js')
 const { completeTranscription, failTranscription, startTranscription } =
   await import('../services/transcription-workflow-service.js')
-const { createWhisperTranscriptionAdapter } =
-  await import('../services/transcription/whisper-transcription-adapter.js')
 const { completeAnalysis, failAnalysis, startAnalysis } =
   await import('../services/analysis-workflow-service.js')
 const { listSuggestionsForAnalysisRun } =
@@ -192,36 +189,44 @@ dbDescribe('transcription workflow transitions', () => {
     expect(transcript.completed_at).not.toBeNull()
   })
 
-  it('persists a fractional Whisper duration after adapter normalization', async () => {
-    const adapter = createWhisperTranscriptionAdapter({
-      environment: { AI_SERVICE_URL: 'http://ai-service.test' },
-      request: async (_url, options) => {
-        for await (const chunk of options.body) {
-          void chunk
-        }
+  it('creates the analysis outbox event with the committed transcript artifact', async () => {
+    await startTranscription({ recordingId, transcriptId })
 
-        return new Response(
-          JSON.stringify({
-            text: 'A short transcript.',
-            language: 'en',
-            duration_seconds: 12.5,
-            model: 'small',
-            segments: [{ id: 0, start: 0, end: 12.5, text: 'A short transcript.' }],
-          }),
-          { headers: { 'Content-Type': 'application/json' } }
-        )
+    await completeTranscription({
+      recordingId,
+      transcriptId,
+      analysisRunId,
+      result: {
+        ...FIXTURE_RESULT,
+        resultRef: { bucket: 'meeting-ai-results', key: `transcripts/${transcriptId}.json` },
       },
     })
-    const result = await adapter.transcribe({
-      recording: { fileName: 'meeting.wav', mimeType: 'audio/wav' },
-      audioStream: Readable.from([Buffer.from('audio')]),
+
+    const outbox = await query(
+      `
+        SELECT event_type, aggregate_type, aggregate_id, payload, status
+        FROM workflow_outbox
+        WHERE aggregate_id = $1
+      `,
+      [analysisRunId]
+    )
+
+    expect(outbox.rows[0]).toMatchObject({
+      event_type: 'analysis.requested',
+      aggregate_type: 'analysis_run',
+      aggregate_id: analysisRunId,
+      status: 'pending',
+      payload: {
+        meetingId,
+        recordingId,
+        transcriptId,
+        analysisRunId,
+        transcriptResultRef: {
+          bucket: 'meeting-ai-results',
+          key: `transcripts/${transcriptId}.json`,
+        },
+      },
     })
-
-    await startTranscription({ recordingId, transcriptId })
-    await completeTranscription({ recordingId, transcriptId, result })
-
-    expect((await readRecording(recordingId)).duration_seconds).toBe(13)
-    expect((await readTranscript(transcriptId)).duration_seconds).toBe(13)
   })
 
   it('treats a duplicate completion as stale instead of rewriting state', async () => {
@@ -543,7 +548,7 @@ dbDescribe('analysis workflow transitions', () => {
     await failTranscription({ recordingId, transcriptId, errorMessage: 'no audio' })
 
     // failTranscription already failed the pending run, so the analysis job has
-    // nothing to claim even if BullMQ somehow delivered it.
+    // Nothing can claim it after the guarded workflow state has moved on.
     expect((await readAnalysisRun(analysisRunId)).status).toBe('failed')
     expect((await startAnalysis({ analysisRunId, transcriptId, recordingId })).stale).toBe(true)
   })

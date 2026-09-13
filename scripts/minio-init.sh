@@ -1,7 +1,9 @@
 #!/bin/sh
 set -e
 
-mc alias set local http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
-mc mb --ignore-existing "local/$MINIO_BUCKET_FILES" "local/$MINIO_BUCKET_AUDIO"
+MINIO_BUCKET_AI_RESULTS=${MINIO_BUCKET_AI_RESULTS:-meeting-ai-results}
 
-echo "MinIO buckets ready: $MINIO_BUCKET_FILES, $MINIO_BUCKET_AUDIO"
+mc alias set local http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+mc mb --ignore-existing "local/$MINIO_BUCKET_FILES" "local/$MINIO_BUCKET_AUDIO" "local/$MINIO_BUCKET_AI_RESULTS"
+
+echo "MinIO buckets ready: $MINIO_BUCKET_FILES, $MINIO_BUCKET_AUDIO, $MINIO_BUCKET_AI_RESULTS"

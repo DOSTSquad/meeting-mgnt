@@ -3,7 +3,9 @@ import os
 import unittest
 from unittest.mock import Mock, patch
 
-from app.schemas import SummarizationSegment
+from pydantic import ValidationError
+
+from app.schemas import LlamaSummary, SummarizationSegment
 from app.summarization import PROMPT_VERSION, build_prompt, summarize_transcript
 
 
@@ -87,7 +89,20 @@ class SummarizationTest(unittest.TestCase):
         request_body = post.call_args.kwargs["json"]
         self.assertFalse(request_body["stream"])
         self.assertEqual(request_body["options"]["temperature"], 0)
+        self.assertEqual(request_body["options"]["num_ctx"], 8192)
+        self.assertEqual(request_body["options"]["num_predict"], 2048)
         self.assertEqual(request_body["format"]["type"], "object")
+
+    def test_rejects_unbounded_summary_output(self):
+        with self.assertRaises(ValidationError):
+            LlamaSummary.model_validate(
+                {
+                    "summary": "x" * 1201,
+                    "key_discussions": [],
+                    "decisions": [],
+                    "action_items": [],
+                }
+            )
 
 
 if __name__ == "__main__":

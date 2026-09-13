@@ -32,6 +32,8 @@ Do not invent names, owners, dates, decisions, or action items.
 If an action item's owner or due date is not stated, use null.
 Set priority to high only when the transcript treats the item as urgent or blocking.
 Keep technical terms, measurements, and names as close to the transcript as possible.
+Keep the summary under 1,200 characters. Return at most 6 key discussions, 6 decisions, and
+8 action items. Keep each detail, decision, and rationale under 400 characters.
 Return JSON matching this schema exactly:
 {schema}
 
@@ -63,7 +65,9 @@ def summarize_transcript(
     normalized_language = normalize_language(language)
     model = os.getenv("OLLAMA_MODEL", "llama3")
     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-    timeout_seconds = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300"))
+    timeout_seconds = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "1200"))
+    context_tokens = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
+    max_tokens = int(os.getenv("OLLAMA_NUM_PREDICT", "2048"))
     output_schema = LlamaSummary.model_json_schema()
 
     try:
@@ -79,7 +83,11 @@ def summarize_transcript(
                 ],
                 "stream": False,
                 "format": output_schema,
-                "options": {"temperature": 0},
+                "options": {
+                    "temperature": 0,
+                    "num_ctx": context_tokens,
+                    "num_predict": max_tokens,
+                },
             },
             timeout=timeout_seconds,
         )
