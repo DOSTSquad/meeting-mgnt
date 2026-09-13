@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto'
+
 import { transaction } from '../db/postgres.js'
 import { failPendingAnalysisRunsForTranscript } from '../repositories/analysis-run-repository.js'
+import { createWorkflowOutboxEvent } from '../repositories/workflow-outbox-repository.js'
 import {
   lockActiveRecordingById,
   lockRecordingById,
@@ -62,7 +65,12 @@ export const startTranscription = async ({ recordingId, transcriptId }) =>
     return { stale: false, recording, transcript: current.transcript }
   })
 
-export const completeTranscription = async ({ recordingId, transcriptId, result }) =>
+export const completeTranscription = async ({
+  recordingId,
+  transcriptId,
+  analysisRunId = null,
+  result,
+}) =>
   transaction(async (client) => {
     const current = await loadCurrentTranscript(client, { recordingId, transcriptId })
 
@@ -97,6 +105,25 @@ export const completeTranscription = async ({ recordingId, transcriptId, result 
 
     if (!recording) {
       return STALE
+    }
+
+    if (analysisRunId && result.resultRef) {
+      await createWorkflowOutboxEvent(
+        {
+          id: randomUUID(),
+          eventType: 'analysis.requested',
+          aggregateType: 'analysis_run',
+          aggregateId: analysisRunId,
+          payload: {
+            meetingId: recording.meetingId,
+            recordingId,
+            transcriptId,
+            analysisRunId,
+            transcriptResultRef: result.resultRef,
+          },
+        },
+        client
+      )
     }
 
     return { stale: false, recording, transcript }

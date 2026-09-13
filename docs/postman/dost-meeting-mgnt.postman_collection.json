@@ -961,7 +961,7 @@
     },
     {
       "name": "Recordings",
-      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio. When `AI_PIPELINE_ENABLED=true`, upload returns an `uploaded` recording, a `processing` transcript, and a `queued` analysis run while the separate worker runtime publishes the BullMQ flow from the PostgreSQL outbox.",
+      "description": "Manage the single active meeting recording used for transcript/minutes generation. This is separate from regular Meeting Materials files, which can also include audio. When `AI_PIPELINE_ENABLED=true`, upload returns an `uploaded` recording, a `processing` transcript, and a `queued` analysis run while the separate server worker publishes Redis Stream jobs from the PostgreSQL outbox.",
       "item": [
         {
           "name": "Get active recording",

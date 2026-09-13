@@ -63,6 +63,8 @@ services:
     image: ollama/ollama:latest
     profiles: ['ai']
     restart: unless-stopped
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
     ports:
       - '127.0.0.1:11434:11434'
     volumes:
@@ -79,7 +81,9 @@ services:
       WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
-      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-300}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-1200}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-8192}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-2048}
     volumes:
       # The model is downloaded on the first transcription request; keep it out of
       # the image layer so a rebuild does not re-download it.
@@ -97,6 +101,46 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+
+  ai-worker:
+    build: ./ai-service
+    profiles: ['ai']
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - minio
+      - ollama
+    environment:
+      REDIS_URL: redis://redis:6379
+      AI_TRANSCRIPTION_STREAM: ${AI_TRANSCRIPTION_STREAM:-ai.transcription.jobs}
+      AI_ANALYSIS_STREAM: ${AI_ANALYSIS_STREAM:-ai.analysis.jobs}
+      AI_RESULT_STREAM: ${AI_RESULT_STREAM:-ai.results}
+      AI_STREAM_MAXLEN: ${AI_STREAM_MAXLEN:-10000}
+      AI_STREAM_READ_BLOCK_MS: ${AI_STREAM_READ_BLOCK_MS:-1000}
+      AI_STREAM_CLAIM_IDLE_MS: ${AI_STREAM_CLAIM_IDLE_MS:-60000}
+      AI_TRANSCRIPTION_PROVIDER: ${AI_TRANSCRIPTION_PROVIDER:-whisper}
+      AI_ANALYSIS_PROVIDER: ${AI_ANALYSIS_PROVIDER:-llm}
+      AI_TRANSCRIPTION_LANGUAGE: ${AI_TRANSCRIPTION_LANGUAGE:-en}
+      AI_ANALYSIS_LANGUAGE: ${AI_ANALYSIS_LANGUAGE:-en}
+      AI_JOB_MAX_ATTEMPTS: ${AI_JOB_MAX_ATTEMPTS:-3}
+      AI_JOB_RETRY_DELAY_SECONDS: ${AI_JOB_RETRY_DELAY_SECONDS:-5}
+      AI_JOB_LOCK_TTL_SECONDS: ${AI_JOB_LOCK_TTL_SECONDS:-3600}
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-1200}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-8192}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-2048}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_USE_SSL: 'false'
+      MINIO_BUCKET_AI_RESULTS: ${MINIO_BUCKET_AI_RESULTS:-meeting-ai-results}
+    volumes:
+      - whisper-models:/root/.cache/whisper
+    command: ['python', '-m', 'app.worker']
 
 volumes:
   postgres-data:

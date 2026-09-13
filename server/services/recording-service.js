@@ -210,6 +210,10 @@ export const uploadRecordingForMeeting = async ({
             recordingId: recording.id,
             transcriptId: transcript.id,
             analysisRunId: analysisRun.id,
+            bucketName: recording.bucketName,
+            objectKey: recording.objectKey,
+            fileName: recording.fileName,
+            mimeType: recording.mimeType,
           },
         },
         client

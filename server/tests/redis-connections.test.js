@@ -20,7 +20,7 @@ describe('redis connection roles', () => {
     expect(getPublisherRedisConnection().options.enableOfflineQueue).toBe(true)
   })
 
-  it('keeps the BullMQ producer failing fast instead of buffering', () => {
+  it('keeps the stream producer failing fast instead of buffering', () => {
     expect(getProducerRedisConnection().options.enableOfflineQueue).toBe(false)
   })
 

@@ -5,6 +5,7 @@ Express API for DOST Meeting Management System.
 Start the API with `npm run dev --workspace=server`.
 
 Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
+Start the Python `ai-worker` from `ai-service/` as well when real or fixture AI processing is enabled.
 
 The default port is `3001`, configurable through `PORT` in `.env`.
 
@@ -27,31 +28,40 @@ Migrations are located in `server/db/migrations` and tracked in `schema_migratio
 
 ## Recording Workflow Queue
 
-When `AI_PIPELINE_ENABLED=true`, run the API and worker runtime as separate processes. The API writes
-durable workflow outbox events in PostgreSQL; the worker runtime owns the outbox dispatcher and
-publishes recording workflows to BullMQ. Redis is used for delivery, retries, locks, and flow
-dependencies only; PostgreSQL remains the source of truth for user-visible workflow state.
+When `AI_PIPELINE_ENABLED=true`, run the API and server worker runtime as separate processes. The API
+writes durable workflow outbox events in PostgreSQL; the server worker publishes commands to Redis
+Streams and consumes the result stream. The separate Python `ai-worker` consumes the command streams
+and executes Whisper or LLM work. PostgreSQL remains the source of truth for user-visible workflow
+state.
 
 ```env
 REDIS_URL=redis://localhost:6379
 AI_PIPELINE_ENABLED=true
-RECORDING_TRANSCRIPTION_QUEUE_NAME=recording-transcription
-RECORDING_ANALYSIS_QUEUE_NAME=recording-analysis
+AI_TRANSCRIPTION_STREAM=ai.transcription.jobs
+AI_ANALYSIS_STREAM=ai.analysis.jobs
+AI_RESULT_STREAM=ai.results
+AI_RESULT_CONSUMER_GROUP=server-result-consumers
 WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS=5000
 WORKFLOW_OUTBOX_DISPATCH_LIMIT=25
 WORKFLOW_OUTBOX_LEASE_SECONDS=60
 WORKFLOW_OUTBOX_RETRY_DELAY_SECONDS=30
+AI_STREAM_MAXLEN=10000
+AI_STREAM_READ_BLOCK_MS=1000
+AI_STREAM_CLAIM_IDLE_MS=60000
+AI_JOB_MAX_ATTEMPTS=3
+AI_JOB_RETRY_DELAY_SECONDS=5
 ```
 
-The API process must not start the dispatcher or hold BullMQ producer/worker connections. Future
-workflow status streaming should use `GET /api/meetings/:meetingId/workflow/events` from the API,
-with any API-side Redis connection limited to status subscription.
+The API process must not start the dispatcher or hold workflow consumer connections. The server worker
+owns outbox dispatch and result consumption. The API's Redis connection is limited to status
+subscription and publication.
 
-Redis used by BullMQ must run with `maxmemory-policy noeviction`; evicting queue keys can corrupt
-workflow delivery semantics. Fixture providers are blocked in production unless
-`ALLOW_UNSAFE_FIXTURE_PROVIDERS=true` is set explicitly.
+Redis should run with `maxmemory-policy noeviction`; Streams are durable, but evicting entries can
+break workflow delivery. Stream consumers use acknowledgements and reclaim idle pending entries;
+duplicate delivery is expected and handled by guarded PostgreSQL transitions.
 
-Production runs the API and worker as independent systemd units:
+Production runs the API and server worker as independent systemd units. The Python `ai-worker`
+must run separately with access to the same Redis and MinIO instances:
 
 ```sh
 sudo systemctl restart meeting-mgnt-server.service
@@ -249,44 +259,35 @@ Meeting recordings are the dedicated audio source for transcript/minutes generat
 
 Any meeting participant can read recording metadata, transcript status, and analysis-run status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
-When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates an `uploaded` recording, a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The separate worker runtime publishes an idempotent BullMQ flow with a transcription child job and an analysis parent job; job payloads contain identifiers only. PostgreSQL statuses are the user-visible source of truth. The recording changes to `transcribing` only when a later worker actually starts transcription. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
+When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates an `uploaded` recording, a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The server worker publishes a transcription command to Redis Streams; the Python `ai-worker` writes a result artifact to MinIO and emits a result event. The server consumes that event, completes the transcript in PostgreSQL, and creates the analysis outbox event in the same transaction. PostgreSQL statuses are the user-visible source of truth. The recording changes to `transcribing` only when the AI worker emits a started event. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
 
-The worker runtime consumes the transcription child job through a provider adapter selected by
-`AI_TRANSCRIPTION_PROVIDER`. There is no default: an unset or unknown provider stops the worker at
-startup rather than failing every job, so a production worker can never silently emit fixture text.
-The `fixture` adapter returns deterministic text, segments, and duration, and still reads the audio
-stream chunk by chunk so the interface matches a real speech-to-text provider. Audio is never
-buffered whole in the worker and never stored in Redis.
+The Python worker consumes transcription jobs through the provider selected by
+`AI_TRANSCRIPTION_PROVIDER`. Production should use `whisper`; `fixture` is available for local
+workflow checks. Audio is read from MinIO by the AI worker and is never stored in Redis.
 
-Set `AI_TRANSCRIPTION_PROVIDER=whisper` to use the FastAPI service in `ai-service/`. The adapter
-streams the MinIO object to `POST /v1/transcribe` as multipart data and maps the service response to
-the same transcript interface used by the fixture adapter. Whisper does not provide speaker
-diarization, so persisted segments have `speaker: null` rather than an invented speaker label.
-Fractional segment timestamps are retained; the total duration is rounded up to the integer seconds
-used by the recording and transcript tables.
+Set `AI_TRANSCRIPTION_PROVIDER=whisper` to run Whisper in the Python `ai-worker`. Whisper does not
+provide speaker diarization, so persisted segments have `speaker: null` rather than an invented
+speaker label. Fractional segment timestamps are retained; the total duration is rounded up to the
+integer seconds used by the recording and transcript tables.
 
 ```env
 AI_TRANSCRIPTION_PROVIDER=whisper
-AI_SERVICE_URL=http://127.0.0.1:8000
 AI_TRANSCRIPTION_LANGUAGE=en
-AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS=600000
 WHISPER_MODEL=small
 WHISPER_DEVICE=cpu
 ```
 
-Start the existing FastAPI service locally with:
+Start the AI API, worker, and Ollama locally with:
 
 ```bash
-docker compose --profile ai up -d --build ai-service ollama
+docker compose --profile ai up -d --build ai-service ai-worker ollama
 docker compose exec ollama ollama pull llama3
-docker compose ps ai-service ollama
+docker compose ps ai-service ai-worker ollama
 ```
 
-The same container also exposes `POST /v1/summarize`, which asks Llama 3 through `ollama` for a
-structured summary, key points, decisions, and action-item suggestions. Nothing in the Node worker
-calls it yet — `AI_ANALYSIS_PROVIDER` still has only a `fixture` adapter, and wiring the LLM
-analysis adapter to this endpoint is #67. The `ollama` pull is therefore only needed when working
-on that endpoint.
+The Python worker asks Llama 3 through `ollama` for a structured summary, key points, decisions, and
+action-item suggestions. The FastAPI endpoints remain available for direct service checks, but the
+workflow path does not hold an HTTP request open while the model runs.
 
 The service loads the Whisper model lazily on the first transcription request and caches the
 download in the `whisper-models` volume, so the first request after a fresh volume is much slower
@@ -294,16 +295,13 @@ than later ones; the `/health` check passes before the model is loaded.
 
 The Compose port is bound to `127.0.0.1`; it is not a public application endpoint. The current
 FastAPI service has no request authentication, so production deployment must keep port `8000`
-restricted to the worker host or a private container network. `AI_TRANSCRIPTION_REQUEST_TIMEOUT_MS`
-covers the whole provider request, including the wait for response headers. That distinction matters: Node's built-in `fetch` abandons a request after 300 seconds of waiting for headers whatever the abort signal says, and `/v1/transcribe` sends none until Whisper has finished, so the adapter supplies its own dispatcher built from this value. Without it, roughly twenty minutes of audio was the ceiling regardless of configuration. It controls only the provider HTTP request; `RECORDING_TRANSCRIPTION_TIMEOUT_MS` remains the BullMQ lock
-duration. Recording uploads are capped at 50 MB by Express, so that is the effective limit even
-though the current FastAPI implementation accepts a larger request.
+restricted to the worker host or a private container network. AI job retries and deadlines are
+controlled by the Python worker and Redis Streams; recording uploads are capped at 50 MB by Express.
 
-Set `AI_ANALYSIS_PROVIDER=llm` to summarise through the FastAPI service instead of the fixture.
-The adapter posts the transcript to `POST /v1/summarize` as **numbered segments**, because every
-key discussion, decision, and suggestion has to cite the segments it came from and cannot do that
-against one undifferentiated blob. `analysis-schema.js` then checks those citations point inside
-this transcript, so a reviewer can follow every claim back to what was said.
+Set `AI_ANALYSIS_PROVIDER=llm` to summarise through the Python worker and Ollama instead of the
+fixture. The worker passes the transcript as **numbered segments**, because every key discussion,
+decision, and suggestion has to cite the segments it came from and cannot do that against one
+undifferentiated blob. The server validates those citations before persistence.
 
 An owner the model names resolves to a meeting participant only on an exact, unambiguous
 name match; anything else leaves the assignee empty. A due date is kept only when it is an
@@ -312,9 +310,11 @@ worse than an empty field a reviewer fills in, and acceptance re-checks particip
 
 ```env
 AI_ANALYSIS_PROVIDER=llm
-AI_SERVICE_URL=http://127.0.0.1:8000
 AI_ANALYSIS_LANGUAGE=en
-AI_ANALYSIS_REQUEST_TIMEOUT_MS=300000
+OLLAMA_TIMEOUT_SECONDS=1200
+OLLAMA_CONTEXT_LENGTH=8192
+OLLAMA_NUM_CTX=8192
+OLLAMA_NUM_PREDICT=2048
 ```
 
 This needs the `ollama` container and the `llama3` pull described in the AI service README.
@@ -322,13 +322,11 @@ This needs the `ollama` container and the `llama3` pull described in the AI serv
 Each transition is a guarded transaction. The recording must still be active and the transcript must
 still be `processing` and still attached to that recording; a guard matching nothing means the job is
 stale (the recording was archived or replaced, or another attempt already finished) and it is skipped
-without touching current state. Network failures, timeouts, interrupted responses, `408`, `429`, and
-provider `5xx` responses use BullMQ's bounded retries. Rejected audio and other provider `4xx`
-responses are permanent, as is a missing MinIO object: they fail the transcript immediately instead
-of consuming the remaining attempts. A terminal failure updates the transcript, recording, and every
-`queued` or `processing` analysis run for that transcript in one transaction. The transcription
-child carries `failParentOnFailure: true`, so an exhausted or unrecoverable transcription cannot
-leave analysis waiting forever.
+without touching current state. Network failures, timeouts, and provider errors use Redis Stream
+retries with an attempt limit. Rejected audio and a missing MinIO object are terminal failures. A
+terminal failure updates the transcript, recording, and every `queued` or `processing` analysis run
+for that transcript in one transaction. Analysis is only published after a transcription completed
+result is committed, so a failed transcription cannot leave an executable analysis job behind.
 
 After each transition commits, the worker publishes a recording-status invalidation on the
 `WORKFLOW_STATUS_CHANNEL` Redis channel using a dedicated publisher connection. The payload carries
@@ -421,10 +419,9 @@ the whole transcript.
 Everything here is read-only. Suggestions stay `proposed` and are not action
 items: promoting them is #65. Nothing in this slice touches minutes.
 
-The analysis worker runs the BullMQ parent job, which the flow releases only once
-its transcription child has completed. `failParentOnFailure` on the child means a
-failed transcription never starts an analysis at all — the dependency is enforced
-by the queue, not by a status check in the worker.
+The server publishes an analysis command only after the transcription result transaction commits.
+The dependency is enforced by the PostgreSQL state transition and outbox event, not by a queue
+parent/child primitive.
 
 Adapter output is validated before any write, including the fixture's. Evidence
 indexes are checked against the transcript that produced the run, so a citation
@@ -435,8 +432,8 @@ Provenance is enforced by the database: `0034` refuses to let a run reach
 `ready_for_review` without a summary, transcript, provider, model, and prompt
 version. A generated result nobody can trace is not reviewable.
 
-Worker tuning: `RECORDING_ANALYSIS_CONCURRENCY` (default `2`) and
-`RECORDING_ANALYSIS_TIMEOUT_MS` (default `120000`).
+Worker tuning: `AI_JOB_MAX_ATTEMPTS` (default `3`), `AI_JOB_RETRY_DELAY_SECONDS` (default `5`),
+`AI_JOB_LOCK_TTL_SECONDS` (default `3600`), and `AI_STREAM_CLAIM_IDLE_MS` (default `60000`).
 
 ### Workflow Events (`GET /api/meetings/:meetingId/workflow/events`)
 
@@ -486,20 +483,33 @@ npm run check:workflow --workspace=server
 ```
 
 The check seeds a throwaway meeting, uploads a recording through the real
-service, runs the worker runtime against the real queue, and asserts the settled
+service, runs the server worker runtime and Python AI worker against the real
+streams, and asserts the settled
 database state and the status invalidations. It removes what it created, and it
-enables the pipeline only for its own process, so `.env` needs no edit. It uses
-process-scoped queue and channel names, so it never steals work from a worker
-you already have running.
+enables the pipeline only for its own process, so `.env` needs no edit. Start the
+Python `ai-worker` before running it.
 
-`analysis_run.status` is expected to settle at `queued`: nothing consumes the
-analysis queue until #62.
+`analysis_run.status` is expected to settle at `ready_for_review` when both the
+transcription and analysis workers are running.
+
+To run the real Whisper and Ollama path against a local audio file, start the AI profile with
+`AI_TRANSCRIPTION_PROVIDER=whisper` and `AI_ANALYSIS_PROVIDER=llm`, then run:
+
+```bash
+SMOKE_TIMEOUT_MS=7200000 npm run check:whisper --workspace=server -- /absolute/path/to/recording.m4a
+```
+
+The check accepts `.m4a`, `.mp3`, `.wav`, and `.webm`, waits for the analysis run to reach
+`ready_for_review`, and writes the transcript, analysis result, and assertions to
+`artefacts/<recording-name>-ai-workflow-result.json`. It deletes the temporary database rows but
+does not remove the local result artifact.
 
 The unit and database suites cover each piece in isolation. This covers the seams
 between them, which is where a dropped first status invalidation was found.
 
-Worker tuning: `RECORDING_TRANSCRIPTION_CONCURRENCY` (default `2`) and
-`RECORDING_TRANSCRIPTION_TIMEOUT_MS` (default `120000`, used as the BullMQ lock duration).
+Whisper worker concurrency is intentionally one by default because the loaded Whisper model is
+shared and decoding is serialized. Scale by adding explicitly configured workers only after checking
+the available CPU/GPU capacity.
 
 ### Meeting Participants (`/api/meetings/:meetingId/participants`)
 

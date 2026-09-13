@@ -29,12 +29,13 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
 8. Start the client with `npm run dev --workspace=client`.
 
-The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (Whisper transcription and Llama 3 summarization) and `ollama` (the local model runtime it calls). Start both with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
+The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (health/API wrapper), `ai-worker` (Redis Streams consumer that runs Whisper and Llama 3), and `ollama` (the local model runtime it calls). Start them with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
 
-When the AI workflow is enabled, keep the API and worker runtime in separate processes. The API
-handles HTTP; the worker owns outbox dispatch and BullMQ workflow publication.
+When the AI workflow is enabled, keep the API, server worker runtime, and Python AI worker separate.
+The API handles HTTP, the server worker publishes the PostgreSQL outbox to Redis Streams and consumes
+AI results, and the Python worker executes Whisper or LLM jobs.
 
 ## Database Migrations
 

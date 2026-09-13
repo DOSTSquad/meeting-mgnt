@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-import { closeRecordingWorkflowQueue } from './recording-workflow-queue.js'
 import { closeRedisConnections } from './redis-connections.js'
 import { dispatchPendingWorkflowOutbox } from './workflow-outbox-service.js'
 
@@ -39,7 +38,6 @@ export const createWorkflowOutboxDispatcher = ({
   dispatch = dispatchPendingWorkflowOutbox,
   logger = console,
   environment = process.env,
-  closeQueue = closeRecordingWorkflowQueue,
   closeRedis = closeRedisConnections,
 } = {}) => {
   const config = getWorkflowOutboxDispatcherConfig(environment)
@@ -94,7 +92,6 @@ export const createWorkflowOutboxDispatcher = ({
     }
 
     await activeDispatch
-    await closeQueue()
     await closeRedis()
   }
 

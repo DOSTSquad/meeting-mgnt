@@ -3,24 +3,50 @@ import {
   markWorkflowOutboxDispatched,
   markWorkflowOutboxFailed,
 } from '../repositories/workflow-outbox-repository.js'
-import { queueRecordingAnalysisWorkflow } from './recording-workflow-queue.js'
+import { listByMeeting } from '../repositories/participant-repository.js'
+import { ANALYSIS_STREAM, TRANSCRIPTION_STREAM, publishAiJob } from './ai-streams.js'
 
 const DEFAULT_RETRY_DELAY_SECONDS = 30
 
 const toErrorMessage = (error) => error?.message || 'Workflow dispatch failed'
 
 const dispatchWorkflowEvent = async (event) => {
-  if (event.eventType !== 'recording.uploaded') {
-    throw new Error(`Unsupported workflow event type: ${event.eventType}`)
+  if (event.eventType === 'recording.uploaded') {
+    const { recordingId, transcriptId, analysisRunId, ...recording } = event.payload ?? {}
+
+    await publishAiJob({
+      stream: TRANSCRIPTION_STREAM,
+      eventType: 'transcription.requested',
+      jobId: `transcription-${transcriptId}`,
+      eventId: event.id,
+      payload: { recordingId, transcriptId, analysisRunId, recording },
+    })
+    return
   }
 
-  const { recordingId, transcriptId, analysisRunId } = event.payload ?? {}
+  if (event.eventType === 'analysis.requested') {
+    const { analysisRunId } = event.payload ?? {}
+    const participants = event.payload?.meetingId
+      ? await listByMeeting(event.payload.meetingId)
+      : []
 
-  await queueRecordingAnalysisWorkflow({
-    recordingId,
-    transcriptId,
-    analysisRunId,
-  })
+    await publishAiJob({
+      stream: ANALYSIS_STREAM,
+      eventType: 'analysis.requested',
+      jobId: `analysis-${analysisRunId}`,
+      eventId: event.id,
+      payload: {
+        ...event.payload,
+        participants: participants.map((participant) => ({
+          id: participant.userId,
+          name: participant.name,
+        })),
+      },
+    })
+    return
+  }
+
+  throw new Error(`Unsupported workflow event type: ${event.eventType}`)
 }
 
 export const dispatchPendingWorkflowOutbox = async ({
