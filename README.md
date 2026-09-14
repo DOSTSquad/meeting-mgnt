@@ -124,6 +124,11 @@ The Codex Cage source revision is pinned in `.github/workflows/codex-cage-issue.
 
 [`deploy/Caddyfile`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/deploy/Caddyfile) serves the built React app and proxies API traffic to the Express server.
 
+See [Deployment Guidelines](docs/deployment-guidelines.md) for the supported
+single-host topology, release procedure, operational checks, and AI capacity
+considerations. The optional [GPU Benchmark Runbook](docs/gpu-benchmark-runbook.md)
+documents the Windows WSL2/CUDA validation path.
+
 ## GitHub Actions Deployment
 
 The [`Deploy`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.github/workflows/deploy.yml)

@@ -32,7 +32,7 @@ from app.streams import (
     schedule_retry,
 )
 from app.summarization import summarize_transcript
-from app.transcription import transcribe_audio
+from app.transcription import transcribe_audio, validate_compute_profile
 
 RESULT_BUCKET = os.getenv("MINIO_BUCKET_AI_RESULTS", "meeting-ai-results")
 STOP = False
@@ -381,6 +381,10 @@ def run() -> None:
                 "Fixture providers require ALLOW_UNSAFE_FIXTURE_PROVIDERS=true: "
                 + ", ".join(fixture_providers)
             )
+
+    if provider_config["AI_TRANSCRIPTION_PROVIDER"] == "whisper":
+        profile, device = validate_compute_profile()
+        logger.info("AI transcription runtime profile=%s device=%s", profile, device)
 
     client = connection()
     consumer = os.getenv("AI_WORKER_CONSUMER_NAME", f"ai-worker-{os.getpid()}-{uuid.uuid4()}")

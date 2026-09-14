@@ -1,0 +1,26 @@
+# Optional overlay for a benchmark host with Docker GPU support. Use with:
+# docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile ai up -d --build
+services:
+  ollama:
+    platform: linux/amd64
+    gpus: all
+
+  ai-service:
+    platform: linux/amd64
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.gpu
+    environment:
+      AI_COMPUTE_PROFILE: gpu
+      WHISPER_DEVICE: cuda
+    gpus: all
+
+  ai-worker:
+    platform: linux/amd64
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.gpu
+    environment:
+      AI_COMPUTE_PROFILE: gpu
+      WHISPER_DEVICE: cuda
+    gpus: all

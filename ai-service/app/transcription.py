@@ -21,6 +21,26 @@ def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def validate_compute_profile() -> tuple[str, str]:
+    profile = os.getenv("AI_COMPUTE_PROFILE", "cpu").strip().lower()
+    device = get_device()
+
+    if profile not in {"cpu", "gpu"}:
+        raise RuntimeError("AI_COMPUTE_PROFILE must be cpu or gpu")
+
+    if profile == "cpu":
+        if device != "cpu":
+            raise RuntimeError("CPU compute profile requires WHISPER_DEVICE=cpu")
+        return profile, device
+
+    if device != "cuda":
+        raise RuntimeError("GPU compute profile requires WHISPER_DEVICE=cuda")
+    if not torch.cuda.is_available():
+        raise RuntimeError("GPU compute profile requires a CUDA-enabled PyTorch runtime")
+
+    return profile, device
+
+
 @lru_cache(maxsize=1)
 def get_model():
     model_name = os.getenv("WHISPER_MODEL", "small")
