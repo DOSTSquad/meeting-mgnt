@@ -582,6 +582,10 @@ export const DashboardView = ({
       (meeting) =>
         String(meeting.ownerId) !== String(currentUser?.id) &&
         sentConfirmationIds.includes(meeting.id) &&
+        (typeof window === 'undefined' ||
+          window.localStorage.getItem(
+            `meeting-confirmation:${meeting.id}:${currentUser?.id}:confirmed`
+          ) !== '1') &&
         new Date(meeting.startsAt).getTime() > currentTime.getTime() &&
         meeting.status !== 'cancelled'
     )
