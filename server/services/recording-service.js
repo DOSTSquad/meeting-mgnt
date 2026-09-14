@@ -152,7 +152,6 @@ export const uploadRecordingForMeeting = async ({
     'Content-Type': file.mimetype,
   })
 
-  const workflowEnabled = isAiPipelineEnabled()
   let result
 
   try {
@@ -176,51 +175,9 @@ export const uploadRecordingForMeeting = async ({
         client
       )
 
-      if (!workflowEnabled) {
-        return { recording, transcript: null, analysisRun: null }
-      }
-
-      const transcript = await createTranscript(
-        {
-          meetingId,
-          recordingId: recording.id,
-          createdBy: callerId,
-          status: 'processing',
-        },
-        client
-      )
-      const analysisRun = await createAnalysisRun(
-        {
-          id: randomUUID(),
-          meetingId,
-          recordingId: recording.id,
-          transcriptId: transcript.id,
-          createdBy: callerId,
-          status: 'queued',
-        },
-        client
-      )
-
-      await createWorkflowOutboxEvent(
-        {
-          id: randomUUID(),
-          eventType: 'recording.uploaded',
-          aggregateType: 'recording',
-          aggregateId: recording.id,
-          payload: {
-            recordingId: recording.id,
-            transcriptId: transcript.id,
-            analysisRunId: analysisRun.id,
-            bucketName: recording.bucketName,
-            objectKey: recording.objectKey,
-            fileName: recording.fileName,
-            mimeType: recording.mimeType,
-          },
-        },
-        client
-      )
-
-      return { recording, transcript, analysisRun }
+      // Uploading stores the audio only. The owner explicitly starts the
+      // transcription/analysis workflow via generateMinutesFromRecording.
+      return { recording, transcript: null, analysisRun: null }
     })
   } catch (error) {
     await removeNewObjectAfterFailure({
