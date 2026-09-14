@@ -7,7 +7,7 @@ import {
 
 export const getForMeeting = async (req, res, next) => {
   try {
-    const result = await getRecordingForMeeting(req.params.meetingId, req.user?.id)
+    const result = await getRecordingForMeeting(req.params.meetingId, req.user?.id, req.user?.role)
 
     res.json(result)
   } catch (error) {

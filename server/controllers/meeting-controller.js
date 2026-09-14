@@ -12,7 +12,8 @@ export const create = async (req, res, next) => {
     const meeting = await createMeetingForUser(
       req.body ?? {},
       req.user?.id,
-      req.app?.locals?.deliverMeetingCalendar
+      req.app?.locals?.deliverMeetingCalendar,
+      req.user?.role
     )
 
     res.status(201).json({ meeting })
@@ -28,7 +29,8 @@ export const list = async (req, res, next) => {
     const { from, to, status, q } = req.query
 
     const { rows, total } = await listMeetingsForQuery({
-      userId: req.user?.id,
+      userId: req.user?.role === 'admin' ? null : req.user?.id,
+      callerRole: req.user?.role,
       page,
       limit,
       from,
@@ -47,7 +49,7 @@ export const list = async (req, res, next) => {
 
 export const getOne = async (req, res, next) => {
   try {
-    const meeting = await getMeetingById(req.params.id, req.user?.id)
+    const meeting = await getMeetingById(req.params.id, req.user?.id, req.user?.role)
 
     res.json({ meeting })
   } catch (error) {
@@ -61,7 +63,8 @@ export const update = async (req, res, next) => {
       req.params.id,
       req.body ?? {},
       req.user?.id,
-      req.app?.locals?.deliverMeetingCalendar
+      req.app?.locals?.deliverMeetingCalendar,
+      req.user?.role
     )
 
     res.json({ meeting })

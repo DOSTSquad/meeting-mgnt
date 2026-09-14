@@ -35,8 +35,6 @@ const getSlotIso = (dateValue, timeValue, timezoneName) =>
     timeZone: timezoneName,
   }).toISOString()
 
-const isActiveMeeting = (meeting) => !['cancelled', 'archived'].includes(meeting.status)
-
 const isPastSlot = (dateValue, timeValue, timezoneName) =>
   zonedDateTimeToUtcDate({ date: dateValue, time: timeValue, timeZone: timezoneName }) < new Date()
 
@@ -47,22 +45,6 @@ const isSlotAtOrBeforeDeadline = (dateValue, timeValue, timezoneName, responseDe
       new Date(responseDeadline)
   )
 
-const findBlockedMeeting = ({ date, time, durationMinutes, timezoneName, blockedMeetings }) => {
-  const startsAt = zonedDateTimeToUtcDate({ date, time, timeZone: timezoneName })
-  const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000)
-
-  return blockedMeetings.find((meeting) => {
-    if (!isActiveMeeting(meeting)) {
-      return false
-    }
-
-    const meetingStartsAt = new Date(meeting.startsAt)
-    const meetingEndsAt = new Date(meeting.endsAt)
-
-    return startsAt < meetingEndsAt && endsAt > meetingStartsAt
-  })
-}
-
 export const AddTimeOptionsStep = ({
   options,
   durationMinutes,
@@ -70,7 +52,6 @@ export const AddTimeOptionsStep = ({
   endTime,
   timezoneName,
   responseDeadline,
-  blockedMeetings = [],
   onMeetingTimeChange,
   onAddOption,
   onRemoveOption,
@@ -92,22 +73,12 @@ export const AddTimeOptionsStep = ({
   const hasInvalidDeadlineOption = options.some(
     (option) => responseDeadline && new Date(option.startsAt) <= new Date(responseDeadline)
   )
-  const pendingBlockedMeeting = pendingDateValue
-    ? findBlockedMeeting({
-        date: pendingDateValue,
-        time: startTime,
-        durationMinutes,
-        timezoneName,
-        blockedMeetings,
-      })
-    : null
   const canChoosePendingDate =
     pendingDate &&
     hasValidTimeRange &&
     !isPendingDateSelected &&
     !isPendingDatePast &&
-    !isPendingDateAtOrBeforeDeadline &&
-    !pendingBlockedMeeting
+    !isPendingDateAtOrBeforeDeadline
 
   const chooseDate = (date) => {
     if (!date) {
@@ -146,15 +117,7 @@ export const AddTimeOptionsStep = ({
 
     return (
       isPastSlot(dateValue, startTime, timezoneName) ||
-      Boolean(
-        findBlockedMeeting({
-          date: dateValue,
-          time: startTime,
-          durationMinutes,
-          timezoneName,
-          blockedMeetings,
-        })
-      )
+      false
     )
   }
 

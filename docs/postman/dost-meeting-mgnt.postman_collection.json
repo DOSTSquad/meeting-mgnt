@@ -1037,7 +1037,7 @@
           ]
         },
         {
-          "name": "Generate minutes from recording scaffold",
+          "name": "Generate minutes from recording",
           "request": {
             "method": "POST",
             "url": {
@@ -1045,7 +1045,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording", "generate-minutes"]
             },
-            "description": "Scaffold endpoint. Until speech-to-text/LLM providers are configured, returns 202 with `generationStatus='not_configured'` and a failed transcript row."
+            "description": "Queues Speech-to-Text and analysis for the active recording. Returns 202 with `generationStatus='queued'`, the processing transcript, and the queued analysis run. Repeated requests reuse an active run."
           }
         },
         {

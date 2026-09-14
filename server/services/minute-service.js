@@ -34,10 +34,10 @@ const assertAuthenticated = (callerId) => {
   }
 }
 
-const assertCanAccessMeeting = async (meeting, callerId) => {
+const assertCanAccessMeeting = async (meeting, callerId, callerRole) => {
   assertAuthenticated(callerId)
 
-  if (callerId === meeting.ownerId) {
+  if (callerRole === 'admin' || callerId === meeting.ownerId) {
     return
   }
 
@@ -95,9 +95,9 @@ const assertReferencedUsersExist = async (updates) => {
   }
 }
 
-export const getMinutesForMeeting = async (meetingId, callerId) => {
+export const getMinutesForMeeting = async (meetingId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanAccessMeeting(meeting, callerId)
+  await assertCanAccessMeeting(meeting, callerId, callerRole)
 
   const existing = await findMinuteByMeetingId(meetingId)
 

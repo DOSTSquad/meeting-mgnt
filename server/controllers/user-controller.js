@@ -1,4 +1,14 @@
+import bcrypt from 'bcryptjs'
+import { deleteUser, updateUser } from '../repositories/user-repository.js'
 import { listUsersForDirectory } from '../services/user-service.js'
+
+const assertAdmin = (req) => {
+  if (req.user?.role !== 'admin') {
+    const error = new Error('Admin access required')
+    error.statusCode = 403
+    throw error
+  }
+}
 
 export const list = async (req, res, next) => {
   try {
@@ -7,4 +17,26 @@ export const list = async (req, res, next) => {
   } catch (error) {
     next(error)
   }
+}
+
+export const update = async (req, res, next) => {
+  try {
+    assertAdmin(req)
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot edit your own admin account' })
+    }
+    const passwordHash = req.body?.password ? await bcrypt.hash(req.body.password, 10) : undefined
+    const user = await updateUser(req.params.id, { ...req.body, passwordHash })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    res.json({ user })
+  } catch (error) { next(error) }
+}
+
+export const remove = async (req, res, next) => {
+  try {
+    assertAdmin(req)
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'You cannot delete yourself' })
+    await deleteUser(req.params.id)
+    res.status(204).end()
+  } catch (error) { next(error) }
 }

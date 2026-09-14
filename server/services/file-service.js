@@ -42,12 +42,12 @@ const assertManagePermission = (meeting, callerId, participants) => {
   }
 }
 
-const assertIsParticipant = (meeting, callerId, participants) => {
+const assertIsParticipant = (meeting, callerId, participants, callerRole) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.ownerId) {
+  if (callerRole === 'admin' || callerId === meeting.ownerId) {
     return
   }
 
@@ -113,10 +113,10 @@ export const uploadFile = async (meetingId, callerId, file, description, storage
   return { file: fileRow }
 }
 
-export const listFiles = async (meetingId, callerId) => {
+export const listFiles = async (meetingId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listByMeeting(meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertIsParticipant(meeting, callerId, participants, callerRole)
 
   const files = await listFilesByMeeting(meetingId)
 

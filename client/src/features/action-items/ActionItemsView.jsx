@@ -232,6 +232,7 @@ export const ActionItemsView = ({
   summaryActionItems = [],
   meetings = [],
   users = [],
+  currentUserId,
   selectedActionItemId: selectedActionItemIdProp = null,
   onSelectedActionItemHandled,
   onMoveActionItem,
@@ -248,6 +249,17 @@ export const ActionItemsView = ({
   const selectedActionItem = actionItems.find((item) => item.id === activeSelectedActionItemId)
   const selectedAssignee = selectedActionItem ? usersById.get(selectedActionItem.assigneeId) : null
   const selectedMeeting = selectedActionItem ? meetingsById.get(selectedActionItem.meetingId) : null
+  const [currentTime] = useState(() => Date.now())
+  const isMeetingReviewed = (meeting) => {
+    if (!meeting) return false
+    return (
+      new Date(meeting.startsAt).getTime() <= currentTime ||
+      (typeof window !== 'undefined' &&
+        window.localStorage.getItem(
+          `meeting-confirmation:${meeting.id}:${currentUserId}:confirmed`
+        ) === '1')
+    )
+  }
   const hasActiveListFilters = Object.values(listFilters).some(Boolean)
 
   const updateListFilter = (column, value) => {
@@ -432,6 +444,9 @@ export const ActionItemsView = ({
                     sortConfig={sortConfig}
                     onSort={handleListSort}
                   />
+                  <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-wide text-slate-400">
+                    Review pulse
+                  </th>
                 </tr>
                 <tr className="border-t border-slate-200 bg-white">
                   <th className="px-4 py-2">
@@ -576,6 +591,23 @@ export const ActionItemsView = ({
                             {tagLabel}
                           </p>
                         ) : null}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex rounded-md px-2 py-1 text-xs font-extrabold ${
+                            meeting?.ownerId === currentUserId
+                              ? 'bg-blue-50 text-blue-700'
+                              : isMeetingReviewed(meeting)
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}
+                        >
+                          {meeting?.ownerId === currentUserId
+                            ? 'Owner'
+                            : isMeetingReviewed(meeting)
+                              ? 'Reviewed'
+                              : 'Not reviewed'}
+                        </span>
                       </td>
                     </tr>
                   )

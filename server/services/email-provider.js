@@ -15,6 +15,13 @@ const createOperationalError = (message, statusCode, code) => {
 
 const isPresent = (value) => Boolean(value && String(value).trim())
 
+const createConsoleTransport = () => ({
+  sendMail: async ({ to, subject, text }) => {
+    console.info('[email:local] Message captured', { to, subject, text })
+    return { messageId: `local-${Date.now()}` }
+  },
+})
+
 export const createResendTransport = ({
   apiKey,
   fetchImpl = globalThis.fetch,
@@ -78,13 +85,17 @@ export const createEmailProvider = ({
   const provider = (env.EMAIL_PROVIDER || 'smtp').trim().toLowerCase()
   const clientUrl = env.CLIENT_URL
 
-  if (!['smtp', 'resend'].includes(provider)) {
+  if (!['smtp', 'resend', 'console'].includes(provider)) {
     throw createOperationalError(`Unsupported email provider: ${provider}`, 503)
   }
 
   const from = env.EMAIL_FROM || (provider === 'smtp' ? env.SMTP_FROM : undefined)
   if (!isPresent(from) || !isPresent(clientUrl)) {
     throw createOperationalError(`Email service is not configured for ${provider}`, 503)
+  }
+
+  if (provider === 'console') {
+    return { transport: createConsoleTransport(), from, clientUrl }
   }
 
   if (provider === 'resend') {

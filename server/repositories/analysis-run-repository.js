@@ -48,8 +48,8 @@ const mapAnalysisRun = (row) => {
   }
 }
 
-export const findLatestAnalysisRunByRecordingId = async (recordingId) => {
-  const result = await query(
+export const findLatestAnalysisRunByRecordingId = async (recordingId, db) => {
+  const result = await executor(db).query(
     `
       SELECT ${ANALYSIS_RUN_COLUMNS}
       FROM analysis_runs

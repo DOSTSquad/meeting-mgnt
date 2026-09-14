@@ -26,7 +26,8 @@ export const list = async (req, res, next) => {
     const { actionItems } = await listActionItems(
       req.params.meetingId,
       { status: req.query.status, assigneeId: req.query.assigneeId },
-      req.user?.id
+      req.user?.id,
+      req.user?.role
     )
 
     res.json({ actionItems })

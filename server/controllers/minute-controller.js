@@ -3,7 +3,7 @@ import { getMinutesForMeeting, updateMinutesForMeeting } from '../services/minut
 
 export const getForMeeting = async (req, res, next) => {
   try {
-    const { minutes } = await getMinutesForMeeting(req.params.meetingId, req.user?.id)
+    const { minutes } = await getMinutesForMeeting(req.params.meetingId, req.user?.id, req.user?.role)
 
     res.json({ minutes })
   } catch (error) {
