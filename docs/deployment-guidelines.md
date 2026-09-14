@@ -5,7 +5,7 @@ supports demonstrations and small internal pilots, not a high-availability
 production topology. The authoritative application configuration reference is
 [`.env.example`](../.env.example).
 
-## Topology
+## Architecture And Trust Boundaries
 
 - Caddy is the only public entry point. It serves the React build and proxies
   `/api/*` and `/health*` to the Express API.
@@ -14,6 +14,47 @@ production topology. The authoritative application configuration reference is
   loopback ports.
 - When enabled, the Python `ai-worker` consumes Redis Streams and uses MinIO.
   Ollama provides Llama 3 analysis. Both remain private-only services.
+
+```mermaid
+flowchart TB
+  Browser[Browser]
+
+  subgraph Host[Single-host deployment]
+    Caddy["Caddy<br/>Public HTTPS entry point"]
+    Client[React static build]
+    API["Express API<br/>systemd"]
+    Worker["Server worker<br/>systemd"]
+
+    subgraph State[Private stateful services]
+      Postgres[(PostgreSQL)]
+      Redis[(Redis)]
+      MinIO[(MinIO)]
+    end
+
+    subgraph AI[Optional private AI services]
+      AIWorker["Python AI worker<br/>CPU default, GPU benchmark optional"]
+      Ollama["Ollama<br/>Llama 3"]
+    end
+  end
+
+  Browser -->|HTTPS| Caddy
+  Caddy -->|Static assets| Client
+  Caddy -->|REST and SSE| API
+  API -->|SQL| Postgres
+  API -->|Redis Pub/Sub| Redis
+  API -->|Files and recordings| MinIO
+  Worker -->|Outbox and workflow state| Postgres
+  Worker -->|Redis Streams| Redis
+  AIWorker -->|Redis Streams| Redis
+  AIWorker -->|Read audio and write artifacts| MinIO
+  AIWorker -->|LLM analysis| Ollama
+```
+
+Caddy is the public trust boundary. All other services are private to the host
+or container network. PostgreSQL is the source of truth for user-visible
+workflow state, Redis Streams transports AI jobs and results, and MinIO stores
+recordings plus AI artifacts. The GPU profile is an optional benchmark path; the
+CPU worker remains the currently verified deployment path.
 
 Do not treat the root Compose file as an HA architecture. PostgreSQL, Redis, and
 MinIO volumes are single-host state and require backups plus a tested restore
