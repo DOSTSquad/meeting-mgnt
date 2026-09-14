@@ -11,6 +11,7 @@ import {
   archiveRecording,
   createRecording,
   findActiveRecordingByMeetingId,
+  updateRecordingStatus,
 } from '../repositories/recording-repository.js'
 import {
   createTranscript,
@@ -239,6 +240,62 @@ export const uploadRecordingForMeeting = async ({
   }
 
   return result
+}
+
+export const generateMinutesFromRecording = async (meetingId, callerId) => {
+  const meeting = await loadMeetingOrThrow(meetingId)
+  await assertCanManageRecording(meeting, callerId)
+
+  if (!isAiPipelineEnabled()) {
+    throw createHttpError('Speech-to-text pipeline is not enabled', 503)
+  }
+
+  const recording = await findActiveRecordingByMeetingId(meetingId)
+  if (!recording) {
+    throw createHttpError('Upload a meeting recording before generating minutes', 400)
+  }
+
+  return transaction(async (client) => {
+    const transcript = await createTranscript(
+      { meetingId, recordingId: recording.id, createdBy: callerId, status: 'processing' },
+      client
+    )
+    const analysisRun = await createAnalysisRun(
+      {
+        id: randomUUID(),
+        meetingId,
+        recordingId: recording.id,
+        transcriptId: transcript.id,
+        createdBy: callerId,
+        status: 'queued',
+      },
+      client
+    )
+    const updatedRecording = await updateRecordingStatus(
+      { id: recording.id, status: 'uploaded', errorMessage: null },
+      client
+    )
+    await createWorkflowOutboxEvent(
+      {
+        id: randomUUID(),
+        eventType: 'recording.generation_requested',
+        aggregateType: 'analysis_run',
+        aggregateId: analysisRun.id,
+        payload: {
+          recordingId: recording.id,
+          transcriptId: transcript.id,
+          analysisRunId: analysisRun.id,
+          bucketName: recording.bucketName,
+          objectKey: recording.objectKey,
+          fileName: recording.fileName,
+          mimeType: recording.mimeType,
+        },
+      },
+      client
+    )
+
+    return { recording: updatedRecording, transcript, analysisRun, generationStatus: 'queued' }
+  })
 }
 
 export const archiveRecordingForMeeting = async (meetingId, callerId) => {
