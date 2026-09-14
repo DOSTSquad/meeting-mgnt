@@ -576,7 +576,7 @@ export const MeetingDetailView = ({
               }}
               className="rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-sm transition hover:bg-blue-700"
             >
-              {isConfirmationSent ? 'Review requests sent' : 'Send review requests'}
+              {isConfirmationSent ? 'Sent review request' : 'Send review request'}
             </button>
           </div>
           {showReviewSentPopup ? (
