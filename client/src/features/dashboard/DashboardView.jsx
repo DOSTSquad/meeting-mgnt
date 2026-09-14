@@ -570,12 +570,17 @@ export const DashboardView = ({
       getMeetingDisplayStatus(meeting, currentTime.getTime()) === 'awaiting_completion'
   ).length
   const pendingToConfirmRequests = (data?.pendingMeetingRequests ?? [])
-    .filter((request) => request.canConfirm)
+    .filter(
+      (request) =>
+        request.canConfirm &&
+        // Owners do not need to review their own meeting details.
+        (!request.ownerId || String(request.ownerId) !== String(currentUser?.id))
+    )
     .sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' }))
   const pendingToConfirmMeetings = meetings
     .filter(
       (meeting) =>
-        meeting.ownerId !== currentUser?.id &&
+        String(meeting.ownerId) !== String(currentUser?.id) &&
         sentConfirmationIds.includes(meeting.id) &&
         new Date(meeting.startsAt).getTime() > currentTime.getTime() &&
         meeting.status !== 'cancelled'
