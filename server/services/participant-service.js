@@ -19,12 +19,12 @@ export const ALLOWED_ROLES = ['organizer', 'attendee', 'optional']
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const assertManagePermission = (meeting, callerId, participants) => {
+const assertManagePermission = (meeting, callerId, participants, callerRole) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.ownerId) {
+  if (callerRole === 'admin' || callerId === meeting.ownerId) {
     return
   }
 
@@ -47,7 +47,7 @@ const loadMeetingOrThrow = async (meetingId) => {
   return meeting
 }
 
-export const listParticipantsForMeeting = async (meetingId, callerId) => {
+export const listParticipantsForMeeting = async (meetingId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
 
   const participants = await listByMeeting(meetingId)
@@ -56,7 +56,7 @@ export const listParticipantsForMeeting = async (meetingId, callerId) => {
   }
 
   const canView =
-    meeting.ownerId === callerId ||
+    callerRole === 'admin' || meeting.ownerId === callerId ||
     participants.some((participant) => participant.userId === callerId)
   if (!canView) {
     throw createHttpError('Only meeting participants can view participants', 403)
@@ -65,7 +65,7 @@ export const listParticipantsForMeeting = async (meetingId, callerId) => {
   return { participants }
 }
 
-export const addParticipantsToMeeting = async (meetingId, input, callerId) => {
+export const addParticipantsToMeeting = async (meetingId, input, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
 
   const { userIds, role = 'attendee' } = input ?? {}
@@ -87,7 +87,7 @@ export const addParticipantsToMeeting = async (meetingId, input, callerId) => {
   }
 
   const currentParticipants = await listByMeeting(meetingId)
-  assertManagePermission(meeting, callerId, currentParticipants)
+  assertManagePermission(meeting, callerId, currentParticipants, callerRole)
 
   const foundUsers = await findUsersByIds(dedupedUserIds)
   const foundIds = new Set(foundUsers.map((user) => user.id))
@@ -107,11 +107,11 @@ export const addParticipantsToMeeting = async (meetingId, input, callerId) => {
   return { participants }
 }
 
-export const updateParticipant = async (meetingId, userId, input, callerId) => {
+export const updateParticipant = async (meetingId, userId, input, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
 
   const currentParticipants = await listByMeeting(meetingId)
-  assertManagePermission(meeting, callerId, currentParticipants)
+  assertManagePermission(meeting, callerId, currentParticipants, callerRole)
 
   const target = currentParticipants.find((participant) => participant.userId === userId)
 
@@ -146,11 +146,11 @@ export const updateParticipant = async (meetingId, userId, input, callerId) => {
   return { participant }
 }
 
-export const removeParticipant = async (meetingId, userId, callerId) => {
+export const removeParticipant = async (meetingId, userId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
 
   const currentParticipants = await listByMeeting(meetingId)
-  assertManagePermission(meeting, callerId, currentParticipants)
+  assertManagePermission(meeting, callerId, currentParticipants, callerRole)
 
   const target = currentParticipants.find((participant) => participant.userId === userId)
 

@@ -42,8 +42,8 @@ const mapTranscript = (row) => {
   }
 }
 
-export const findLatestTranscriptByRecordingId = async (recordingId) => {
-  const result = await query(
+export const findLatestTranscriptByRecordingId = async (recordingId, db) => {
+  const result = await executor(db).query(
     `
       SELECT ${TRANSCRIPT_COLUMNS}
       FROM meeting_transcripts

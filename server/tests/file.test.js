@@ -55,6 +55,7 @@ const {
   remove: removeHandler,
 } = await import('../controllers/file-controller.js')
 const {
+  generateForMeeting: generateRecordingHandler,
   getForMeeting: getRecordingHandler,
   removeForMeeting: removeRecordingHandler,
   uploadForMeeting: uploadRecordingHandler,
@@ -411,10 +412,10 @@ dbDescribe('File controller (DB-backed)', () => {
       expect(mockPublishAiJob).not.toHaveBeenCalled()
     })
 
-    it('creates durable workflow rows when the AI pipeline is enabled', async () => {
+    it('creates durable workflow rows when generation is requested', async () => {
       process.env.AI_PIPELINE_ENABLED = 'true'
 
-      const { res, nextError } = await runHandler(
+      const uploaded = await runHandler(
         uploadRecordingHandler,
         buildRequest({
           params: { meetingId: baseMeeting.id },
@@ -426,17 +427,31 @@ dbDescribe('File controller (DB-backed)', () => {
         })
       )
 
+      expect(uploaded.nextError).toBeUndefined()
+      expect(uploaded.res.statusCode).toBe(201)
+      expect(uploaded.res.body.transcript).toBeNull()
+      expect(uploaded.res.body.analysisRun).toBeNull()
+
+      const { res, nextError } = await runHandler(
+        generateRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+        })
+      )
+
+      expect(uploaded.res.body.recording.status).toBe('uploaded')
       expect(nextError).toBeUndefined()
-      expect(res.statusCode).toBe(201)
+      expect(res.statusCode).toBe(202)
       expect(res.body.recording.status).toBe('uploaded')
       expect(res.body.transcript).toMatchObject({
         meetingId: baseMeeting.id,
-        recordingId: res.body.recording.id,
+        recordingId: uploaded.res.body.recording.id,
         status: 'processing',
       })
       expect(res.body.analysisRun).toMatchObject({
         meetingId: baseMeeting.id,
-        recordingId: res.body.recording.id,
+        recordingId: uploaded.res.body.recording.id,
         transcriptId: res.body.transcript.id,
         status: 'queued',
       })
@@ -448,17 +463,17 @@ dbDescribe('File controller (DB-backed)', () => {
           FROM workflow_outbox
           WHERE aggregate_id = $1
         `,
-        [res.body.recording.id]
+        [res.body.analysisRun.id]
       )
       expect(outboxResult.rows).toHaveLength(1)
       expect(outboxResult.rows[0]).toMatchObject({
-        event_type: 'recording.uploaded',
-        aggregate_type: 'recording',
-        aggregate_id: res.body.recording.id,
+        event_type: 'recording.generation_requested',
+        aggregate_type: 'analysis_run',
+        aggregate_id: res.body.analysisRun.id,
         status: 'pending',
       })
       expect(outboxResult.rows[0].payload).toEqual({
-        recordingId: res.body.recording.id,
+        recordingId: uploaded.res.body.recording.id,
         transcriptId: res.body.transcript.id,
         analysisRunId: res.body.analysisRun.id,
         bucketName: 'meeting-audio',
@@ -468,12 +483,12 @@ dbDescribe('File controller (DB-backed)', () => {
       })
     })
 
-    it('keeps workflow intent pending when Redis is unavailable during upload', async () => {
+    it('keeps workflow intent pending when Redis is unavailable during generation', async () => {
       process.env.AI_PIPELINE_ENABLED = 'true'
       const originalRedisUrl = process.env.REDIS_URL
       process.env.REDIS_URL = 'redis://127.0.0.1:1'
 
-      const { res, nextError } = await runHandler(
+      const uploaded = await runHandler(
         uploadRecordingHandler,
         buildRequest({
           params: { meetingId: baseMeeting.id },
@@ -485,8 +500,17 @@ dbDescribe('File controller (DB-backed)', () => {
         })
       )
 
+      const { res, nextError } = await runHandler(
+        generateRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+        })
+      )
+
+      expect(uploaded.res.statusCode).toBe(201)
       expect(nextError).toBeUndefined()
-      expect(res.statusCode).toBe(201)
+      expect(res.statusCode).toBe(202)
       expect(res.body.analysisRun.status).toBe('queued')
       expect(mockPublishAiJob).not.toHaveBeenCalled()
 
@@ -496,7 +520,7 @@ dbDescribe('File controller (DB-backed)', () => {
           FROM workflow_outbox
           WHERE aggregate_id = $1
         `,
-        [res.body.recording.id]
+        [res.body.analysisRun.id]
       )
       expect(outboxResult.rows[0]).toMatchObject({
         status: 'pending',
@@ -617,6 +641,14 @@ dbDescribe('File controller (DB-backed)', () => {
         })
       )
       expect(uploaded.nextError).toBeUndefined()
+      const generated = await runHandler(
+        generateRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+        })
+      )
+      expect(generated.nextError).toBeUndefined()
       mockPublishAiJob.mockRejectedValueOnce(new Error('Redis unavailable'))
 
       await dispatchPendingWorkflowOutbox({ limit: 1, retryDelaySeconds: 1 })
@@ -630,7 +662,7 @@ dbDescribe('File controller (DB-backed)', () => {
           SET available_at = NOW()
           WHERE aggregate_id = $1
         `,
-        [uploaded.res.body.recording.id]
+        [generated.res.body.analysisRun.id]
       )
 
       await dispatchPendingWorkflowOutbox({ limit: 1 })
@@ -639,11 +671,11 @@ dbDescribe('File controller (DB-backed)', () => {
         expect.objectContaining({
           stream: 'ai.transcription.jobs',
           eventType: 'transcription.requested',
-          jobId: `transcription-${uploaded.res.body.transcript.id}`,
+          jobId: `transcription-${generated.res.body.transcript.id}`,
           payload: expect.objectContaining({
             recordingId: uploaded.res.body.recording.id,
-            transcriptId: uploaded.res.body.transcript.id,
-            analysisRunId: uploaded.res.body.analysisRun.id,
+            transcriptId: generated.res.body.transcript.id,
+            analysisRunId: generated.res.body.analysisRun.id,
           }),
         })
       )
@@ -654,7 +686,7 @@ dbDescribe('File controller (DB-backed)', () => {
           FROM workflow_outbox
           WHERE aggregate_id = $1
         `,
-        [uploaded.res.body.recording.id]
+        [generated.res.body.analysisRun.id]
       )
       expect(outboxResult.rows[0]).toMatchObject({
         status: 'dispatched',

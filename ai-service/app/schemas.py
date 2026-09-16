@@ -52,6 +52,14 @@ class ActionItemSuggestion(BaseModel):
     evidence: list[int] = Field(default_factory=list, max_length=4)
 
 
+class ChunkFindings(BaseModel):
+    """Evidence-backed facts extracted from one bounded transcript chunk."""
+
+    key_discussions: list[KeyDiscussion] = Field(default_factory=list, max_length=6)
+    decisions: list[Decision] = Field(default_factory=list, max_length=6)
+    action_items: list[ActionItemSuggestion] = Field(default_factory=list, max_length=8)
+
+
 class LlamaSummary(BaseModel):
     summary: str = Field(min_length=1, max_length=1200)
     key_discussions: list[KeyDiscussion] = Field(default_factory=list, max_length=6)

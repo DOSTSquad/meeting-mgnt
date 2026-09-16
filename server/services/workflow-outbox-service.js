@@ -11,7 +11,10 @@ const DEFAULT_RETRY_DELAY_SECONDS = 30
 const toErrorMessage = (error) => error?.message || 'Workflow dispatch failed'
 
 const dispatchWorkflowEvent = async (event) => {
-  if (event.eventType === 'recording.uploaded') {
+  if (
+    event.eventType === 'recording.uploaded' ||
+    event.eventType === 'recording.generation_requested'
+  ) {
     const { recordingId, transcriptId, analysisRunId, ...recording } = event.payload ?? {}
 
     await publishAiJob({

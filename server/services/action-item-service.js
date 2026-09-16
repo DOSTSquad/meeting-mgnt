@@ -34,12 +34,12 @@ const isOverdueActionItem = (actionItem) => {
 export const ALLOWED_STATUSES = ['todo', 'in_progress', 'completed', 'cancelled']
 export const ALLOWED_PRIORITIES = ['low', 'medium', 'high']
 
-const assertIsParticipant = (meeting, callerId, participants) => {
+const assertIsParticipant = (meeting, callerId, participants, callerRole) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.ownerId) {
+  if (callerRole === 'admin' || callerId === meeting.ownerId) {
     return
   }
 
@@ -119,10 +119,10 @@ const assertAssigneeIsParticipant = (assigneeId, participants) => {
   }
 }
 
-export const listActionItems = async (meetingId, { status, assigneeId } = {}, callerId) => {
+export const listActionItems = async (meetingId, { status, assigneeId } = {}, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listParticipantsByMeeting(meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertIsParticipant(meeting, callerId, participants, callerRole)
 
   if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
     throw createHttpError(`Invalid status: ${status}`, 400)

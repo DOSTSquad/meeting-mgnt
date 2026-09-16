@@ -27,11 +27,7 @@ export const PageHeader = ({
   const styles = accentStyles[accent] || accentStyles.blue
 
   return (
-    <header className="relative overflow-hidden rounded-2xl border border-white/80 bg-white px-5 py-4 shadow-sm shadow-slate-200/70 ring-1 ring-slate-200/70 sm:px-6 sm:py-5">
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${styles.glow}`}
-        aria-hidden="true"
-      />
+    <header className="relative overflow-hidden rounded-2xl border border-white/90 bg-gradient-to-r from-white via-white to-blue-50/80 px-5 py-5 shadow-sm shadow-blue-100/70 ring-1 ring-blue-100/60 sm:px-7 sm:py-6">
       <div className="relative flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span

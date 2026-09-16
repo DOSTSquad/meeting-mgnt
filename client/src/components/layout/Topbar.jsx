@@ -21,6 +21,7 @@ export const Topbar = ({
   onArchiveReadNotifications,
   onMarkAllNotificationsRead,
   onOpenNotification,
+  onOpenAdmin,
   onLogout,
 }) => {
   const profileRef = useRef(null)
@@ -53,8 +54,8 @@ export const Topbar = ({
   }, [isProfileOpen])
 
   return (
-    <header className="mb-5 flex min-h-14 items-center justify-end sm:mb-6">
-      <div className="flex h-11 items-center rounded-xl border border-slate-200/80 bg-white/80 px-2 shadow-sm shadow-slate-200/60 ring-1 ring-white/60">
+    <header className="mb-5 flex min-h-14 items-center gap-4 sm:mb-6">
+      <div className="ml-auto flex h-11 items-center rounded-xl border border-blue-100 bg-white px-2 shadow-sm shadow-blue-100/60 ring-1 ring-white">
         <NotificationMenu
           notifications={notifications}
           notificationCount={notificationCount}
@@ -96,10 +97,19 @@ export const Topbar = ({
               <p className="truncate px-2 text-sm font-semibold text-slate-900">
                 {currentUser?.email}
               </p>
+              {currentUser?.role === 'admin' ? (
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  className="mt-3 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+                >
+                  Admin menu
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onLogout}
-                className="mt-3 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
+                className="mt-1 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
               >
                 Log out
               </button>

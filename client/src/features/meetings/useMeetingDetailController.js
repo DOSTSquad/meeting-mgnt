@@ -15,6 +15,7 @@ import {
   editAnalysisSuggestion,
   getMeetingAnalysis,
   getMeetingRecording,
+  generateMeetingRecording,
   rejectAnalysisSuggestion,
   removeMeetingRecording,
   uploadMeetingRecording,
@@ -444,6 +445,21 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     [onError, selectedMeetingId, token]
   )
 
+  const generateMinutesFromRecording = useCallback(async () => {
+    if (!selectedMeetingId) return
+
+    try {
+      const result = await generateMeetingRecording(getApiClient(token), selectedMeetingId)
+      setSelectedMeetingDetail((prev) =>
+        prev
+          ? { ...prev, recording: result.recording, transcript: result.transcript, analysisRun: result.analysisRun }
+          : prev
+      )
+    } catch (error) {
+      onError(error.response?.data?.error || 'Unable to generate meeting text')
+    }
+  }, [onError, selectedMeetingId, token])
+
   const transcriptStatus = selectedMeetingDetail?.transcript?.status
   const analysisStatus = selectedMeetingDetail?.analysisRun?.status
   // One string so the effect re-subscribes on any phase change without depending
@@ -762,6 +778,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
     openUploadedFile,
     addPendingMeetingMaterialFiles,
     uploadRecording,
+    generateMinutesFromRecording,
     removeRecording,
   }
 }

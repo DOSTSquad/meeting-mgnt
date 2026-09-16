@@ -3,6 +3,7 @@ import { body, param } from 'express-validator'
 
 import {
   getAnalysisForMeeting,
+  generateForMeeting,
   getForMeeting,
   removeForMeeting,
   uploadForMeeting,
@@ -29,6 +30,8 @@ recordingRouter.put(
 )
 
 recordingRouter.get('/analysis', meetingIdValidator, handleValidationErrors, getAnalysisForMeeting)
+
+recordingRouter.post('/generate', meetingIdValidator, handleValidationErrors, generateForMeeting)
 
 recordingRouter.delete('/', meetingIdValidator, handleValidationErrors, removeForMeeting)
 

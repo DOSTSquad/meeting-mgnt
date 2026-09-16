@@ -37,24 +37,6 @@ const assertCanManageMinutes = async (meeting, callerId) => {
 }
 
 /**
- * Renders the generated sections into the text columns the minutes editor uses.
- *
- * Evidence indexes are dropped here: they are review aids for deciding whether
- * to apply, not part of the minutes a reader sees afterwards.
- */
-const renderDiscussions = (keyDiscussions) =>
-  keyDiscussions
-    .map((item) => `${item.topic}\n${item.detail}`.trim())
-    .filter(Boolean)
-    .join('\n\n')
-
-const renderDecisions = (decisions) =>
-  decisions
-    .map((item) => (item.rationale ? `${item.decision}\n${item.rationale}` : item.decision).trim())
-    .filter(Boolean)
-    .join('\n\n')
-
-/**
  * Applies a reviewed analysis run to the meeting's draft minutes.
  *
  * The generated result is read from the database; the provider is never called
@@ -98,8 +80,10 @@ export const applyGeneratedMinutes = async ({
     minuteId: minutes.id,
     expectedVersion,
     content: analysisRun.summary ?? '',
-    keyDiscussions: renderDiscussions(analysisRun.keyDiscussions ?? []),
-    decisions: renderDecisions(analysisRun.decisions ?? []),
+    // The generated Summary panel owns only the main minutes content. Preserve
+    // human-authored discussion and decision fields when applying it.
+    keyDiscussions: minutes.keyDiscussions ?? '',
+    decisions: minutes.decisions ?? '',
     generatedFromTranscriptId: analysisRun.transcriptId,
   })
 

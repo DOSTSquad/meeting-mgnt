@@ -11,6 +11,8 @@ import {
   archiveRecording,
   createRecording,
   findActiveRecordingByMeetingId,
+  lockActiveRecordingById,
+  updateRecordingStatus,
 } from '../repositories/recording-repository.js'
 import {
   createTranscript,
@@ -151,7 +153,6 @@ export const uploadRecordingForMeeting = async ({
     'Content-Type': file.mimetype,
   })
 
-  const workflowEnabled = isAiPipelineEnabled()
   let result
 
   try {
@@ -175,51 +176,9 @@ export const uploadRecordingForMeeting = async ({
         client
       )
 
-      if (!workflowEnabled) {
-        return { recording, transcript: null, analysisRun: null }
-      }
-
-      const transcript = await createTranscript(
-        {
-          meetingId,
-          recordingId: recording.id,
-          createdBy: callerId,
-          status: 'processing',
-        },
-        client
-      )
-      const analysisRun = await createAnalysisRun(
-        {
-          id: randomUUID(),
-          meetingId,
-          recordingId: recording.id,
-          transcriptId: transcript.id,
-          createdBy: callerId,
-          status: 'queued',
-        },
-        client
-      )
-
-      await createWorkflowOutboxEvent(
-        {
-          id: randomUUID(),
-          eventType: 'recording.uploaded',
-          aggregateType: 'recording',
-          aggregateId: recording.id,
-          payload: {
-            recordingId: recording.id,
-            transcriptId: transcript.id,
-            analysisRunId: analysisRun.id,
-            bucketName: recording.bucketName,
-            objectKey: recording.objectKey,
-            fileName: recording.fileName,
-            mimeType: recording.mimeType,
-          },
-        },
-        client
-      )
-
-      return { recording, transcript, analysisRun }
+      // Uploading stores the audio only. The owner explicitly starts the
+      // transcription/analysis workflow via generateMinutesFromRecording.
+      return { recording, transcript: null, analysisRun: null }
     })
   } catch (error) {
     await removeNewObjectAfterFailure({
@@ -239,6 +198,79 @@ export const uploadRecordingForMeeting = async ({
   }
 
   return result
+}
+
+export const generateMinutesFromRecording = async (meetingId, callerId) => {
+  const meeting = await loadMeetingOrThrow(meetingId)
+  await assertCanManageRecording(meeting, callerId)
+
+  if (!isAiPipelineEnabled()) {
+    throw createHttpError('Speech-to-text pipeline is not enabled', 503)
+  }
+
+  const recording = await findActiveRecordingByMeetingId(meetingId)
+  if (!recording) {
+    throw createHttpError('Upload a meeting recording before generating minutes', 400)
+  }
+
+  return transaction(async (client) => {
+    const activeRecording = await lockActiveRecordingById(recording.id, client)
+    if (!activeRecording) {
+      throw createHttpError('Recording was replaced before generation could start', 409)
+    }
+
+    const [latestTranscript, latestAnalysisRun] = await Promise.all([
+      findLatestTranscriptByRecordingId(activeRecording.id, client),
+      findLatestAnalysisRunByRecordingId(activeRecording.id, client),
+    ])
+    const isGenerationInProgress =
+      latestTranscript?.status === 'processing' ||
+      ['queued', 'processing'].includes(latestAnalysisRun?.status)
+
+    if (isGenerationInProgress) {
+      throw createHttpError('Generation is already in progress', 409)
+    }
+
+    const transcript = await createTranscript(
+      { meetingId, recordingId: activeRecording.id, createdBy: callerId, status: 'processing' },
+      client
+    )
+    const analysisRun = await createAnalysisRun(
+      {
+        id: randomUUID(),
+        meetingId,
+        recordingId: activeRecording.id,
+        transcriptId: transcript.id,
+        createdBy: callerId,
+        status: 'queued',
+      },
+      client
+    )
+    const updatedRecording = await updateRecordingStatus(
+      { id: activeRecording.id, status: 'uploaded', errorMessage: null },
+      client
+    )
+    await createWorkflowOutboxEvent(
+      {
+        id: randomUUID(),
+        eventType: 'recording.generation_requested',
+        aggregateType: 'analysis_run',
+        aggregateId: analysisRun.id,
+        payload: {
+          recordingId: activeRecording.id,
+          transcriptId: transcript.id,
+          analysisRunId: analysisRun.id,
+          bucketName: activeRecording.bucketName,
+          objectKey: activeRecording.objectKey,
+          fileName: activeRecording.fileName,
+          mimeType: activeRecording.mimeType,
+        },
+      },
+      client
+    )
+
+    return { recording: updatedRecording, transcript, analysisRun, generationStatus: 'queued' }
+  })
 }
 
 export const archiveRecordingForMeeting = async (meetingId, callerId) => {

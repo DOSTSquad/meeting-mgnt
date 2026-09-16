@@ -38,11 +38,12 @@ export const streamWorkflowEvents = async (req, res, next) => {
   })
   res.flushHeaders?.()
 
-  writeFrame(res, 'snapshot', snapshot)
-
   let closed = false
   let unsubscribe
   let heartbeat
+  let hasSentSnapshot = false
+  let invalidationQueued = false
+  let reloading = false
 
   const close = () => {
     if (closed) {
@@ -62,6 +63,7 @@ export const streamWorkflowEvents = async (req, res, next) => {
   // subscribing so a client that connects after the work finished gets its
   // snapshot and a clean close rather than an idle connection.
   if (isWorkflowSettled(snapshot)) {
+    writeFrame(res, 'snapshot', snapshot)
     writeFrame(res, 'settled', { reason: 'workflow-settled' })
     close()
     return
@@ -82,19 +84,31 @@ export const streamWorkflowEvents = async (req, res, next) => {
   // Never forward the Redis payload. It is only a signal that something changed;
   // Pub/Sub can drop or reorder it, so the authoritative state is re-read here.
   const onInvalidation = async () => {
-    if (closed) {
+    if (closed || !hasSentSnapshot) {
+      invalidationQueued = true
       return
     }
 
+    if (reloading) {
+      invalidationQueued = true
+      return
+    }
+
+    reloading = true
+
     try {
-      const fresh = await getWorkflowSnapshot(meetingId, callerId)
+      do {
+        invalidationQueued = false
+        const fresh = await getWorkflowSnapshot(meetingId, callerId)
 
-      writeFrame(res, 'status', fresh)
+        writeFrame(res, 'status', fresh)
 
-      if (isWorkflowSettled(fresh)) {
-        writeFrame(res, 'settled', { reason: 'workflow-settled' })
-        close()
-      }
+        if (isWorkflowSettled(fresh)) {
+          writeFrame(res, 'settled', { reason: 'workflow-settled' })
+          close()
+          return
+        }
+      } while (invalidationQueued && !closed)
     } catch (error) {
       // Access revoked mid-stream, or the database went away. Either way this
       // viewer must stop receiving updates.
@@ -104,6 +118,8 @@ export const streamWorkflowEvents = async (req, res, next) => {
         message: error.message,
       })
       close()
+    } finally {
+      reloading = false
     }
   }
 
@@ -113,6 +129,7 @@ export const streamWorkflowEvents = async (req, res, next) => {
     })
   } catch (error) {
     console.error('Workflow stream could not subscribe', { meetingId, message: error.message })
+    writeFrame(res, 'snapshot', snapshot)
     writeFrame(res, 'error', { message: 'Workflow stream unavailable' })
     close()
     return
@@ -121,6 +138,32 @@ export const streamWorkflowEvents = async (req, res, next) => {
   if (closed) {
     // The client hung up while the subscribe was in flight.
     unsubscribe()
+    return
+  }
+
+  try {
+    // Redis Pub/Sub does not replay. Reloading only after the listener exists
+    // closes the gap between authorisation and attaching this stream.
+    snapshot = await getWorkflowSnapshot(meetingId, callerId)
+    writeFrame(res, 'snapshot', snapshot)
+    hasSentSnapshot = true
+
+    if (isWorkflowSettled(snapshot)) {
+      writeFrame(res, 'settled', { reason: 'workflow-settled' })
+      close()
+      return
+    }
+
+    if (invalidationQueued) {
+      void onInvalidation()
+    }
+  } catch (error) {
+    writeFrame(res, 'error', { message: 'Workflow stream ended' })
+    console.error('Workflow stream reload failed', {
+      meetingId,
+      message: error.message,
+    })
+    close()
     return
   }
 

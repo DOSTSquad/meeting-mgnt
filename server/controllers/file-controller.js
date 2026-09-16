@@ -28,7 +28,7 @@ export const upload = async (req, res, next) => {
 
 export const list = async (req, res, next) => {
   try {
-    const { files } = await listFiles(req.params.meetingId, req.user?.id)
+    const { files } = await listFiles(req.params.meetingId, req.user?.id, req.user?.role)
 
     res.json({ files })
   } catch (error) {

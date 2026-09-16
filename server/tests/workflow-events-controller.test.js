@@ -128,8 +128,25 @@ describe('workflow events stream', () => {
     expect(framesOf(res)[0]).toEqual({ event: 'snapshot', data: processing })
   })
 
-  it('reloads from the database rather than forwarding the Redis payload', async () => {
+  it('reloads the snapshot after subscribing so a transition cannot be missed', async () => {
     getWorkflowSnapshot.mockResolvedValueOnce(processing).mockResolvedValueOnce(completed)
+    subscribe.mockImplementation(async (_meetingId, listener) => {
+      listener({ meetingId: MEETING_ID })
+      return unsubscribe
+    })
+
+    await streamWorkflowEvents(req, res, next)
+
+    expect(framesOf(res).map((frame) => frame.event)).toEqual(['snapshot', 'settled'])
+    expect(framesOf(res)[0]).toEqual({ event: 'snapshot', data: completed })
+    expect(getWorkflowSnapshot).toHaveBeenCalledTimes(2)
+  })
+
+  it('reloads from the database rather than forwarding the Redis payload', async () => {
+    getWorkflowSnapshot
+      .mockResolvedValueOnce(processing)
+      .mockResolvedValueOnce(processing)
+      .mockResolvedValueOnce(completed)
     await streamWorkflowEvents(req, res, next)
 
     const [, listener] = subscribe.mock.calls[0]
@@ -139,11 +156,14 @@ describe('workflow events stream', () => {
 
     const frames = framesOf(res)
     expect(frames[1]).toEqual({ event: 'status', data: completed })
-    expect(getWorkflowSnapshot).toHaveBeenCalledTimes(2)
+    expect(getWorkflowSnapshot).toHaveBeenCalledTimes(3)
   })
 
   it('closes the stream once the workflow settles', async () => {
-    getWorkflowSnapshot.mockResolvedValueOnce(processing).mockResolvedValueOnce(completed)
+    getWorkflowSnapshot
+      .mockResolvedValueOnce(processing)
+      .mockResolvedValueOnce(processing)
+      .mockResolvedValueOnce(completed)
     await streamWorkflowEvents(req, res, next)
 
     const [, listener] = subscribe.mock.calls[0]
@@ -201,6 +221,7 @@ describe('workflow events stream', () => {
 
   it('ends the stream when access is revoked mid-flight', async () => {
     getWorkflowSnapshot
+      .mockResolvedValueOnce(processing)
       .mockResolvedValueOnce(processing)
       .mockRejectedValueOnce(Object.assign(new Error('forbidden'), { statusCode: 403 }))
     await streamWorkflowEvents(req, res, next)

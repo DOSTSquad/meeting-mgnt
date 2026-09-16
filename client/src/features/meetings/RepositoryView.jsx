@@ -11,6 +11,7 @@ import {
 
 import { PageHeader } from '../../components/layout/PageHeader.jsx'
 import { formatDateOnly } from '../../utils/date.js'
+import { formatMeetingStatus, getMeetingDisplayStatus } from '../../utils/meetingStatus.js'
 
 const tagPalette = [
   { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-100' },
@@ -24,6 +25,14 @@ const getMeetingTime = (value) =>
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value))
+
+const getMeetingDateValue = (value) => {
+  const date = new Date(value)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 const getFileCount = (meeting) => Number(meeting.fileCount ?? 0)
 
@@ -41,8 +50,6 @@ const formatLatestMeeting = (timestamp) => {
   return `Latest ${formatDateOnly(timestamp)}`
 }
 
-const formatStatus = (status) => status.replaceAll('_', ' ')
-
 const getMatchingFileNames = (meeting, keyword) => {
   if (!keyword) {
     return []
@@ -53,19 +60,33 @@ const getMatchingFileNames = (meeting, keyword) => {
 
 const statusStyles = {
   scheduled: 'bg-blue-50 text-blue-700',
+  awaiting_completion: 'bg-amber-50 text-amber-700',
   completed: 'bg-emerald-50 text-emerald-700',
   cancelled: 'bg-rose-50 text-rose-700',
   archived: 'bg-slate-100 text-slate-600',
 }
 
 const PAGE_SIZE = 6
+const TAG_PAGE_SIZE = 4
 
-export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) => {
+export const RepositoryView = ({
+  meetings,
+  search,
+  onSearch,
+  onOpenMeeting,
+  title = 'Meeting Repository',
+  description = 'Browse meeting files through the meetings and tags they belong to.',
+}) => {
   const keyword = search.trim().toLowerCase()
-  const [currentTimestamp] = useState(() => Date.now())
+  const [searchDraft, setSearchDraft] = useState(search)
+  const [statusDraft, setStatusDraft] = useState('all')
+  const [tagDraft, setTagDraft] = useState('all')
+  const [dateDraft, setDateDraft] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedTagKey, setSelectedTagKey] = useState('all')
+  const [dateFilter, setDateFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [currentTagPage, setCurrentTagPage] = useState(1)
   const tagGroups = Array.from(
     meetings
       .reduce((groups, meeting) => {
@@ -88,19 +109,15 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
         return groups
       }, new Map())
       .values()
-  ).sort((first, second) => {
-    if (second.fileCount !== first.fileCount) {
-      return second.fileCount - first.fileCount
-    }
-
-    return second.meetings.length - first.meetings.length
-  })
+  ).sort((first, second) =>
+    first.label.localeCompare(second.label, undefined, { sensitivity: 'base', numeric: true })
+  )
   const totalFileCount = meetings.reduce((total, meeting) => total + getFileCount(meeting), 0)
   const latestMeetingTimestamp = meetings.reduce(
     (latest, meeting) => Math.max(latest, new Date(meeting.startsAt).getTime()),
     0
   )
-  const tagCards = [
+  const allTagCards = [
     {
       key: 'all',
       label: 'All Meetings',
@@ -108,23 +125,31 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
       fileCount: totalFileCount,
       latestTimestamp: latestMeetingTimestamp,
     },
-    ...tagGroups.slice(0, 3),
+    ...tagGroups,
   ]
+  const totalTagPages = Math.max(1, Math.ceil(allTagCards.length / TAG_PAGE_SIZE))
+  const visibleTagPage = Math.min(currentTagPage, totalTagPages)
+  const tagPageStartIndex = (visibleTagPage - 1) * TAG_PAGE_SIZE
+  const tagCards = allTagCards.slice(tagPageStartIndex, tagPageStartIndex + TAG_PAGE_SIZE)
   const tagFilterOptions = [
     {
       key: 'all',
-      label: 'All Meetings',
+      label: 'All Tags',
       meetings,
       fileCount: totalFileCount,
     },
     ...tagGroups,
   ]
   const filteredMeetings = meetings.filter((meeting) => {
-    if (statusFilter !== 'all' && meeting.status !== statusFilter) {
+    if (statusFilter !== 'all' && getMeetingDisplayStatus(meeting) !== statusFilter) {
       return false
     }
 
     if (selectedTagKey !== 'all' && getTagKey(meeting) !== selectedTagKey) {
+      return false
+    }
+
+    if (dateFilter && getMeetingDateValue(meeting.startsAt) !== dateFilter) {
       return false
     }
 
@@ -155,75 +180,98 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
   )
   const shownStart = sortedMeetings.length === 0 ? 0 : currentPageStartIndex + 1
   const shownEnd = Math.min(currentPageStartIndex + shownMeetings.length, sortedMeetings.length)
-  const upcomingCount = filteredMeetings.filter(
-    (meeting) => new Date(meeting.endsAt).getTime() >= currentTimestamp
-  ).length
   const selectedTagLabel =
-    tagCards.find((card) => card.key === selectedTagKey)?.label ||
-    tagGroups.find((group) => group.key === selectedTagKey)?.label ||
-    'Meeting Tag'
+    allTagCards.find((card) => card.key === selectedTagKey)?.label || 'Meeting Tag'
 
-  const handleSearchChange = (value) => {
+  const handleSearchSubmit = (event) => {
+    event.preventDefault()
     setCurrentPage(1)
-    onSearch(value)
-  }
-
-  const handleStatusFilterChange = (value) => {
-    setCurrentPage(1)
-    setStatusFilter(value)
+    onSearch(searchDraft)
+    setStatusFilter(statusDraft)
+    setSelectedTagKey(tagDraft)
+    setDateFilter(dateDraft)
+    const tagIndex = allTagCards.findIndex((tag) => tag.key === tagDraft)
+    if (tagIndex >= 0) {
+      setCurrentTagPage(Math.floor(tagIndex / TAG_PAGE_SIZE) + 1)
+    }
   }
 
   const handleTagSelect = (tagKey) => {
     setCurrentPage(1)
+    setTagDraft(tagKey)
     setSelectedTagKey(tagKey)
+    const tagIndex = allTagCards.findIndex((tag) => tag.key === tagKey)
+    if (tagIndex >= 0) {
+      setCurrentTagPage(Math.floor(tagIndex / TAG_PAGE_SIZE) + 1)
+    }
   }
 
   return (
     <section className="min-w-0 space-y-6">
       <PageHeader
         eyebrow="Meeting library"
-        title="Meeting Repository"
-        description="Browse meeting files through the meetings and tags they belong to."
+        title={title}
+        description={description}
         icon={FolderOpen}
         accent="violet"
       />
 
-      <div className="flex flex-col gap-3 rounded-lg border border-slate-100 bg-slate-50 p-2 sm:flex-row sm:items-center">
-        <label className="flex h-9 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500">
-          <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
+      <form
+        onSubmit={handleSearchSubmit}
+        className="flex flex-col gap-3 rounded-lg border border-slate-100 bg-slate-50 p-2 sm:flex-row sm:flex-wrap sm:items-center"
+      >
+        <label className="flex h-9 min-w-56 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500">
+          <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
           <input
             type="search"
-            value={search}
-            onChange={(event) => handleSearchChange(event.target.value)}
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
             placeholder="Search meeting, tag, or file name..."
             className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
           />
         </label>
         <select
-          value={statusFilter}
-          onChange={(event) => handleStatusFilterChange(event.target.value)}
+          value={statusDraft}
+          onChange={(event) => setStatusDraft(event.target.value)}
           className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-300"
         >
-          <option value="all">All Meetings</option>
+          <option value="all">All Statuses</option>
           <option value="scheduled">Scheduled</option>
+          <option value="awaiting_completion">Awaiting completion</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
-          <option value="archived">Archived</option>
         </select>
-        <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">
+        <select
+          value={tagDraft}
+          onChange={(event) => setTagDraft(event.target.value)}
+          aria-label="Filter by meeting tag"
+          className="h-9 min-w-40 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-300"
+        >
+          {tagFilterOptions.map((tag) => (
+            <option key={tag.key} value={tag.key}>
+              {tag.label} ({tag.meetings.length})
+            </option>
+          ))}
+        </select>
+        <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">
           <CalendarDays className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <span>{upcomingCount} upcoming</span>
-        </div>
-        {selectedTagKey !== 'all' ? (
-          <button
-            type="button"
-            onClick={() => handleTagSelect('all')}
-            className="h-9 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-          >
-            Clear tag
-          </button>
-        ) : null}
-      </div>
+          <span className="sr-only">Filter by date</span>
+          <input
+            type="date"
+            value={dateDraft}
+            onChange={(event) => setDateDraft(event.target.value)}
+            aria-label="Filter by date"
+            className="bg-transparent text-xs font-semibold text-slate-700 outline-none"
+          />
+        </label>
+        <button
+          type="submit"
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-extrabold text-white shadow-sm transition hover:bg-blue-700"
+        >
+          <Search className="h-3.5 w-3.5" aria-hidden="true" />
+          Search
+        </button>
+      </form>
 
       <div>
         <div className="flex items-end justify-between gap-3">
@@ -235,20 +283,6 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
           </div>
           <span className="text-xs font-semibold text-slate-400">{totalFileCount} files total</span>
         </div>
-        <label className="mt-3 block sm:hidden">
-          <span className="sr-only">Filter by meeting tag</span>
-          <select
-            value={selectedTagKey}
-            onChange={(event) => handleTagSelect(event.target.value)}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-300"
-          >
-            {tagFilterOptions.map((tag) => (
-              <option key={tag.key} value={tag.key}>
-                {tag.label} ({tag.meetings.length} meetings / {tag.fileCount} files)
-              </option>
-            ))}
-          </select>
-        </label>
         <div className="mt-3 hidden gap-3 sm:grid sm:grid-cols-2 xl:grid-cols-4">
           {tagCards.map((tag, index) => {
             const palette = tagPalette[index % tagPalette.length]
@@ -284,6 +318,33 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
             </p>
           ) : null}
         </div>
+        {totalTagPages > 1 ? (
+          <div className="mt-3 hidden items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 sm:flex">
+            <p className="text-xs font-semibold text-slate-500">
+              Tag page {visibleTagPage} of {totalTagPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentTagPage((page) => Math.max(1, page - 1))}
+                disabled={visibleTagPage === 1}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                Prev
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentTagPage((page) => Math.min(totalTagPages, page + 1))}
+                disabled={visibleTagPage === totalTagPages}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-xs font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -311,6 +372,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
           </div>
           <div className="divide-y divide-slate-100">
             {shownMeetings.map((meeting) => {
+              const displayStatus = getMeetingDisplayStatus(meeting)
               const participantNames = meeting.participantNames || []
               const fileCount = getFileCount(meeting)
               const matchingFileNames = getMatchingFileNames(meeting, keyword)
@@ -318,7 +380,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                 Number(meeting.participantCount || 0) - participantNames.slice(0, 3).length,
                 0
               )
-              const statusClass = statusStyles[meeting.status] || statusStyles.archived
+              const statusClass = statusStyles[displayStatus] || statusStyles.archived
 
               return (
                 <button
@@ -341,6 +403,9 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                           {participantNames.slice(0, 3).join(', ') || 'No attendees listed'}
                           {participantOverflow > 0 ? ` +${participantOverflow}` : ''}
                         </span>
+                      </span>
+                      <span className="mt-1 block truncate text-xs font-semibold text-blue-700">
+                        Meeting owner: {meeting.ownerName || 'Unknown'}
                       </span>
                       {matchingFileNames.length > 0 ? (
                         <span className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
@@ -384,7 +449,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${statusClass}`}
                     >
-                      {formatStatus(meeting.status)}
+                      {formatMeetingStatus(displayStatus)}
                     </span>
                   </span>
 
@@ -403,7 +468,7 @@ export const RepositoryView = ({ meetings, search, onSearch, onOpenMeeting }) =>
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${statusClass}`}
                     >
-                      {formatStatus(meeting.status)}
+                      {formatMeetingStatus(displayStatus)}
                     </span>
                   </span>
 
