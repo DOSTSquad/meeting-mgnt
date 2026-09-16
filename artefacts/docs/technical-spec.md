@@ -1,6 +1,6 @@
 # DOST Meeting Management Technical Specification
 
-Last updated: 2026-05-20
+Last updated: 2026-09-16
 
 ## 1. Purpose
 
@@ -42,11 +42,16 @@ authorization is primarily based on meeting creator and participant role.
 flowchart LR
   Browser["Browser"] -->|HTTPS| Caddy["Caddy reverse proxy"]
   Caddy -->|serves static application| React["React web application"]
-  Caddy -->|proxies API and health traffic| API["Express API service"]
+  Caddy -->|proxies API, SSE, and health traffic| API["Express API service"]
   API --> Postgres["PostgreSQL database"]
   API --> MinIO["MinIO object storage"]
-  API --> Redis["Redis service"]
+  API -->|status invalidation| Redis["Redis service"]
   API --> Auth["Token-based authentication"]
+  ServerWorker["Node workflow worker"] -->|outbox and result state| Postgres
+  ServerWorker -->|Redis Streams| Redis
+  AIWorker["Python AI worker"] -->|Redis Streams| Redis
+  AIWorker -->|audio and result artifacts| MinIO
+  AIWorker --> Ollama["Ollama LLM runtime"]
 ```
 
 Caddy is the public browser-facing entrypoint. The browser loads the React application from Caddy
@@ -55,15 +60,17 @@ private Express API service. The browser does not call the private API service d
 
 ### 3.2 System Components
 
-| Component       | Technology / approach                         | Status                 | Client-facing responsibility                                                                 |
-| --------------- | --------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------- |
-| Web application | React single-page application                 | `[Implemented]`        | Dashboard, meeting repository, meeting detail, scheduling, minutes, files, and action items. |
-| API service     | Node.js and Express                           | `[Implemented]`        | Business rules, authorization, validation, workflow transitions, file orchestration.         |
-| Database        | PostgreSQL                                    | `[Implemented]`        | Meeting metadata, users, participants, requests, minutes, action items, notifications.       |
-| Object storage  | MinIO                                         | `[Implemented]`        | Meeting files, recordings, and generated audio/transcript artifacts.                         |
-| Redis           | Redis-compatible service                      | `[Scaffolded]`         | Readiness dependency now; planned queue/cache foundation for Semester 2.                     |
-| Reverse proxy   | Caddy                                         | `[Implemented]`        | TLS termination, static web delivery, API routing, and browser-facing traffic control.       |
-| AI services     | Speech-to-text and summarization integrations | `[Semester 2 Planned]` | Recording transcription, AI summaries, and draft action-item extraction.                     |
+| Component            | Technology / approach          | Status          | Client-facing responsibility                                                                 |
+| -------------------- | ------------------------------ | --------------- | -------------------------------------------------------------------------------------------- |
+| Web application      | React single-page application  | `[Implemented]` | Dashboard, meeting repository, meeting detail, scheduling, minutes, files, and action items. |
+| API service          | Node.js and Express            | `[Implemented]` | Business rules, authorization, validation, workflow transitions, file orchestration, SSE.    |
+| Node workflow worker | Node.js worker runtime         | `[Implemented]` | Dispatches durable workflow outbox events and persists AI result transitions.                |
+| Python AI worker     | Python, Whisper, Redis Streams | `[Implemented]` | Transcribes recordings and generates structured summaries and proposed action items.         |
+| Ollama               | Private local LLM runtime      | `[Implemented]` | Provides local structured analysis for completed transcripts.                                |
+| Database             | PostgreSQL                     | `[Implemented]` | Authoritative meeting and workflow status, transcripts, analysis results, and outbox events. |
+| Object storage       | MinIO                          | `[Implemented]` | Meeting files, recordings, and generated transcript and analysis artifacts.                  |
+| Redis                | Redis Streams and Pub/Sub      | `[Implemented]` | Delivers AI commands/results and broadcasts workflow-status invalidations.                   |
+| Reverse proxy        | Caddy                          | `[Implemented]` | TLS termination, static web delivery, API routing, SSE, and browser-facing traffic control.  |
 
 ### 3.3 Application Modules
 
@@ -79,8 +86,8 @@ private Express API service. The browser does not call the private API service d
 | Minutes management             | `[Implemented]`        | Meeting minutes record with editable content and publication fields.                             |
 | Action items                   | `[Implemented]`        | Meeting-linked and user-linked action-item tracking.                                             |
 | In-app notifications           | `[Implemented]`        | Notification feed, read/unread state, archive actions.                                           |
-| Recording-to-minutes workflow  | `[Scaffolded]`         | Recording metadata and generation status foundation.                                             |
-| AI transcription and summaries | `[Semester 2 Planned]` | Transcription, AI-generated summaries, and suggested action items from recordings.               |
+| Recording-to-minutes workflow  | `[Implemented]`        | Durable recording, transcription, analysis, review, and status-update workflow.                  |
+| AI transcription and summaries | `[Implemented]`        | Whisper transcripts, structured AI summaries, and reviewable action-item suggestions.            |
 | Expanded RBAC/admin controls   | `[Semester 2 Planned]` | App-wide administrative controls and role-aware management workflows.                            |
 
 ## 4. Core Workflows
@@ -141,9 +148,30 @@ Status transitions are forward-only. Archived meetings are treated as terminal r
 - Organizers and creators can manage meeting materials and recordings.
 - Download links are short-lived.
 - Minutes are stored as a dedicated meeting resource.
-- `[Scaffolded]` Recording generation status exists today.
-- `[Semester 2 Planned]` Recording upload reliability, audio extraction, transcription, AI summaries,
-  and suggested action-item generation will be completed in Semester 2.
+- Recording upload creates a durable workflow record when the AI pipeline is enabled.
+- Transcripts, AI summaries, decisions, and proposed action items are available for review before they
+  are applied to meeting minutes.
+
+### 4.5 Recording Analysis Workflow
+
+When `AI_PIPELINE_ENABLED=true`, recording processing is asynchronous and uses PostgreSQL as the
+authoritative workflow state:
+
+1. The API stores the recording in MinIO and, in one PostgreSQL transaction, creates a recording, a
+   processing transcript, a queued analysis run, and a `recording.uploaded` workflow-outbox event.
+2. The Node workflow worker relays the outbox event to the `ai.transcription.jobs` Redis Stream.
+3. The Python AI worker downloads the audio from MinIO, runs Whisper, writes a transcript artifact to
+   MinIO, and publishes lifecycle/result events to the `ai.results` Redis Stream.
+4. The Node workflow worker validates and persists the transcript, then creates and dispatches an
+   `analysis.requested` outbox event.
+5. The Python AI worker reads the transcript artifact, calls Ollama for a structured summary, key
+   discussions, decisions, and proposed action items, then publishes the analysis result.
+6. The Node workflow worker validates and persists the analysis result, then publishes Redis Pub/Sub
+   invalidations. Connected clients receive refreshed PostgreSQL status snapshots over SSE.
+
+Audio and transcript text are never placed in Redis. Redis carries commands, results, and status
+invalidations only. Failed or duplicate deliveries are handled through retry settings and guarded
+PostgreSQL workflow transitions.
 
 ## 5. Database Design
 
@@ -157,9 +185,11 @@ erDiagram
   MEETING ||--o{ MEETING_FILE : has
   MEETING ||--o{ ACTION_ITEM : has
   USER ||--o{ ACTION_ITEM : assigned
-  MEETING ||--|| MINUTES : has
-  MEETING ||--o{ RECORDING : has
-  RECORDING ||--o{ TRANSCRIPT : produces
+   MEETING ||--|| MINUTES : has
+   MEETING ||--o{ RECORDING : has
+   RECORDING ||--o{ TRANSCRIPT : produces
+   RECORDING ||--o{ ANALYSIS_RUN : produces
+   TRANSCRIPT ||--o{ ANALYSIS_RUN : informs
   TAG ||--o{ MEETING : classifies
   USER ||--o{ MEETING_REQUEST : creates
   MEETING_REQUEST ||--o{ TIME_OPTION : offers
@@ -184,7 +214,9 @@ erDiagram
 | Availability response | Invitee response for a candidate time option.                     | Belongs to one invitee and one time option.                    |
 | Tag                   | Meeting repository classification.                                | Classifies meetings.                                           |
 | Recording             | Dedicated meeting recording metadata.                             | Belongs to one meeting; may produce transcripts.               |
-| Transcript            | `[Scaffolded]` Transcript and generation status record.           | Belongs to one recording and meeting.                          |
+| Transcript            | Persisted Whisper transcript, segments, provenance, and status.   | Belongs to one recording and meeting.                          |
+| Analysis run          | Generated summary, decisions, and reviewable action suggestions.  | Uses one transcript and may reference one recording.           |
+| Workflow outbox       | Durable command awaiting Redis Stream dispatch.                   | Records recording and analysis workflow events.                |
 | Minutes               | One meeting minutes record containing prepared meeting notes.     | Belongs to one meeting.                                        |
 | Notification          | Persisted in-app notification shown in dashboard/topbar contexts. | Belongs to one recipient user and may reference system events. |
 
@@ -343,7 +375,8 @@ The recommended production model is:
 2. Caddy serves the built React application.
 3. Caddy forwards API and health requests to the private API service.
 4. The API service connects to PostgreSQL, Redis, and MinIO over private network paths.
-5. AI worker services are added separately in Semester 2 if transcription and summarization are enabled.
+5. When AI is enabled, the Node workflow worker dispatches outbox events and consumes results, while the
+   Python `ai-worker` executes Whisper and Ollama jobs.
 
 The recommended future direction is containerized deployment. Docker Compose is acceptable for the
 current MVP, local development, and small non-HA demonstrations. For client pilot and production, the
@@ -362,29 +395,33 @@ failover design whether they run on dedicated hosts, managed services, Docker Sw
 Production environments should define the following configuration values. Secret values must be
 generated per environment and stored in the client's approved secret-management mechanism.
 
-| Configuration             | Purpose                                                               |
-| ------------------------- | --------------------------------------------------------------------- |
-| `NODE_ENV`                | Runtime mode; production deployments should use `production`.         |
-| `PORT`                    | Private API service port behind Caddy.                                |
-| `RATE_LIMIT_WINDOW_MS`    | API rate-limit time window.                                           |
-| `RATE_LIMIT_MAX`          | Maximum API requests allowed within the rate-limit window.            |
-| `TRUST_PROXY`             | Enables proxy-aware client IP handling when running behind Caddy.     |
-| `DATABASE_URL`            | PostgreSQL connection string used by the API service.                 |
-| `POSTGRES_USER`           | PostgreSQL user for provisioned database environments.                |
-| `POSTGRES_PASSWORD`       | PostgreSQL password for provisioned database environments.            |
-| `POSTGRES_DB`             | PostgreSQL database name.                                             |
-| `REDIS_URL`               | Redis service connection URL.                                         |
-| `MINIO_ENDPOINT`          | MinIO service hostname or endpoint.                                   |
-| `MINIO_PORT`              | MinIO service port.                                                   |
-| `MINIO_USE_SSL`           | Whether the API should use TLS when connecting to MinIO.              |
-| `MINIO_ACCESS_KEY`        | MinIO access key for application object-storage access.               |
-| `MINIO_SECRET_KEY`        | MinIO secret key for application object-storage access.               |
-| `MINIO_BUCKET_FILES`      | Bucket for ordinary meeting files.                                    |
-| `MINIO_BUCKET_AUDIO`      | Bucket for recordings and audio artifacts.                            |
-| `JWT_SECRET`              | Token-signing secret for authenticated sessions.                      |
-| `JWT_EXPIRES_IN`          | Session token lifetime.                                               |
-| `VITE_API_BASE_URL`       | Web application API base URL; use same-origin routing behind Caddy.   |
-| AI provider configuration | `[Semester 2 Planned]` Provider/model settings for transcription/LLM. |
+| Configuration               | Purpose                                                             |
+| --------------------------- | ------------------------------------------------------------------- |
+| `NODE_ENV`                  | Runtime mode; production deployments should use `production`.       |
+| `PORT`                      | Private API service port behind Caddy.                              |
+| `RATE_LIMIT_WINDOW_MS`      | API rate-limit time window.                                         |
+| `RATE_LIMIT_MAX`            | Maximum API requests allowed within the rate-limit window.          |
+| `TRUST_PROXY`               | Enables proxy-aware client IP handling when running behind Caddy.   |
+| `DATABASE_URL`              | PostgreSQL connection string used by the API service.               |
+| `POSTGRES_USER`             | PostgreSQL user for provisioned database environments.              |
+| `POSTGRES_PASSWORD`         | PostgreSQL password for provisioned database environments.          |
+| `POSTGRES_DB`               | PostgreSQL database name.                                           |
+| `REDIS_URL`                 | Redis service connection URL.                                       |
+| `MINIO_ENDPOINT`            | MinIO service hostname or endpoint.                                 |
+| `MINIO_PORT`                | MinIO service port.                                                 |
+| `MINIO_USE_SSL`             | Whether the API should use TLS when connecting to MinIO.            |
+| `MINIO_ACCESS_KEY`          | MinIO access key for application object-storage access.             |
+| `MINIO_SECRET_KEY`          | MinIO secret key for application object-storage access.             |
+| `MINIO_BUCKET_FILES`        | Bucket for ordinary meeting files.                                  |
+| `MINIO_BUCKET_AUDIO`        | Bucket for recordings and audio artifacts.                          |
+| `JWT_SECRET`                | Token-signing secret for authenticated sessions.                    |
+| `JWT_EXPIRES_IN`            | Session token lifetime.                                             |
+| `VITE_API_BASE_URL`         | Web application API base URL; use same-origin routing behind Caddy. |
+| `AI_PIPELINE_ENABLED`       | Enables the asynchronous recording-to-analysis workflow.            |
+| `AI_TRANSCRIPTION_PROVIDER` | Transcription provider; production uses `whisper`.                  |
+| `AI_ANALYSIS_PROVIDER`      | Analysis provider; production uses `llm`.                           |
+| `OLLAMA_MODEL`              | Local Ollama model used for structured transcript analysis.         |
+| `WHISPER_MODEL`             | Whisper model used by the Python AI worker.                         |
 
 Deployment automation, where used, should also define the deployment host, deployment user,
 deployment path, deployment service name, connection port, and private deployment credential. These
@@ -411,9 +448,15 @@ flowchart LR
   Browser["Browser"] --> Caddy["Caddy on VPS"]
   Caddy --> React["React static build"]
   Caddy --> API["Express API on private port"]
+  Caddy -->|SSE| API
   API --> Postgres["PostgreSQL via Docker Compose"]
   API --> Redis["Redis via Docker Compose"]
   API --> MinIO["MinIO via Docker Compose"]
+  Worker["Node workflow worker"] --> Postgres
+  Worker --> Redis
+  AIWorker["Python AI worker"] --> Redis
+  AIWorker --> MinIO
+  AIWorker --> Ollama["Ollama"]
 ```
 
 Docker Compose is used for local/supporting dependencies. The application can run as a host service
@@ -428,9 +471,10 @@ or development process, while Caddy remains the public browser-facing entrypoint
 5. Install dependencies from the lockfile.
 6. Run database migrations.
 7. Build the React application with same-origin API routing.
-8. Start or restart the private Express API service.
-9. Configure Caddy to serve the built React app and proxy `/api/*` and `/health*`.
-10. Validate liveness, readiness, login, dashboard, meeting detail, and file access.
+8. Start or restart the private Express API service and Node workflow worker.
+9. When AI processing is enabled, start the private Python `ai-worker` and Ollama services.
+10. Configure Caddy to serve the built React app and proxy `/api/*` and `/health*`.
+11. Validate liveness, readiness, login, dashboard, meeting detail, and file access.
 
 Example release CLI:
 
@@ -440,10 +484,12 @@ git fetch --all --prune
 git checkout main
 git pull --ff-only origin main
 docker compose up -d postgres redis minio minio-init
+docker compose --profile ai up -d --build ai-service ai-worker ollama
 npm ci
 VITE_API_BASE_URL=/ npm run build --workspace=client
 npm run migrate --workspace=server
-sudo systemctl restart <service-name>
+sudo systemctl restart meeting-mgnt-server.service
+sudo systemctl restart meeting-mgnt-worker.service
 sudo systemctl reload caddy
 curl -fsS http://127.0.0.1:<api-port>/health/live
 curl -fsS http://127.0.0.1:<api-port>/health/ready
@@ -487,11 +533,11 @@ confirm that the application process is running.
 | Core meeting management                 | `[Implemented]`        | Meeting creation, list/search, detail, participants, files, minutes, and action items are in scope.                                                                                                    |
 | Meeting request scheduling              | `[Implemented]`        | Invitees can respond to candidate times; creators can confirm after responses or deadline.                                                                                                             |
 | Dashboard and notifications             | `[Implemented]`        | Dashboard aggregates upcoming meetings, requests, action items, and notification state.                                                                                                                |
-| Dedicated recording record              | `[Scaffolded]`         | Recording metadata and generation status exist; full AI processing is Semester 2.                                                                                                                      |
+| Recording-to-analysis workflow          | `[Implemented]`        | Outbox-backed transcription and analysis workflow persists reviewable results.                                                                                                                         |
 | Large recording upload reliability      | `[Semester 2 Planned]` | Large recording workflows should use chunking or direct object-storage upload patterns.                                                                                                                |
-| Speech-to-text transcription            | `[Semester 2 Planned]` | Recording transcription will be implemented after provider/model evaluation.                                                                                                                           |
-| AI summaries and extracted action items | `[Semester 2 Planned]` | AI-generated summaries and suggested action items require review/approval controls before publication.                                                                                                 |
-| On-prem AI model evaluation             | `[Semester 2 Planned]` | Model, GPU, latency, accuracy, and data-governance trade-offs should be assessed before implementation.                                                                                                |
+| Speech-to-text transcription            | `[Implemented]`        | Whisper generates persisted transcript text and timestamped segments from recordings.                                                                                                                  |
+| AI summaries and extracted action items | `[Implemented]`        | Local LLM analysis generates reviewable summaries, decisions, and proposed action items.                                                                                                               |
+| On-prem AI model evaluation             | `[Future Enhancement]` | Model, GPU, latency, accuracy, and data-governance trade-offs should continue to be assessed.                                                                                                          |
 | Expanded RBAC and admin controls        | `[Semester 2 Planned]` | Broader administrative role management and app-wide route checks are planned.                                                                                                                          |
 | External notification delivery channels | `[Future Enhancement]` | Email, push, Slack, Teams, or similar outbound channels are outside the current scope.                                                                                                                 |
 | Backend-driven repository pagination    | `[Future Enhancement]` | May be required when the meeting repository grows beyond comfortable client-side filtering.                                                                                                            |
