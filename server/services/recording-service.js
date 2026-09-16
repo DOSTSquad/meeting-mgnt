@@ -11,6 +11,7 @@ import {
   archiveRecording,
   createRecording,
   findActiveRecordingByMeetingId,
+  lockActiveRecordingById,
   updateRecordingStatus,
 } from '../repositories/recording-repository.js'
 import {
@@ -213,15 +214,32 @@ export const generateMinutesFromRecording = async (meetingId, callerId) => {
   }
 
   return transaction(async (client) => {
+    const activeRecording = await lockActiveRecordingById(recording.id, client)
+    if (!activeRecording) {
+      throw createHttpError('Recording was replaced before generation could start', 409)
+    }
+
+    const [latestTranscript, latestAnalysisRun] = await Promise.all([
+      findLatestTranscriptByRecordingId(activeRecording.id, client),
+      findLatestAnalysisRunByRecordingId(activeRecording.id, client),
+    ])
+    const isGenerationInProgress =
+      latestTranscript?.status === 'processing' ||
+      ['queued', 'processing'].includes(latestAnalysisRun?.status)
+
+    if (isGenerationInProgress) {
+      throw createHttpError('Generation is already in progress', 409)
+    }
+
     const transcript = await createTranscript(
-      { meetingId, recordingId: recording.id, createdBy: callerId, status: 'processing' },
+      { meetingId, recordingId: activeRecording.id, createdBy: callerId, status: 'processing' },
       client
     )
     const analysisRun = await createAnalysisRun(
       {
         id: randomUUID(),
         meetingId,
-        recordingId: recording.id,
+        recordingId: activeRecording.id,
         transcriptId: transcript.id,
         createdBy: callerId,
         status: 'queued',
@@ -229,7 +247,7 @@ export const generateMinutesFromRecording = async (meetingId, callerId) => {
       client
     )
     const updatedRecording = await updateRecordingStatus(
-      { id: recording.id, status: 'uploaded', errorMessage: null },
+      { id: activeRecording.id, status: 'uploaded', errorMessage: null },
       client
     )
     await createWorkflowOutboxEvent(
@@ -239,13 +257,13 @@ export const generateMinutesFromRecording = async (meetingId, callerId) => {
         aggregateType: 'analysis_run',
         aggregateId: analysisRun.id,
         payload: {
-          recordingId: recording.id,
+          recordingId: activeRecording.id,
           transcriptId: transcript.id,
           analysisRunId: analysisRun.id,
-          bucketName: recording.bucketName,
-          objectKey: recording.objectKey,
-          fileName: recording.fileName,
-          mimeType: recording.mimeType,
+          bucketName: activeRecording.bucketName,
+          objectKey: activeRecording.objectKey,
+          fileName: activeRecording.fileName,
+          mimeType: activeRecording.mimeType,
         },
       },
       client

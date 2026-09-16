@@ -44,7 +44,8 @@ const jwt = (await import('jsonwebtoken')).default
 const IORedis = (await import('ioredis')).default
 const { createApp } = await import('../app.js')
 const { closePool, query } = await import('../db/postgres.js')
-const { uploadRecordingForMeeting } = await import('../services/recording-service.js')
+const { generateMinutesFromRecording, uploadRecordingForMeeting } =
+  await import('../services/recording-service.js')
 const { createAiResultConsumerService } = await import('../services/ai-result-consumer.js')
 const { createWorkerRuntime } = await import('../worker-runtime.js')
 const { WORKFLOW_STATUS_CHANNEL } = await import('../services/workflow-status-publisher.js')
@@ -196,6 +197,9 @@ try {
     },
   })
 
+  console.log('Starting transcription and analysis generation')
+  await generateMinutesFromRecording(meetingId, userId)
+
   console.log('Waiting for the worker')
   const startedAt = Date.now()
   let state
@@ -222,7 +226,9 @@ try {
        FROM meeting_recordings r
        JOIN meeting_transcripts t ON t.recording_id = r.id
        LEFT JOIN analysis_runs a ON a.transcript_id = t.id
-       LEFT JOIN workflow_outbox o ON o.aggregate_id = r.id
+       LEFT JOIN workflow_outbox o
+         ON o.aggregate_id = a.id
+        AND o.event_type = 'recording.generation_requested'
        WHERE r.id = $1`,
       [uploaded.recording.id]
     )
@@ -248,8 +254,6 @@ try {
     check('transcript.status', state?.transcript_status, 'completed'),
     check('transcript.segments', Number(state?.segment_count), 3),
     check('transcript.completed_at', state?.completed_at ? 'set' : 'null', 'set'),
-    // No analysis consumer exists until #62, so a queued run is the correct
-    // outcome here, not a stuck one.
     check('analysis_run.status', state?.analysis_status, 'ready_for_review'),
     check('analysis.summary', Boolean(state?.analysis_summary), true),
     check('analysis.provider', state?.analysis_provider, 'fixture'),

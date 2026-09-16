@@ -16,6 +16,8 @@ const recording = {
 const createTranscript = jest.fn()
 const createAnalysisRun = jest.fn()
 const createWorkflowOutboxEvent = jest.fn()
+const findLatestAnalysisRunByRecordingId = jest.fn()
+const findLatestTranscriptByRecordingId = jest.fn()
 const updateRecordingStatus = jest.fn()
 
 jest.unstable_mockModule('../db/postgres.js', () => ({
@@ -40,12 +42,12 @@ jest.unstable_mockModule('../repositories/recording-repository.js', () => ({
 
 jest.unstable_mockModule('../repositories/transcript-repository.js', () => ({
   createTranscript,
-  findLatestTranscriptByRecordingId: jest.fn(async () => null),
+  findLatestTranscriptByRecordingId,
 }))
 
 jest.unstable_mockModule('../repositories/analysis-run-repository.js', () => ({
   createAnalysisRun,
-  findLatestAnalysisRunByRecordingId: jest.fn(async () => null),
+  findLatestAnalysisRunByRecordingId,
 }))
 
 jest.unstable_mockModule('../repositories/workflow-outbox-repository.js', () => ({
@@ -64,6 +66,8 @@ describe('recording generation service', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     process.env.AI_PIPELINE_ENABLED = 'true'
+    findLatestTranscriptByRecordingId.mockResolvedValue(null)
+    findLatestAnalysisRunByRecordingId.mockResolvedValue(null)
     createTranscript.mockResolvedValue({
       id: transcriptId,
       meetingId,
@@ -106,5 +110,19 @@ describe('recording generation service', () => {
       statusCode: 503,
       message: 'Speech-to-text pipeline is not enabled',
     })
+  })
+
+  it('rejects a second request while generation is in progress', async () => {
+    findLatestTranscriptByRecordingId.mockResolvedValue({ status: 'processing' })
+    findLatestAnalysisRunByRecordingId.mockResolvedValue({ status: 'queued' })
+
+    await expect(generateMinutesFromRecording(meetingId, ownerId)).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'Generation is already in progress',
+    })
+
+    expect(createTranscript).not.toHaveBeenCalled()
+    expect(createAnalysisRun).not.toHaveBeenCalled()
+    expect(createWorkflowOutboxEvent).not.toHaveBeenCalled()
   })
 })
