@@ -1017,7 +1017,7 @@
                 }
               ]
             },
-            "description": "Uploads the one active recording used for minutes generation. Returns `{ recording, transcript, analysisRun }`. Without `replace=true`, a second active recording returns 409. With `AI_PIPELINE_ENABLED=true`, the recording remains `uploaded`, the transcript is `processing`, and the analysis run is `queued`; otherwise transcript and analysisRun are null. Redis dispatch happens asynchronously from the durable workflow outbox in the worker runtime; later workers move the recording to `transcribing` only when transcription actually starts."
+            "description": "Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409."
           },
           "event": [
             {
@@ -1041,12 +1041,27 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording/generate-minutes",
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/recording/generate",
               "host": ["{{baseUrl}}"],
-              "path": ["meetings", "{{meetingId}}", "recording", "generate-minutes"]
+              "path": ["meetings", "{{meetingId}}", "recording", "generate"]
             },
-            "description": "Queues Speech-to-Text and analysis for the active recording. Returns 202 with `generationStatus='queued'`, the processing transcript, and the queued analysis run. Repeated requests reuse an active run."
-          }
+            "description": "Queues Speech-to-Text and analysis for the active recording. Returns 202 with `generationStatus='queued'`, the processing transcript, and the queued analysis run. A request while generation is already active returns 409."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.transcript && data.transcript.id) pm.collectionVariables.set('transcriptId', data.transcript.id);",
+                  "  if (data.analysisRun && data.analysisRun.id) pm.collectionVariables.set('analysisRunId', data.analysisRun.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Remove active recording",
