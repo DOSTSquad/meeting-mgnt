@@ -101,12 +101,12 @@ const deliverCalendarBestEffort = async (deliverCalendar, payload) => {
   }
 }
 
-const assertCanAccessMeeting = (meeting, callerId, participants) => {
+const assertCanAccessMeeting = (meeting, callerId, participants, callerRole) => {
   if (!callerId) {
     throw createHttpError('Authentication required', 401)
   }
 
-  if (callerId === meeting.ownerId) {
+  if (callerRole === 'admin' || callerId === meeting.ownerId) {
     return
   }
 
@@ -186,7 +186,7 @@ export const createMeetingForUser = async (input, userId, deliverCalendar) => {
   return meeting
 }
 
-export const getMeetingById = async (id, callerId) => {
+export const getMeetingById = async (id, callerId, callerRole) => {
   const meeting = await findMeetingById(id)
 
   if (!meeting) {
@@ -194,12 +194,12 @@ export const getMeetingById = async (id, callerId) => {
   }
 
   const participants = await listByMeeting(id)
-  assertCanAccessMeeting(meeting, callerId, participants)
+  assertCanAccessMeeting(meeting, callerId, participants, callerRole)
 
   return { ...meeting, participants }
 }
 
-export const updateMeetingById = async (id, input, callerId, deliverCalendar) => {
+export const updateMeetingById = async (id, input, callerId, deliverCalendar, callerRole) => {
   const existing = await findMeetingById(id)
 
   if (!existing) {
@@ -214,7 +214,7 @@ export const updateMeetingById = async (id, input, callerId, deliverCalendar) =>
   const isOrganizer = participants.some(
     (participant) => participant.userId === callerId && participant.role === 'organizer'
   )
-  if (existing.ownerId !== callerId && !isOrganizer) {
+  if (callerRole !== 'admin' && existing.ownerId !== callerId && !isOrganizer) {
     throw createHttpError('Only meeting organizers can update this meeting', 403)
   }
 
@@ -315,6 +315,7 @@ export const deleteMeetingById = async (id, callerId) => {
 
 export const listMeetingsForQuery = async ({
   userId,
+  callerRole,
   page = 1,
   limit = 20,
   from,
@@ -322,7 +323,7 @@ export const listMeetingsForQuery = async ({
   status,
   q,
 } = {}) => {
-  if (!userId) {
+  if (!userId && callerRole !== 'admin') {
     throw createHttpError('Authentication required', 401)
   }
 

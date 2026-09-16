@@ -251,15 +251,16 @@ Any meeting participant can read minutes. Only the meeting owner or a participan
 
 Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
 
-| Method | Path | Body / Query                                            | Returns                                      |
-| ------ | ---- | ------------------------------------------------------- | -------------------------------------------- |
-| GET    | `/`  | —                                                       | `200 { recording, transcript, analysisRun }` |
-| PUT    | `/`  | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript, analysisRun }` |
-| DELETE | `/`  | —                                                       | `204`                                        |
+| Method | Path        | Body / Query                                            | Returns                                                        |
+| ------ | ----------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| GET    | `/`         | —                                                       | `200 { recording, transcript, analysisRun }`                   |
+| PUT    | `/`         | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript: null, analysisRun: null }`       |
+| POST   | `/generate` | —                                                       | `202 { recording, transcript, analysisRun, generationStatus }` |
+| DELETE | `/`         | —                                                       | `204`                                                          |
 
 Any meeting participant can read recording metadata, transcript status, and analysis-run status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
-When `AI_PIPELINE_ENABLED=true`, recording upload transactionally creates an `uploaded` recording, a `processing` transcript, a `queued` analysis run, and a durable `recording.uploaded` outbox event. The server worker publishes a transcription command to Redis Streams; the Python `ai-worker` writes a result artifact to MinIO and emits a result event. The server consumes that event, completes the transcript in PostgreSQL, and creates the analysis outbox event in the same transaction. PostgreSQL statuses are the user-visible source of truth. The recording changes to `transcribing` only when the AI worker emits a started event. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`. When the pipeline is disabled, upload remains metadata-only and returns `transcript: null` and `analysisRun: null`.
+Uploading always stores audio metadata only and returns `transcript: null` and `analysisRun: null`. When `AI_PIPELINE_ENABLED=true`, `POST /generate` transactionally creates a `processing` transcript, a `queued` analysis run, and a durable `recording.generation_requested` outbox event. The server worker publishes a transcription command to Redis Streams; the Python `ai-worker` writes a result artifact to MinIO and emits a result event. The server consumes that event, completes the transcript in PostgreSQL, and creates the analysis outbox event in the same transaction. PostgreSQL statuses are the user-visible source of truth. Only one generation may run for a recording; another request while its transcript is `processing` or its analysis is `queued` or `processing` returns `409`. The recording changes to `transcribing` only when the AI worker emits a started event. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`.
 
 The Python worker consumes transcription jobs through the provider selected by
 `AI_TRANSCRIPTION_PROVIDER`. Production should use `whisper`; `fixture` is available for local
@@ -482,9 +483,9 @@ npm run migrate --workspace=server
 npm run check:workflow --workspace=server
 ```
 
-The check seeds a throwaway meeting, uploads a recording through the real
-service, runs the server worker runtime and Python AI worker against the real
-streams, and asserts the settled
+The check seeds a throwaway meeting, uploads a recording, explicitly starts
+generation through the real service, runs the server worker runtime and Python
+AI worker against the real streams, and asserts the settled
 database state and the status invalidations. It removes what it created, and it
 enables the pipeline only for its own process, so `.env` needs no edit. Start the
 Python `ai-worker` before running it.

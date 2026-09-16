@@ -13,6 +13,7 @@ const MEETING_COLUMNS = `
   m.tag_id,
   t.name AS tag_name,
   m.owner_id,
+  owner.name AS owner_name,
   m.created_by,
   m.created_at,
   m.updated_at
@@ -52,6 +53,7 @@ const mapMeeting = (row) => {
     tagId: row.tag_id ?? null,
     tag: row.tag_name ?? null,
     ownerId: row.owner_id,
+    ownerName: row.owner_name ?? null,
     fileCount: Number(row.file_count ?? 0),
     fileNames: row.file_names ?? [],
     participantCount: Number(row.participant_count ?? 0),
@@ -106,11 +108,12 @@ export const findMeetingById = async (id) => {
       SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_FILE_NAMES_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
+      LEFT JOIN users owner ON owner.id = m.owner_id
       LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
       LEFT JOIN meeting_participants mp ON mp.meeting_id = m.id
       LEFT JOIN users u ON u.id = mp.user_id
       WHERE m.id = $1
-      GROUP BY m.id, t.id
+      GROUP BY m.id, t.id, owner.id
       LIMIT 1
     `,
     [id]
@@ -272,11 +275,12 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
       SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_FILE_NAMES_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
+      LEFT JOIN users owner ON owner.id = m.owner_id
       LEFT JOIN meeting_files mf ON mf.meeting_id = m.id
       LEFT JOIN meeting_participants mp ON mp.meeting_id = m.id
       LEFT JOIN users u ON u.id = mp.user_id
       ${whereSql}
-      GROUP BY m.id, t.id
+      GROUP BY m.id, t.id, owner.id
       ORDER BY m.starts_at ASC, m.id ASC
       LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
     `,

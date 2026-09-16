@@ -29,7 +29,8 @@ process.env.WORKFLOW_OUTBOX_DISPATCH_INTERVAL_MS = '500'
 
 const IORedis = (await import('ioredis')).default
 const { closePool, query } = await import('../db/postgres.js')
-const { uploadRecordingForMeeting } = await import('../services/recording-service.js')
+const { generateMinutesFromRecording, uploadRecordingForMeeting } =
+  await import('../services/recording-service.js')
 const { createAiResultConsumerService } = await import('../services/ai-result-consumer.js')
 const { createWorkerRuntime } = await import('../worker-runtime.js')
 const { WORKFLOW_STATUS_CHANNEL } = await import('../services/workflow-status-publisher.js')
@@ -141,6 +142,9 @@ try {
       buffer: audio,
     },
   })
+
+  console.log('Starting transcription and analysis generation')
+  await generateMinutesFromRecording(meetingId, userId)
 
   console.log('Waiting for Whisper and Ollama analysis (this is slower than realtime on CPU)')
   const startedAt = Date.now()

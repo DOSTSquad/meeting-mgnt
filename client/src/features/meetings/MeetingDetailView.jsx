@@ -1,11 +1,20 @@
 import { useState } from 'react'
 
-import { AnalysisReviewPreview } from './AnalysisReviewPreview.jsx'
+import { AnalysisActionItemsPanel } from './AnalysisActionItemsPanel.jsx'
+import { AnalysisSummaryPanel } from './AnalysisSummaryPanel.jsx'
 import { TranscriptPanel } from './TranscriptPanel.jsx'
-import { hasTranscriptBody } from './transcript.js'
-import { Eye, FileAudio, Trash2, UploadCloud } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronDown,
+  CircleX,
+  Eye,
+  FileAudio,
+  Trash2,
+  UploadCloud,
+} from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
+import { formatMeetingStatus, getMeetingDisplayStatus } from '../../utils/meetingStatus.js'
 
 const actionStatusStyles = {
   todo: {
@@ -26,6 +35,13 @@ const priorityStyles = {
   high: 'bg-rose-100 text-rose-700',
   medium: 'bg-amber-100 text-amber-700',
   low: 'bg-sky-100 text-sky-700',
+}
+
+const meetingStatusStyles = {
+  scheduled: 'border-blue-200 bg-blue-50 text-blue-700',
+  awaiting_completion: 'border-amber-200 bg-amber-50 text-amber-700',
+  completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  cancelled: 'border-rose-200 bg-rose-50 text-rose-700',
 }
 
 const padDatePart = (value) => String(value).padStart(2, '0')
@@ -69,6 +85,119 @@ const getParticipantInitials = (name = '') => {
     .toUpperCase()
 }
 
+const MeetingTagEditor = ({ currentTag, tags, onSave }) => {
+  const hasExistingTag = tags.some((tag) => tag.name === currentTag)
+  const [tagMode, setTagMode] = useState(hasExistingTag ? 'existing' : 'new')
+  const [tagValue, setTagValue] = useState(currentTag || '')
+  const [saveState, setSaveState] = useState('idle')
+  const sortedTags = [...tags].sort((left, right) => left.name.localeCompare(right.name))
+
+  const saveTag = async () => {
+    const normalizedTag = tagValue.trim()
+    if (!normalizedTag || saveState === 'saving') {
+      return
+    }
+
+    setSaveState('saving')
+    const updatedMeeting = await onSave?.(normalizedTag)
+    setSaveState(updatedMeeting ? 'saved' : 'idle')
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Meeting Tag
+      </span>
+      <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+        <button
+          type="button"
+          onClick={() => {
+            setTagMode('existing')
+            setTagValue(hasExistingTag ? currentTag : '')
+            setSaveState('idle')
+          }}
+          className={`rounded-md px-3 py-2 text-sm font-bold transition ${
+            tagMode === 'existing'
+              ? 'bg-white text-blue-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Use existing tag
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTagMode('new')
+            if (tags.some((tag) => tag.name === tagValue)) {
+              setTagValue('')
+            }
+            setSaveState('idle')
+          }}
+          className={`rounded-md px-3 py-2 text-sm font-bold transition ${
+            tagMode === 'new'
+              ? 'bg-white text-blue-700 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Create new tag
+        </button>
+      </div>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        {tagMode === 'existing' ? (
+          <div className="relative min-w-0 flex-1">
+            <select
+              value={tags.some((tag) => tag.name === tagValue) ? tagValue : ''}
+              onChange={(event) => {
+                setTagValue(event.target.value)
+                setSaveState('idle')
+              }}
+              className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="" disabled>
+                Select an existing tag
+              </option>
+              {sortedTags.map((tag) => (
+                <option key={tag.id} value={tag.name}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+          </div>
+        ) : (
+          <input
+            value={tagValue}
+            onChange={(event) => {
+              setTagValue(event.target.value)
+              setSaveState('idle')
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                saveTag()
+              }
+            }}
+            maxLength={100}
+            className="h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            placeholder="Enter a new meeting tag"
+          />
+        )}
+        <button
+          type="button"
+          onClick={saveTag}
+          disabled={!tagValue.trim() || saveState === 'saving'}
+          className="h-11 shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-extrabold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save tag'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export const MeetingDetailView = ({
   detail,
   analysisReview,
@@ -80,6 +209,8 @@ export const MeetingDetailView = ({
   onBack,
   onChange,
   onSaveMeetingField,
+  onSaveMeetingTag,
+  onUpdateMeetingStatus,
   onMinutesChange,
   onSaveMinutes,
   onAddActionItem,
@@ -93,12 +224,49 @@ export const MeetingDetailView = ({
   onAddPendingMaterialFiles,
   onUploadRecording,
   onRemoveRecording,
+  onGenerateMinutesFromRecording,
   onDownloadMeetingFile,
   onPreview,
   canManageMeeting = false,
+  canUpdateMeetingStatus = false,
+  canEditMeetingTag = false,
+  currentUserId,
+  users = [],
+  tags = [],
+  onAddParticipant,
+  onRemoveParticipant,
 }) => {
   const [isDragOverMaterialFiles, setIsDragOverMaterialFiles] = useState(false)
   const [isDragOverRecording, setIsDragOverRecording] = useState(false)
+  const [pendingMeetingStatus, setPendingMeetingStatus] = useState(null)
+  const [isGeneratingMinutes, setIsGeneratingMinutes] = useState(false)
+  const [currentTime] = useState(() => Date.now())
+  const confirmationStorageKey = detail
+    ? `meeting-confirmation:${detail.meeting.id}:${currentUserId}`
+    : ''
+  const [isConfirmationSent, setIsConfirmationSent] = useState(() =>
+    typeof window !== 'undefined' && confirmationStorageKey
+      ? window.localStorage.getItem(`${confirmationStorageKey}:sent`) === '1'
+      : false
+  )
+  const [showReviewSentPopup, setShowReviewSentPopup] = useState(false)
+  const [isAttendeeConfirmed, setIsAttendeeConfirmed] = useState(() =>
+    typeof window !== 'undefined' && confirmationStorageKey
+      ? window.localStorage.getItem(`${confirmationStorageKey}:confirmed`) === '1'
+      : false
+  )
+  const [confirmedParticipantIds, setConfirmedParticipantIds] = useState(() => {
+    if (typeof window === 'undefined' || !detail) return []
+    return detail.participants
+      .filter(
+        (participant) =>
+          window.localStorage.getItem(
+            `meeting-confirmation:${detail.meeting.id}:${participant.userId}:confirmed`
+          ) === '1'
+      )
+      .map((participant) => participant.userId)
+  })
+
   const [newActionItem, setNewActionItem] = useState({
     title: '',
     assigneeId: '',
@@ -127,9 +295,28 @@ export const MeetingDetailView = ({
     setNewActionItem({ title: '', assigneeId: '', dueDate: '', priority: 'medium' })
   }
   const materialFiles = detail.files
-  const visibleParticipants = detail.participants.slice(0, 6)
+  const displayMeetingStatus = getMeetingDisplayStatus(detail.meeting)
+  const nonAdminParticipants = detail.participants.filter(
+    (participant) => users.find((user) => user.id === participant.userId)?.role !== 'admin'
+  )
+  const confirmationParticipants = nonAdminParticipants.filter(
+    (participant) => participant.userId !== detail.meeting.ownerId
+  )
+  const isFutureMeeting = new Date(detail.meeting.startsAt).getTime() > currentTime
+  const reviewedParticipantCount = isFutureMeeting
+    ? confirmationParticipants.filter((participant) =>
+        confirmedParticipantIds.includes(participant.userId)
+      ).length
+    : confirmationParticipants.length
+  const visibleParticipants = [...nonAdminParticipants]
+    .sort((left, right) => {
+      const leftIsOwner = left.userId === detail.meeting.ownerId
+      const rightIsOwner = right.userId === detail.meeting.ownerId
+      return Number(rightIsOwner) - Number(leftIsOwner)
+    })
+    .slice(0, 6)
   const hiddenParticipantCount = Math.max(
-    detail.participants.length - visibleParticipants.length,
+    nonAdminParticipants.length - visibleParticipants.length,
     0
   )
   const recordingStatus = detail.recording?.status || 'empty'
@@ -169,7 +356,7 @@ export const MeetingDetailView = ({
       approved: 'bg-blue-50 text-blue-700 border-blue-100',
       published: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     }[detail.minutes?.status] || 'bg-slate-100 text-slate-600 border-slate-200'
-  const participantOptions = detail.participants.map((participant) => ({
+  const participantOptions = nonAdminParticipants.map((participant) => ({
     id: participant.userId,
     name: participant.name,
   }))
@@ -191,6 +378,19 @@ export const MeetingDetailView = ({
       onSaveMinutes({ [field]: detail.minutes?.[field] || '' })
     }
   }
+  const updateStatus = async (status) => {
+    const action = status === 'completed' ? 'completed' : 'cancelled'
+    if (!window.confirm(`Mark this meeting as ${action}?`)) {
+      return
+    }
+
+    setPendingMeetingStatus(status)
+    try {
+      await onUpdateMeetingStatus?.(status)
+    } finally {
+      setPendingMeetingStatus(null)
+    }
+  }
 
   return (
     <section>
@@ -209,6 +409,14 @@ export const MeetingDetailView = ({
           <h1 className="text-4xl font-semibold text-slate-800">{detail.meeting.title}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
             <span>{formatDateTime(detail.meeting.startsAt)}</span>
+            <span
+              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-extrabold capitalize ${
+                meetingStatusStyles[displayMeetingStatus] ||
+                'border-slate-200 bg-slate-50 text-slate-600'
+              }`}
+            >
+              {formatMeetingStatus(displayMeetingStatus)}
+            </span>
             <button
               type="button"
               onClick={onPreview}
@@ -219,29 +427,168 @@ export const MeetingDetailView = ({
             </button>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {visibleParticipants.map((participant) => (
-              <div
-                key={participant.userId}
-                className="inline-flex max-w-48 items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 text-xs font-semibold text-slate-600 shadow-sm"
-                title={participant.name}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[11px] font-extrabold text-blue-700">
-                  {getParticipantInitials(participant.name)}
-                </span>
-                <span className="truncate">{participant.name}</span>
-              </div>
-            ))}
+            {visibleParticipants.map((participant) => {
+              const isOwner = participant.userId === detail.meeting.ownerId
+
+              return (
+                <div
+                  key={participant.userId}
+                  className={`inline-flex max-w-56 items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-semibold shadow-sm ${
+                    isOwner
+                      ? 'border-amber-300 bg-amber-50 text-amber-800'
+                      : 'border-slate-200 bg-white text-slate-600'
+                  }`}
+                  title={isOwner ? `${participant.name} · Meeting owner` : participant.name}
+                >
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${
+                      isOwner ? 'bg-amber-200 text-amber-800' : 'bg-blue-50 text-blue-700'
+                    }`}
+                  >
+                    {getParticipantInitials(participant.name)}
+                  </span>
+                  <span className="truncate">{participant.name}</span>
+                  {isOwner ? (
+                    <span className="shrink-0 rounded-full bg-amber-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-900">
+                      Owner
+                    </span>
+                  ) : null}
+                </div>
+              )
+            })}
             {hiddenParticipantCount > 0 ? (
               <span className="inline-flex h-8 items-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-500">
                 +{hiddenParticipantCount}
               </span>
             ) : null}
           </div>
+          {canManageMeeting ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-2">
+              <span className="px-1 text-xs font-bold text-slate-600">Manage attendees</span>
+              <select
+                id="meeting-add-participant"
+                className="h-9 min-w-44 rounded-lg border border-slate-200 bg-white px-2 text-xs"
+                defaultValue=""
+                onChange={(event) => {
+                  if (event.target.value) {
+                    onAddParticipant?.(event.target.value)
+                    event.target.value = ''
+                  }
+                }}
+              >
+                <option value="">Add person...</option>
+                {users
+                  .filter(
+                    (user) =>
+                      !detail.participants.some((participant) => participant.userId === user.id)
+                  )
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} · {user.email}
+                    </option>
+                  ))}
+              </select>
+              {detail.participants.map((participant) => (
+                <button
+                  key={participant.userId}
+                  type="button"
+                  title={`Remove ${participant.name}`}
+                  onClick={() => onRemoveParticipant?.(participant.userId)}
+                  className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm hover:bg-rose-50 hover:text-rose-700"
+                >
+                  {participant.name}
+                  <span aria-hidden="true">×</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </header>
 
+      {canManageMeeting ? (
+        <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-extrabold text-slate-800">
+                Attendee review status
+              </h2>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                Review each attendee&apos;s response before finalising the meeting.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-extrabold text-emerald-700">
+                {confirmationParticipants.length} attendee
+                {confirmationParticipants.length === 1 ? '' : 's'}
+              </span>
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-extrabold text-amber-700">
+                Overall: {`${reviewedParticipantCount}/${confirmationParticipants.length} reviewed`}
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {confirmationParticipants.map((participant) => {
+              const status =
+                !isFutureMeeting ||
+                confirmedParticipantIds.includes(participant.userId) ||
+                (participant.userId === currentUserId && isAttendeeConfirmed)
+                  ? 'confirmed'
+                  : 'not_confirmed'
+              const isPending = status === 'not_confirmed'
+              return (
+                <div
+                  key={participant.userId}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                >
+                  <span className="min-w-0 truncate text-xs font-bold text-slate-700">
+                    {participant.name}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold capitalize ${
+                      isPending
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-emerald-50 text-emerald-700'
+                    }`}
+                  >
+                    {isPending ? 'Not reviewed' : 'Reviewed'}
+                  </span>
+                </div>
+              )
+            })}
+            {confirmationParticipants.length === 0 ? (
+              <p className="text-xs font-semibold text-slate-500">No attendees to review yet.</p>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsConfirmationSent(true)
+                setShowReviewSentPopup(true)
+                if (confirmationStorageKey) {
+                  window.localStorage.setItem(`${confirmationStorageKey}:sent`, '1')
+                  const sentIds = JSON.parse(
+                    window.localStorage.getItem('meeting-confirmation-sent') || '[]'
+                  )
+                  const nextIds = [...new Set([...sentIds, detail.meeting.id])]
+                    window.localStorage.setItem('meeting-confirmation-sent', JSON.stringify(nextIds))
+                }
+              }}
+              className="rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              {isConfirmationSent ? 'Sent review request' : 'Send review request'}
+            </button>
+          </div>
+          {showReviewSentPopup ? (
+            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-extrabold text-emerald-700">
+              Review requests are sent
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="mt-6 space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div id="meeting-information" className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
           <p className="mt-1 text-sm text-slate-500">
             {canManageMeeting
@@ -249,6 +596,25 @@ export const MeetingDetailView = ({
               : 'Meeting information is read-only for participants.'}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {canEditMeetingTag ? (
+              <MeetingTagEditor
+                key={detail.meeting.id}
+                currentTag={detail.meeting.tag}
+                tags={tags}
+                onSave={onSaveMeetingTag}
+              />
+            ) : (
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Meeting Tag
+                </span>
+                <input
+                  value={detail.meeting.tag || 'Untagged'}
+                  disabled
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-100 px-3 text-slate-500"
+                />
+              </label>
+            )}
             <label className="block">
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Meeting Title
@@ -302,7 +668,7 @@ export const MeetingDetailView = ({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div id="meeting-agenda" className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-2xl font-semibold text-slate-700">Agenda</h2>
           <p className="mt-1 text-sm text-slate-500">
             Planned objective and discussion scope. This is separate from meeting minutes.
@@ -318,7 +684,7 @@ export const MeetingDetailView = ({
           />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div id="meeting-minutes" className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-slate-700">Meeting Minutes</h2>
@@ -509,6 +875,21 @@ export const MeetingDetailView = ({
                   </div>
                   {canManageMeeting ? (
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isGeneratingMinutes}
+                        onClick={async () => {
+                          setIsGeneratingMinutes(true)
+                          try {
+                            await onGenerateMinutesFromRecording?.()
+                          } finally {
+                            setIsGeneratingMinutes(false)
+                          }
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isGeneratingMinutes ? 'Running...' : 'Text generation'}
+                      </button>
                       <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
                         Replace
                         <input
@@ -532,22 +913,19 @@ export const MeetingDetailView = ({
                   ) : null}
                 </div>
                 <TranscriptPanel transcript={detail.transcript} />
-                {/* The analysis cites transcript segments, so it waits for the
-                    transcript rather than racing it: both arrive by their own
-                    fetch, and showing citations before the cited text reads
-                    backwards. "Analysis is ready for review." above already
-                    reports the status while this waits. */}
-                {hasTranscriptBody(detail.transcript) ? (
-                  <AnalysisReviewPreview
-                    review={analysisReview}
-                    canApply={canManageMeeting}
-                    applyState={applyMinutesState}
-                    onApply={onApplyGeneratedMinutes}
-                    onDismissApplyState={onDismissApplyMinutesState}
-                    onAcceptSuggestion={onAcceptSuggestion}
-                    onRejectSuggestion={onRejectSuggestion}
-                  />
-                ) : null}
+                <AnalysisSummaryPanel
+                  review={analysisReview}
+                  canApply={canManageMeeting}
+                  applyState={applyMinutesState}
+                  onApply={onApplyGeneratedMinutes}
+                  onDismissApplyState={onDismissApplyMinutesState}
+                />
+                <AnalysisActionItemsPanel
+                  review={analysisReview}
+                  canReview={canManageMeeting}
+                  onAcceptSuggestion={onAcceptSuggestion}
+                  onRejectSuggestion={onRejectSuggestion}
+                />
               </div>
             ) : canManageMeeting ? (
               <label
@@ -596,7 +974,7 @@ export const MeetingDetailView = ({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div id="meeting-action-items" className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-slate-700">Action Items</h2>
@@ -792,7 +1170,7 @@ export const MeetingDetailView = ({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div id="meeting-files" className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-2xl font-semibold text-slate-700">Meeting Materials</h2>
           <p className="mt-1 text-sm text-slate-500">
             Meeting documents, images, audio, and supporting files.
@@ -865,6 +1243,65 @@ export const MeetingDetailView = ({
             ) : null}
           </ul>
         </div>
+
+        {canUpdateMeetingStatus && detail.meeting.status === 'scheduled' ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-bold text-slate-900">Update meeting status</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Only the meeting owner can complete or cancel this meeting.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={Boolean(pendingMeetingStatus)}
+                onClick={() => updateStatus('cancelled')}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-4 text-sm font-extrabold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-rose-300"
+              >
+                <CircleX className="h-4 w-4" aria-hidden="true" />
+                {pendingMeetingStatus === 'cancelled' ? 'Updating...' : 'Mark as cancelled'}
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(pendingMeetingStatus)}
+                onClick={() => updateStatus('completed')}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-extrabold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+              >
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                {pendingMeetingStatus === 'completed' ? 'Updating...' : 'Mark as completed'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {!canManageMeeting ? (
+          <div className="flex justify-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAttendeeConfirmed((confirmed) => {
+                  const next = !confirmed
+                  setConfirmedParticipantIds((ids) =>
+                    next
+                      ? [...new Set([...ids, currentUserId])]
+                      : ids.filter((id) => id !== currentUserId)
+                  )
+                  if (confirmationStorageKey) {
+                    window.localStorage.setItem(`${confirmationStorageKey}:confirmed`, next ? '1' : '0')
+                  }
+                  return next
+                })
+              }}
+              className={`rounded-lg px-3.5 py-2 text-xs font-extrabold text-white shadow-sm transition ${
+                isAttendeeConfirmed
+                  ? 'bg-slate-600 hover:bg-slate-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {isAttendeeConfirmed ? 'Set as not reviewed' : 'Mark meeting detail as reviewed'}
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   )

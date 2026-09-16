@@ -110,3 +110,16 @@ export const listUsers = async () => {
     createdAt: row.created_at.toISOString(),
   }))
 }
+
+export const updateUser = async (id, { name, email, role, department, passwordHash }) => {
+  const result = await query(
+    `UPDATE users SET name=COALESCE($2,name), email=COALESCE($3,email), role=COALESCE($4,role), department=COALESCE($5,department), password_hash=COALESCE($6,password_hash) WHERE id=$1 RETURNING id,name,email,role,department,created_at`,
+    [id, name?.trim() || null, email?.trim().toLowerCase() || null, role || null, department ?? null, passwordHash || null]
+  )
+  return result.rows[0] ? { ...result.rows[0], createdAt: result.rows[0].created_at.toISOString() } : null
+}
+
+export const deleteUser = async (id) => {
+  const result = await query('DELETE FROM users WHERE id=$1 RETURNING id', [id])
+  return result.rowCount > 0
+}

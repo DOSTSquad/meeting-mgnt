@@ -28,6 +28,10 @@ export const addMeetingParticipants = async (client, meetingId, payload) => {
   return response.data.participants
 }
 
+export const removeMeetingParticipant = async (client, meetingId, userId) => {
+  await client.delete(`/api/meetings/${meetingId}/participants/${userId}`)
+}
+
 export const listMeetingActionItems = async (client, meetingId) => {
   const response = await client.get(`/api/meetings/${meetingId}/action-items`)
   return response.data?.actionItems || []

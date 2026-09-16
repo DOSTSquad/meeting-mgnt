@@ -7,7 +7,7 @@ import {
 
 export const list = async (req, res, next) => {
   try {
-    const { participants } = await listParticipantsForMeeting(req.params.meetingId, req.user?.id)
+    const { participants } = await listParticipantsForMeeting(req.params.meetingId, req.user?.id, req.user?.role)
 
     res.json({ participants })
   } catch (error) {
@@ -20,7 +20,7 @@ export const add = async (req, res, next) => {
     const { participants } = await addParticipantsToMeeting(
       req.params.meetingId,
       req.body ?? {},
-      req.user?.id
+      req.user?.id, req.user?.role
     )
 
     res.status(201).json({ participants })
@@ -35,7 +35,8 @@ export const update = async (req, res, next) => {
       req.params.meetingId,
       req.params.userId,
       req.body ?? {},
-      req.user?.id
+      req.user?.id,
+      req.user?.role
     )
 
     res.json({ participant })
@@ -46,7 +47,7 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    await removeParticipant(req.params.meetingId, req.params.userId, req.user?.id)
+    await removeParticipant(req.params.meetingId, req.params.userId, req.user?.id, req.user?.role)
 
     res.status(204).end()
   } catch (error) {

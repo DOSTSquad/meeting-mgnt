@@ -3,6 +3,11 @@ export const getMeetingRecording = async (client, meetingId) => {
   return response.data
 }
 
+export const generateMeetingRecording = async (client, meetingId) => {
+  const response = await client.post(`/api/meetings/${meetingId}/recording/generate`)
+  return response.data
+}
+
 export const uploadMeetingRecording = async (client, meetingId, file, { replace = false } = {}) => {
   const formData = new FormData()
   formData.append('file', file)

@@ -111,8 +111,8 @@ export const archiveRecording = async (id, db) => {
   return mapRecording(result.rows[0])
 }
 
-export const updateRecordingStatus = async ({ id, status, errorMessage = null }) => {
-  const result = await query(
+export const updateRecordingStatus = async ({ id, status, errorMessage = null }, db) => {
+  const result = await executor(db).query(
     `
       UPDATE meeting_recordings
       SET status = $2,

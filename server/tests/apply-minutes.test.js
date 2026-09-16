@@ -48,6 +48,8 @@ const draftMinutes = (overrides = {}) => ({
   version: 3,
   status: 'draft',
   content: 'Existing content typed by a human',
+  keyDiscussions: 'Human-authored discussion notes',
+  decisions: 'Human-authored decisions',
   ...overrides,
 })
 
@@ -72,16 +74,15 @@ beforeEach(() => {
 })
 
 describe('applying generated minutes', () => {
-  it('writes summary, discussions, decisions, and transcript provenance', async () => {
+  it('writes only the generated summary and preserves other minutes fields', async () => {
     await apply()
 
     expect(applyGeneratedMinuteContent).toHaveBeenCalledWith(
       expect.objectContaining({
         expectedVersion: 3,
         content: 'The team reviewed status.',
-        keyDiscussions:
-          'Status update\nEveryone reported in.\n\nWorkflow\nThe recording was transcribed.',
-        decisions: 'Follow up\nAgreed at the end.',
+        keyDiscussions: 'Human-authored discussion notes',
+        decisions: 'Human-authored decisions',
         generatedFromTranscriptId: TRANSCRIPT_ID,
       })
     )
@@ -170,7 +171,7 @@ describe('applying generated minutes', () => {
     expect(applyGeneratedMinuteContent.mock.calls[0][0].content).toBe('The team reviewed status.')
   })
 
-  it('handles a run with no discussions or decisions', async () => {
+  it('preserves human minutes fields when generated sections are empty', async () => {
     findAnalysisRunById.mockResolvedValue(
       readyRun({ keyDiscussions: [], decisions: [], summary: 'Just a summary.' })
     )
@@ -178,7 +179,10 @@ describe('applying generated minutes', () => {
     await apply()
 
     expect(applyGeneratedMinuteContent).toHaveBeenCalledWith(
-      expect.objectContaining({ keyDiscussions: '', decisions: '' })
+      expect.objectContaining({
+        keyDiscussions: 'Human-authored discussion notes',
+        decisions: 'Human-authored decisions',
+      })
     )
   })
 })
