@@ -58,6 +58,7 @@ export const MyMeetingsView = ({
   onOpenMeeting,
 }) => {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [dateFilter, setDateFilter] = useState('')
   const [loadedDetails, setLoadedDetails] = useState({})
   const [loadingDetails, setLoadingDetails] = useState({})
@@ -90,6 +91,11 @@ export const MyMeetingsView = ({
       return new Date(second.startsAt).getTime() - new Date(first.startsAt).getTime()
     })
 
+  const pageCount = Math.max(1, Math.ceil(visibleMeetings.length / 10))
+  const currentPage = Math.min(page, pageCount)
+  const pageStart = (currentPage - 1) * 10
+  const pageMeetings = visibleMeetings.slice(pageStart, pageStart + 10)
+
   const loadMeetingOverview = async (meetingId) => {
     if (loadedDetails[meetingId] || loadingDetails[meetingId]) return
     setLoadingDetails((prev) => ({ ...prev, [meetingId]: true }))
@@ -118,7 +124,10 @@ export const MyMeetingsView = ({
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
             placeholder="Search meeting or attendee..."
             className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
           />
@@ -129,7 +138,10 @@ export const MyMeetingsView = ({
           <input
             type="date"
             value={dateFilter}
-            onChange={(event) => setDateFilter(event.target.value)}
+            onChange={(event) => {
+              setDateFilter(event.target.value)
+              setPage(1)
+            }}
             className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-700 outline-none"
           />
         </label>
@@ -175,11 +187,12 @@ export const MyMeetingsView = ({
             </p>
           </div>
           <span className="hidden rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 sm:inline-flex">
-            {visibleMeetings.length} shown
+            {visibleMeetings.length ? pageStart + 1 : 0}–{pageStart + pageMeetings.length} of{' '}
+            {visibleMeetings.length} meetings
           </span>
         </div>
         <div className="mt-5 space-y-3">
-          {visibleMeetings.map((meeting) => {
+          {pageMeetings.map((meeting) => {
             const loadedActionItems = loadedDetails[meeting.id]?.actionItems
             const meetingActionItems =
               loadedActionItems || actionItems.filter((item) => item.meetingId === meeting.id)
@@ -323,6 +336,32 @@ export const MyMeetingsView = ({
             <p className="text-sm text-slate-500">No matching meetings found.</p>
           ) : null}
         </div>
+        {pageCount > 1 ? (
+          <nav
+            aria-label="Meeting owner pagination"
+            className="mt-5 flex items-center justify-between gap-3 border-t border-slate-200 pt-4"
+          >
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setPage(currentPage - 1)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-semibold text-slate-500" aria-live="polite">
+              Page {currentPage} of {pageCount}
+            </span>
+            <button
+              type="button"
+              disabled={currentPage === pageCount}
+              onClick={() => setPage(currentPage + 1)}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </nav>
+        ) : null}
       </article>
     </section>
   )

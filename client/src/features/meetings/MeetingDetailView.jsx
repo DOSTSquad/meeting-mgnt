@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { AnalysisActionItemsPanel } from './AnalysisActionItemsPanel.jsx'
 import { AnalysisSummaryPanel } from './AnalysisSummaryPanel.jsx'
 import { TranscriptPanel } from './TranscriptPanel.jsx'
+import { MeetingChangeRequestDialog } from './MeetingChangeRequestDialog.jsx'
+import { MeetingChangeRequestInbox } from './MeetingChangeRequestInbox.jsx'
 import {
   CheckCircle2,
   ChevronDown,
@@ -235,7 +237,14 @@ export const MeetingDetailView = ({
   tags = [],
   onAddParticipant,
   onRemoveParticipant,
+  onRequestMeetingChange,
+  changeRequestInbox = { items: [], status: 'loading', error: '' },
+  onRefreshChangeRequests,
+  onMarkChangeRequestRead,
+  openChangeRequestInbox = false,
+  onCloseChangeRequestInbox,
 }) => {
+  const [changeRequestDialog, setChangeRequestDialog] = useState(null)
   const [isDragOverMaterialFiles, setIsDragOverMaterialFiles] = useState(false)
   const [isDragOverRecording, setIsDragOverRecording] = useState(false)
   const [pendingMeetingStatus, setPendingMeetingStatus] = useState(null)
@@ -295,6 +304,13 @@ export const MeetingDetailView = ({
     setNewActionItem({ title: '', assigneeId: '', dueDate: '', priority: 'medium' })
   }
   const materialFiles = detail.files
+  const isMeetingOwner = detail.meeting.ownerId === currentUserId
+  const canRequestChange =
+    !isMeetingOwner &&
+    detail.participants.some(
+      (participant) =>
+        participant.userId === currentUserId && ['attendee', 'optional'].includes(participant.role)
+    )
   const displayMeetingStatus = getMeetingDisplayStatus(detail.meeting)
   const nonAdminParticipants = detail.participants.filter(
     (participant) => users.find((user) => user.id === participant.userId)?.role !== 'admin'
@@ -303,11 +319,9 @@ export const MeetingDetailView = ({
     (participant) => participant.userId !== detail.meeting.ownerId
   )
   const isFutureMeeting = new Date(detail.meeting.startsAt).getTime() > currentTime
-  const reviewedParticipantCount = isFutureMeeting
-    ? confirmationParticipants.filter((participant) =>
-        confirmedParticipantIds.includes(participant.userId)
-      ).length
-    : confirmationParticipants.length
+  const reviewedParticipantCount = confirmationParticipants.filter(
+    (participant) => !isFutureMeeting || confirmedParticipantIds.includes(participant.userId)
+  ).length
   const visibleParticipants = [...nonAdminParticipants]
     .sort((left, right) => {
       const leftIsOwner = left.userId === detail.meeting.ownerId
@@ -509,9 +523,7 @@ export const MeetingDetailView = ({
         <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-extrabold text-slate-800">
-                Attendee review status
-              </h2>
+              <h2 className="text-sm font-extrabold text-slate-800">Attendee review status</h2>
               <p className="mt-1 text-xs font-semibold text-slate-500">
                 Review each attendee&apos;s response before finalising the meeting.
               </p>
@@ -545,9 +557,7 @@ export const MeetingDetailView = ({
                   </span>
                   <span
                     className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold capitalize ${
-                      isPending
-                        ? 'bg-amber-50 text-amber-700'
-                        : 'bg-emerald-50 text-emerald-700'
+                      isPending ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
                     }`}
                   >
                     {isPending ? 'Not reviewed' : 'Reviewed'}
@@ -559,7 +569,7 @@ export const MeetingDetailView = ({
               <p className="text-xs font-semibold text-slate-500">No attendees to review yet.</p>
             ) : null}
           </div>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => {
@@ -571,13 +581,22 @@ export const MeetingDetailView = ({
                     window.localStorage.getItem('meeting-confirmation-sent') || '[]'
                   )
                   const nextIds = [...new Set([...sentIds, detail.meeting.id])]
-                    window.localStorage.setItem('meeting-confirmation-sent', JSON.stringify(nextIds))
+                  window.localStorage.setItem('meeting-confirmation-sent', JSON.stringify(nextIds))
                 }
               }}
               className="rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-sm transition hover:bg-blue-700"
             >
               {isConfirmationSent ? 'Sent review request' : 'Send review request'}
             </button>
+            {isMeetingOwner ? (
+              <MeetingChangeRequestInbox
+                {...changeRequestInbox}
+                onRefresh={onRefreshChangeRequests}
+                onMarkRead={onMarkChangeRequestRead}
+                openOnArrival={openChangeRequestInbox}
+                onClose={onCloseChangeRequestInbox}
+              />
+            ) : null}
           </div>
           {showReviewSentPopup ? (
             <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-extrabold text-emerald-700">
@@ -1275,7 +1294,16 @@ export const MeetingDetailView = ({
           </div>
         ) : null}
         {!canManageMeeting ? (
-          <div className="flex justify-center rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            {canRequestChange ? (
+              <button
+                type="button"
+                onClick={() => setChangeRequestDialog(true)}
+                className="rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-extrabold text-amber-800 shadow-sm transition hover:bg-amber-100"
+              >
+                Request to change
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -1287,7 +1315,10 @@ export const MeetingDetailView = ({
                       : ids.filter((id) => id !== currentUserId)
                   )
                   if (confirmationStorageKey) {
-                    window.localStorage.setItem(`${confirmationStorageKey}:confirmed`, next ? '1' : '0')
+                    window.localStorage.setItem(
+                      `${confirmationStorageKey}:confirmed`,
+                      next ? '1' : '0'
+                    )
                   }
                   return next
                 })
@@ -1303,6 +1334,12 @@ export const MeetingDetailView = ({
           </div>
         ) : null}
       </div>
+      {changeRequestDialog ? (
+        <MeetingChangeRequestDialog
+          onSubmit={onRequestMeetingChange}
+          onClose={() => setChangeRequestDialog(null)}
+        />
+      ) : null}
     </section>
   )
 }

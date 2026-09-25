@@ -18,6 +18,7 @@ import { PageHeader } from '../../components/layout/PageHeader.jsx'
 import { isOverdueActionItem } from '../../utils/actionItems.js'
 import { formatDateOnly } from '../../utils/date.js'
 import { ActionItemsSummary } from './ActionItemsSummary.jsx'
+import { getActionItemPage } from './actionItemPagination.js'
 
 const priorityClass = {
   high: 'bg-rose-100 text-rose-700',
@@ -240,6 +241,7 @@ export const ActionItemsView = ({
 }) => {
   const [selectedActionItemId, setSelectedActionItemId] = useState(null)
   const [viewMode, setViewMode] = useState('summary')
+  const [listPage, setListPage] = useState(1)
   const [listFilters, setListFilters] = useState(initialListFilters)
   const [sortConfig, setSortConfig] = useState({ column: 'dueDate', direction: 'asc' })
 
@@ -263,10 +265,12 @@ export const ActionItemsView = ({
   const hasActiveListFilters = Object.values(listFilters).some(Boolean)
 
   const updateListFilter = (column, value) => {
+    setListPage(1)
     setListFilters((current) => ({ ...current, [column]: value }))
   }
 
   const handleListSort = (column) => {
+    setListPage(1)
     setSortConfig((current) => ({
       column,
       direction: current.column === column && current.direction === 'asc' ? 'desc' : 'asc',
@@ -342,6 +346,14 @@ export const ActionItemsView = ({
       return sortConfig.direction === 'asc' ? comparison : -comparison
     })
 
+  const {
+    items: pageItems,
+    page: currentPage,
+    pageCount,
+    start,
+    end,
+  } = getActionItemPage(listActionItems, listPage)
+
   return (
     <section className="space-y-6">
       <PageHeader
@@ -349,7 +361,7 @@ export const ActionItemsView = ({
         title="Action Items"
         description={
           viewMode === 'summary'
-            ? 'Monitor completion, priority, and deadlines across meetings you own.'
+            ? 'Monitor active work, priority, and deadlines across meetings you own.'
             : 'Track action items assigned to you without losing sight of what is due next.'
         }
         icon={ListChecks}
@@ -397,13 +409,18 @@ export const ActionItemsView = ({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <p className="text-sm font-semibold text-slate-600">
               Showing{' '}
-              <span className="font-extrabold text-slate-900">{listActionItems.length}</span> of{' '}
-              {actionItems.length} action items
+              <span className="font-extrabold text-slate-900">
+                {start}–{end}
+              </span>{' '}
+              of {listActionItems.length} action items
             </p>
             {hasActiveListFilters ? (
               <button
                 type="button"
-                onClick={() => setListFilters(initialListFilters)}
+                onClick={() => {
+                  setListFilters(initialListFilters)
+                  setListPage(1)
+                }}
                 className="text-xs font-bold text-blue-700 hover:text-blue-900"
               >
                 Clear all filters
@@ -514,7 +531,7 @@ export const ActionItemsView = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {listActionItems.map((item) => {
+                {pageItems.map((item) => {
                   const meeting = meetingsById.get(item.meetingId)
                   const tagLabel = toTitleCase(meeting?.tag)
                   const isOverdue = isOverdueActionItem(item)
@@ -598,8 +615,8 @@ export const ActionItemsView = ({
                             meeting?.ownerId === currentUserId
                               ? 'bg-blue-50 text-blue-700'
                               : isMeetingReviewed(meeting)
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-amber-50 text-amber-700'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-amber-50 text-amber-700'
                           }`}
                         >
                           {meeting?.ownerId === currentUserId
@@ -615,6 +632,32 @@ export const ActionItemsView = ({
               </tbody>
             </table>
           </div>
+          {listActionItems.length > 10 ? (
+            <nav
+              aria-label="To-do list pagination"
+              className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3"
+            >
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setListPage(currentPage - 1)}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-xs font-semibold text-slate-500" aria-live="polite">
+                Page {currentPage} of {pageCount}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage === pageCount}
+                onClick={() => setListPage(currentPage + 1)}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </nav>
+          ) : null}
           {listActionItems.length === 0 ? (
             <div className="border-t border-slate-100 px-4 py-10 text-center text-sm text-slate-500">
               {hasActiveListFilters

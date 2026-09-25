@@ -562,3 +562,30 @@ Any meeting participant (including the owner or any participant role) can upload
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
 
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).
+
+### Meeting change requests
+
+All endpoints require Bearer authentication. Messages are private to the meeting owner and stored in PostgreSQL; they are not included in general meeting or participant responses.
+
+| Method | Endpoint                                           | Body                                                        | Response                 |
+| ------ | -------------------------------------------------- | ----------------------------------------------------------- | ------------------------ |
+| POST   | `/api/meetings/:meetingId/change-requests`         | `{ "message": "Please move the meeting to the afternoon" }` | `201 { changeRequest }`  |
+| GET    | `/api/meetings/:meetingId/change-requests/:userId` | —                                                           | `200 { changeRequests }` |
+
+Only an attendee or optional participant who is not the owner can submit. The sender is taken from the authenticated user, never from the body. `message` must be a string, trimmed to 1–2000 characters. Each submission creates a separate message and does not edit the meeting or mark it reviewed.
+
+Only `meeting.ownerId` can read a participant's requests, including when the caller is an admin or organizer. Results are newest first, with `{ id, meetingId, userId, message, createdAt }` per item; no messages returns an empty array. Invalid UUIDs/messages return `400`, missing authentication `401`, insufficient permission `403`, and missing meetings/participants `404`. Removing a participant or deleting a meeting removes its requests. Apply migration `0037_create_meeting_change_requests.sql` before using this feature.
+
+The owner's **Change request inbox** uses `GET /api/meetings/:meetingId/change-requests` → `200 { changeRequests }` to load all attendee messages for the meeting, newest first. Each entry includes `senderName` in addition to the fields above. This endpoint is owner-only with no admin/organizer bypass; invalid meeting UUID returns `400`, missing authentication `401`, non-owner `403`, and missing meeting `404`. An empty inbox returns `[]`. The owner can refresh the inbox to fetch new messages.
+
+Attendee status remains **Reviewed** or **Not reviewed**. Change requests do not affect review status or the reviewed count. Reading or refreshing the inbox does not resolve a request or mark its sender reviewed. Messages remain stored under the existing retention rules.
+
+### Mark change requests read
+
+`PATCH /api/meetings/:meetingId/change-requests/:requestId/read` (no body) is owner-only, with no admin/organizer bypass. Returns `200 { changeRequest }`; requests now include `readAt` (ISO timestamp or `null`) in all create/list/read responses. Repeating the call preserves the original read timestamp. Invalid UUIDs return `400`, unauthenticated requests `401`, non-owners `403`, and missing meetings/requests or requests from a different meeting `404`. Apply migration `0038_add_change_request_read_at.sql`.
+
+The inbox badge counts only messages with `readAt: null` and disappears when there are none. Marking a message read preserves it in the inbox and does not affect attendee review status. All lists remain ordered by `createdAt` descending (ID descending for ties), regardless of read status. Opening the popup does not mark messages read automatically.
+
+Submitting a change request also creates a `meeting_change_requested` notification for the meeting owner only, atomically with the saved message. It uses `entityType: "meeting"`, `entityId: meetingId`, the meeting title, and sender name/message in `detail`. Existing requests are backfilled by migration `0039_backfill_change_request_notifications.sql`, preserving their read state. Marking a change request read also marks its main notification read. Opening a main notification follows the existing notification read behavior; the message itself remains unread until **Mark as read** is selected in the inbox.
+
+The main notification menu refreshes every 30 seconds and on window focus. Selecting this notification opens `/meetings/:id?changeRequests=1` with the owner's request popup open.

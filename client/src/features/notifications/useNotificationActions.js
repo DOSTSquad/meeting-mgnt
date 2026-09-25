@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { getApiClient } from '../../lib/apiClient.js'
 import {
   archiveReadNotifications,
@@ -21,6 +22,40 @@ export const useNotificationActions = ({
   setActiveMeetingRequestId,
   setIsCreateModalOpen,
 }) => {
+  useEffect(() => {
+    let cancelled = false
+    let loading = false
+    const refresh = async () => {
+      if (loading) return
+      loading = true
+      try {
+        const summary = await getNotificationSummary(getApiClient(token))
+        if (cancelled) return
+        setNotifications((previous) => {
+          const incomingIds = new Set(summary.notifications.map((item) => item.id))
+          return sortNotificationsUnreadFirst([
+            ...summary.notifications,
+            ...previous.filter((item) => !incomingIds.has(item.id)),
+          ])
+        })
+        setNotificationCount(summary.unreadCount)
+      } catch {
+        // Keep the current menu usable during transient background refresh failures.
+      } finally {
+        loading = false
+      }
+    }
+    const timer = window.setInterval(refresh, 30000)
+    window.addEventListener('focus', refresh)
+    window.addEventListener('meeting-change-request-read', refresh)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('meeting-change-request-read', refresh)
+    }
+  }, [token, setNotifications, setNotificationCount])
+
   const loadMoreNotifications = async () => {
     if (!notificationNextCursor || isLoadingMoreNotifications) {
       return
@@ -132,7 +167,9 @@ export const useNotificationActions = ({
     }
 
     if (notification.entityType === 'meeting') {
-      navigate(`/meetings/${notification.entityId}`)
+      navigate(
+        `/meetings/${notification.entityId}${notification.type === 'meeting_change_requested' ? '?changeRequests=1' : ''}`
+      )
       return
     }
 

@@ -96,6 +96,11 @@
     {
       "key": "invitationToken",
       "value": ""
+    },
+    {
+      "key": "changeRequestId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -1517,6 +1522,78 @@
               "host": ["{{baseUrl}}"],
               "path": ["..", "health", "ready"]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meeting Change Requests",
+      "item": [
+        {
+          "name": "Submit attendee change request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Could we move this meeting to the afternoon?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/change-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "change-requests"]
+            },
+            "description": "Attendee or optional participant only (not the owner). Message is trimmed, 1–2000 characters. Returns 201 { changeRequest: { id, meetingId, userId, message, createdAt } }. Sender identity comes from the token. Repeated submissions create separate messages. Also creates one owner-only meeting_change_requested notification atomically, with entityType meeting, entityId meetingId, meeting title, and sender/message detail. Read through GET /notifications or /notifications/summary."
+          }
+        },
+        {
+          "name": "Read attendee change requests (owner only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/change-requests/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "change-requests", "{{participantUserId}}"]
+            },
+            "description": "Only the meeting owner may read these messages; admin and organizer roles do not bypass this restriction. Returns 200 { changeRequests: [...] }, newest first, or [] when none. Errors: 400 invalid UUID, 401 unauthenticated, 403 not owner, 404 meeting or participant missing."
+          }
+        },
+        {
+          "name": "Meeting change request inbox (owner only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/change-requests",
+              "host": ["{{baseUrl}}"],
+              "path": ["meetings", "{{meetingId}}", "change-requests"]
+            },
+            "description": "Owner only, with no admin/organizer bypass. Returns 200 { changeRequests: [{ id, meetingId, userId, senderName, message, createdAt }] }, newest first; empty inbox returns []. Errors: 400 invalid meeting UUID, 401 unauthenticated, 403 non-owner, 404 missing meeting. Reading does not mark requests resolved."
+          }
+        },
+        {
+          "name": "Mark change request read (owner only)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/meetings/{{meetingId}}/change-requests/{{changeRequestId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "meetings",
+                "{{meetingId}}",
+                "change-requests",
+                "{{changeRequestId}}",
+                "read"
+              ]
+            },
+            "description": "Owner only. No body. Returns 200 { changeRequest } with readAt timestamp, preserved on repeated calls. 400 invalid UUIDs; 401 unauthenticated; 403 non-owner; 404 missing meeting/request or request in another meeting. All request responses include readAt (null when unread); lists stay newest first by createdAt regardless of read status. Also marks the matching main notification read."
           }
         }
       ]

@@ -9,6 +9,11 @@ import {
 } from '../../services/actionItemService.js'
 import { downloadFileContent, uploadMeetingFile } from '../../services/fileService.js'
 import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
+import {
+  submitMeetingChangeRequest,
+  getMeetingChangeRequests,
+  markMeetingChangeRequestRead,
+} from '../../services/meetingChangeRequestService.js'
 import { applyGeneratedMinutes, updateMeetingMinutes } from '../../services/minuteService.js'
 import {
   acceptAnalysisSuggestion,
@@ -21,7 +26,9 @@ import {
   uploadMeetingRecording,
 } from '../../services/recordingService.js'
 
-export const useMeetingDetailController = ({ token, activeMeetingId, onError }) => {
+export const useMeetingDetailController = ({ token, activeMeetingId, currentUserId, onError }) => {
+  const [loadedChangeRequests, setLoadedChangeRequests] = useState(null)
+  const [inboxRevision, setInboxRevision] = useState(0)
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
   const [pendingMeetingRecordingFile, setPendingMeetingRecordingFile] = useState(null)
@@ -31,6 +38,72 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
   const [loadedAnalysisReview, setLoadedAnalysisReview] = useState(null)
   const [applyMinutesState, setApplyMinutesState] = useState({ status: 'idle' })
   const selectedMeetingId = selectedMeetingDetail?.meeting?.id
+
+  const requestMeetingChange = useCallback(
+    (message) => submitMeetingChangeRequest(getApiClient(token), selectedMeetingId, message),
+    [token, selectedMeetingId]
+  )
+  const loadMeetingChangeRequests = useCallback(
+    () => getMeetingChangeRequests(getApiClient(token), selectedMeetingId),
+    [token, selectedMeetingId]
+  )
+  const markChangeRequestRead = async (requestId) => {
+    const updated = await markMeetingChangeRequestRead(
+      getApiClient(token),
+      selectedMeetingId,
+      requestId
+    )
+    setLoadedChangeRequests((previous) =>
+      previous?.meetingId === selectedMeetingId
+        ? {
+            ...previous,
+            items: previous.items.map((item) =>
+              item.id === requestId ? { ...item, readAt: updated.readAt } : item
+            ),
+          }
+        : previous
+    )
+    setInboxRevision((revision) => revision + 1)
+    window.dispatchEvent(new Event('meeting-change-request-read'))
+  }
+  const isMeetingOwner = selectedMeetingDetail?.meeting?.ownerId === currentUserId
+  useEffect(() => {
+    if (!selectedMeetingId || !isMeetingOwner) return
+    let cancelled = false
+    loadMeetingChangeRequests()
+      .then((items) => {
+        if (!cancelled)
+          setLoadedChangeRequests({
+            meetingId: selectedMeetingId,
+            items,
+            status: 'ready',
+            error: '',
+          })
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setLoadedChangeRequests({
+            meetingId: selectedMeetingId,
+            items: [],
+            status: 'error',
+            error: error.response?.data?.error || 'Unable to load change requests.',
+          })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedMeetingId, isMeetingOwner, loadMeetingChangeRequests, inboxRevision])
+
+  const refreshChangeRequests = () => {
+    setLoadedChangeRequests((previous) =>
+      previous ? { ...previous, status: 'loading', error: '' } : null
+    )
+    setInboxRevision((revision) => revision + 1)
+  }
+  const changeRequestInbox =
+    isMeetingOwner && loadedChangeRequests?.meetingId === selectedMeetingId
+      ? loadedChangeRequests
+      : { items: [], status: 'loading', error: '' }
 
   const fetchMeetingDetail = useCallback(
     async (meetingId) => {
@@ -452,7 +525,12 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
       const result = await generateMeetingRecording(getApiClient(token), selectedMeetingId)
       setSelectedMeetingDetail((prev) =>
         prev
-          ? { ...prev, recording: result.recording, transcript: result.transcript, analysisRun: result.analysisRun }
+          ? {
+              ...prev,
+              recording: result.recording,
+              transcript: result.transcript,
+              analysisRun: result.analysisRun,
+            }
           : prev
       )
     } catch (error) {
@@ -753,6 +831,10 @@ export const useMeetingDetailController = ({ token, activeMeetingId, onError }) 
       : null
 
   return {
+    requestMeetingChange,
+    changeRequestInbox,
+    refreshChangeRequests,
+    markChangeRequestRead,
     selectedMeetingDetail,
     analysisReview,
     applyMinutesState,

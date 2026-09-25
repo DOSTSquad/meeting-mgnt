@@ -569,15 +569,7 @@ export const DashboardView = ({
       meeting.ownerId === currentUser?.id &&
       getMeetingDisplayStatus(meeting, currentTime.getTime()) === 'awaiting_completion'
   ).length
-  const pendingToConfirmRequests = (data?.pendingMeetingRequests ?? [])
-    .filter(
-      (request) =>
-        request.canConfirm &&
-        // Owners do not need to review their own meeting details.
-        (!request.ownerId || String(request.ownerId) !== String(currentUser?.id))
-    )
-    .sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' }))
-  const pendingToConfirmMeetings = meetings
+  const pendingToConfirmItems = meetings
     .filter(
       (meeting) =>
         String(meeting.ownerId) !== String(currentUser?.id) &&
@@ -589,13 +581,9 @@ export const DashboardView = ({
         new Date(meeting.startsAt).getTime() > currentTime.getTime() &&
         meeting.status !== 'cancelled'
     )
-    .map((meeting) => ({ ...meeting, itemType: 'meeting' }))
-  const pendingToConfirmItems = [
-    ...pendingToConfirmRequests.map((request) => ({ ...request, itemType: 'request' })),
-    ...pendingToConfirmMeetings,
-  ].sort((left, right) =>
-    left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
-  )
+    .sort((left, right) =>
+      left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+    )
   const pendingToConfirmPageCount = Math.max(1, Math.ceil(pendingToConfirmItems.length / 5))
   const pendingToConfirmPageItems = pendingToConfirmItems.slice(
     (pendingToConfirmPage - 1) * 5,
@@ -846,23 +834,13 @@ export const DashboardView = ({
               <button
                 key={`confirm-${request.id}`}
                 type="button"
-                onClick={() =>
-                  request.itemType === 'request'
-                    ? onOpenMeetingRequest(request.id)
-                    : onOpenMeeting(request.id)
-                }
+                onClick={() => onOpenMeeting(request.id)}
                 className="block w-full rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-left transition hover:border-emerald-300"
               >
                 <p className="truncate text-sm font-bold text-slate-800">{request.title}</p>
                 <div className="mt-1 flex items-center justify-between gap-2 text-xs font-semibold text-slate-500">
-                  <span>
-                    {request.itemType === 'request'
-                      ? `${request.inviteeCounts.submitted}/${request.inviteeCounts.total} responses`
-                      : formatDateTime(request.startsAt)}
-                  </span>
-                  <span className="font-extrabold text-emerald-700">
-                    {request.itemType === 'request' ? 'Ready' : 'Not reviewed'}
-                  </span>
+                  <span>{formatDateTime(request.startsAt)}</span>
+                  <span className="font-extrabold text-emerald-700">Not reviewed</span>
                 </div>
               </button>
             ))}
@@ -881,7 +859,8 @@ export const DashboardView = ({
                   Prev
                 </button>
                 <span className="text-[10px] font-bold text-slate-500">
-                  Page {Math.min(pendingToConfirmPage, pendingToConfirmPageCount)} of {pendingToConfirmPageCount}
+                  Page {Math.min(pendingToConfirmPage, pendingToConfirmPageCount)} of{' '}
+                  {pendingToConfirmPageCount}
                 </span>
                 <button
                   type="button"
