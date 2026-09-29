@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { getApiClient } from '../../lib/apiClient.js'
+import { needsExtraction } from '../../lib/recordingFile.js'
 import { subscribeToWorkflowEvents } from '../../lib/workflowEventStream.js'
 import {
   createMeetingActionItem,
@@ -32,6 +33,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
   const [selectedMeetingDetail, setSelectedMeetingDetail] = useState(null)
   const [pendingMeetingMaterialFiles, setPendingMeetingMaterialFiles] = useState([])
   const [pendingMeetingRecordingFile, setPendingMeetingRecordingFile] = useState(null)
+  const [recordingExtractProgress, setRecordingExtractProgress] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   // Stored with the meeting it belongs to, so switching meetings derives an
   // empty preview instead of needing an effect to clear it.
@@ -130,6 +132,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
         setSelectedMeetingDetail(detail)
         setPendingMeetingMaterialFiles([])
         setPendingMeetingRecordingFile(null)
+        setRecordingExtractProgress(null)
       } catch (error) {
         if (isCancelled) {
           return
@@ -498,7 +501,20 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
 
       try {
         const client = getApiClient(token)
-        const result = await uploadMeetingRecording(client, selectedMeetingId, file, { replace })
+        let recordingFile = file
+
+        if (needsExtraction(file)) {
+          const { extractAudioInWorker } = await import('../../lib/extractAudioInWorker.js')
+          setRecordingExtractProgress(0)
+          recordingFile = await extractAudioInWorker(file, {
+            onProgress: setRecordingExtractProgress,
+          })
+          setRecordingExtractProgress(null)
+        }
+
+        const result = await uploadMeetingRecording(client, selectedMeetingId, recordingFile, {
+          replace,
+        })
         setSelectedMeetingDetail((prev) =>
           prev
             ? {
@@ -510,9 +526,15 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
             : prev
         )
       } catch (error) {
-        onError(error.response?.data?.error || 'Unable to upload meeting recording')
+        onError(
+          error.response?.data?.error ||
+            (error.name === 'AudioExtractionError'
+              ? error.message
+              : 'Unable to upload meeting recording')
+        )
       } finally {
         setPendingMeetingRecordingFile(null)
+        setRecordingExtractProgress(null)
       }
     },
     [onError, selectedMeetingId, token]
@@ -845,6 +867,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
     editSuggestion,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
+    recordingExtractProgress,
     isPreviewOpen,
     setIsPreviewOpen,
     updateMeetingDetailField,

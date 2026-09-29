@@ -392,6 +392,7 @@ const AppShell = ({ token, user, onLogout }) => {
     rejectSuggestion,
     pendingMeetingMaterialFiles,
     pendingMeetingRecordingFile,
+    recordingExtractProgress,
     isPreviewOpen,
     setIsPreviewOpen,
     updateMeetingDetailField,
@@ -567,6 +568,7 @@ const AppShell = ({ token, user, onLogout }) => {
                     onActionItemRemove={removeActionItem}
                     pendingMaterialFiles={pendingMeetingMaterialFiles}
                     pendingRecordingFile={pendingMeetingRecordingFile}
+                    recordingExtractProgress={recordingExtractProgress}
                     onAddPendingMaterialFiles={addPendingMeetingMaterialFiles}
                     onUploadRecording={uploadRecording}
                     onGenerateMinutesFromRecording={generateMinutesFromRecording}
