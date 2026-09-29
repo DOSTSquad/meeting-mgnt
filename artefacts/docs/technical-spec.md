@@ -184,7 +184,7 @@ event. Delivery is best effort: a failed email does not block the change.
 - A meeting has one active recording. Uploading stores the audio only; replacing it must be requested
   explicitly and archives the previous one.
 - An owner or organizer starts generation explicitly. It requires the AI pipeline to be enabled.
-- Minutes move through `draft`, `approved`, and `published`.
+- Minutes move through `draft`, `approved`, and `published` (see 4.6).
 - Applying AI-generated content never approves or publishes minutes. A version check prevents
   overwriting concurrent edits.
 
@@ -245,7 +245,27 @@ sequenceDiagram
     the action item and notifies the assignee; the reviewer and time are recorded.
   - If an accepted action item is later deleted, its suggestion is marked withdrawn.
 
-### 4.6 Attendee Change Requests
+### 4.6 Minutes Review and Approval
+
+AI output never becomes minutes on its own. A person reviews it, applies it to the draft minutes, and
+then sets the minutes status.
+
+| Step                         | Who                     | Result                                                                                                                        |
+| ---------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Review the analysis          | Owner, organizer, admin | Accept, edit, or reject each suggested action item. Accepted suggestions become action items and notify the assignee.         |
+| Apply the summary to minutes | Owner, organizer, admin | The generated summary fills the minutes content. Human-written discussion and decision fields are kept. Status stays `draft`. |
+| Approve                      | Owner, organizer, admin | The minutes status is set to `approved`.                                                                                      |
+| Publish                      | Owner, organizer, admin | The minutes status is set to `published`.                                                                                     |
+
+- Applying is explicit. If someone edited the minutes in the meantime, the apply is rejected with a
+  conflict and nothing is overwritten (version check).
+- Every participant can read the minutes in any status; the status does not restrict who can read
+  them.
+- There is no separate approver role: whoever can edit the minutes can approve and publish them.
+- The status can be changed in any direction, for example back to `draft` to reopen the minutes.
+- Each minutes record keeps the transcript it was generated from.
+
+### 4.7 Attendee Change Requests
 
 - An attendee or optional participant can send the owner a private message (1–2000 characters)
   asking for a meeting change.
@@ -320,7 +340,7 @@ erDiagram
 | Analysis run          | Generated summary, key discussions, decisions, and provenance.                            |
 | Analysis suggestion   | Proposed action item awaiting review, with reviewer and outcome.                          |
 | Workflow outbox       | Durable workflow commands awaiting dispatch.                                              |
-| Minutes               | One minutes record per meeting.                                                           |
+| Minutes               | One minutes record per meeting, with status, version, and the transcript it came from.    |
 | Notification          | Persisted in-app notification for one recipient.                                          |
 | Change request        | Private attendee message to the meeting owner, with read state.                           |
 
@@ -405,7 +425,7 @@ section 7.2.
 | GET    | `/meetings/:meetingId/recording/analysis`                        | Read the latest analysis, suggestions, and transcript.                   |
 | GET    | `/meetings/:meetingId/workflow/events`                           | Stream workflow status updates (SSE).                                    |
 | GET    | `/meetings/:meetingId/minutes`                                   | Read or initialize minutes.                                              |
-| PUT    | `/meetings/:meetingId/minutes`                                   | Update minutes.                                                          |
+| PUT    | `/meetings/:meetingId/minutes`                                   | Update minutes and their status (draft, approved, published).            |
 | PUT    | `/meetings/:meetingId/minutes/:minutesId`                        | Update a specific minutes record.                                        |
 | POST   | `/meetings/:meetingId/minutes/apply-generated`                   | Apply the generated summary to draft minutes.                            |
 | PATCH  | `/meetings/:meetingId/analysis-suggestions/:suggestionId`        | Edit a proposed action-item suggestion.                                  |
@@ -455,17 +475,17 @@ Health paths have no `/api` prefix so infrastructure can check them directly.
 Permissions are enforced on the server by one central definition. Access is granted when either the
 account role or the meeting role matches.
 
-| Capability                                                                                                                | Who                                                     |
-| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| View a meeting and its participants, minutes, files, recording, analysis, and action items                                | Admin, owner, organizer, attendee, optional             |
-| Upload and download files; create, update, and delete action items                                                        | Admin, owner, organizer, attendee, optional             |
-| Update or delete the meeting; manage participants; delete files; update minutes; manage recordings; review AI suggestions | Admin, owner, organizer                                 |
-| Send a change request                                                                                                     | Attendee, optional                                      |
-| Read change requests                                                                                                      | Owner only (admins and organizers excluded for privacy) |
-| Create a meeting or meeting request; list users and tags                                                                  | Any signed-in user                                      |
-| Manage, invite for, confirm, or cancel a meeting request                                                                  | Request creator                                         |
-| Submit invitee availability                                                                                               | The invitee or the request creator                      |
-| Manage user accounts and roles                                                                                            | Admin (not their own account)                           |
+| Capability                                                                                                                                            | Who                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| View a meeting and its participants, minutes, files, recording, analysis, and action items                                                            | Admin, owner, organizer, attendee, optional             |
+| Upload and download files; create, update, and delete action items                                                                                    | Admin, owner, organizer, attendee, optional             |
+| Update or delete the meeting; manage participants; delete files; update minutes and approve or publish them; manage recordings; review AI suggestions | Admin, owner, organizer                                 |
+| Send a change request                                                                                                                                 | Attendee, optional                                      |
+| Read change requests                                                                                                                                  | Owner only (admins and organizers excluded for privacy) |
+| Create a meeting or meeting request; list users and tags                                                                                              | Any signed-in user                                      |
+| Manage, invite for, confirm, or cancel a meeting request                                                                                              | Request creator                                         |
+| Submit invitee availability                                                                                                                           | The invitee or the request creator                      |
+| Manage user accounts and roles                                                                                                                        | Admin (not their own account)                           |
 
 Additional rules:
 
@@ -530,6 +550,7 @@ Additional rules:
 | Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                                         |
 | Uploads are limited to 50 MB per file, including recordings and audio extracted from a video     | A recording above 50 MB cannot be uploaded; at 128 kbps that is about 52 minutes of audio. |
 | Audio extraction from video runs in the browser and supports MP4, MOV, WebM, and MKV             | Other formats (for example AVI) must be converted to audio before upload.                  |
+| Minutes approval sets a status only; the approver and the time are not recorded                  | Approval history is not available.                                                         |
 | Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                                                   |
 | Registration is self-service                                                                     | Anyone who can reach the application can create a `staff` account.                         |
 
@@ -585,14 +606,15 @@ process is running.
 
 ## 12. Delivered Scope
 
-| Item                                | Description                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------ |
-| Core meeting management             | Create, list/search, detail, participants, files, minutes, action items.             |
-| Meeting request scheduling          | Email invitations with personal links; creators confirm after responses or deadline. |
-| Calendar invitations                | iCalendar emails on create, update, and cancel.                                      |
-| Attendee change requests            | Private attendee messages to the owner, with notification and inbox.                 |
-| Dashboard and notifications         | Upcoming meetings, requests, action items, notification state.                       |
-| Video recordings                    | The browser extracts the audio track before upload; the video is not uploaded.       |
-| Speech-to-text transcription        | Whisper transcripts with timestamped segments.                                       |
-| AI summaries and action-item review | Local LLM summaries, decisions, and suggestions reviewed by a person.                |
-| RBAC and admin controls             | Account roles, admin user management, and central permission checks (see 7.2).       |
+| Item                                | Description                                                                                                    |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Core meeting management             | Create, list/search, detail, participants, files, minutes, action items.                                       |
+| Meeting request scheduling          | Email invitations with personal links; creators confirm after responses or deadline.                           |
+| Calendar invitations                | iCalendar emails on create, update, and cancel.                                                                |
+| Attendee change requests            | Private attendee messages to the owner, with notification and inbox.                                           |
+| Dashboard and notifications         | Upcoming meetings, requests, action items, notification state.                                                 |
+| Video recordings                    | The browser extracts the audio track before upload; the video is not uploaded.                                 |
+| Speech-to-text transcription        | Whisper transcripts with timestamped segments.                                                                 |
+| AI summaries and action-item review | Local LLM summaries, decisions, and suggestions reviewed by a person.                                          |
+| Minutes review and approval         | Reviewed AI output is applied to draft minutes, then approved and published by the owner, organizer, or admin. |
+| RBAC and admin controls             | Account roles, admin user management, and central permission checks (see 7.2).                                 |
