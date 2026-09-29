@@ -17,7 +17,8 @@ export const upload = async (req, res, next) => {
       req.user?.id,
       req.file,
       req.body?.description,
-      req.body?.storageKind
+      req.body?.storageKind,
+      req.user?.role
     )
 
     res.status(201).json({ file })
@@ -38,7 +39,7 @@ export const list = async (req, res, next) => {
 
 export const download = async (req, res, next) => {
   try {
-    const { url, expiresAt } = await getDownloadUrl(req.params.id, req.user?.id)
+    const { url, expiresAt } = await getDownloadUrl(req.params.id, req.user?.id, req.user?.role)
 
     res.json({ url, expiresAt })
   } catch (error) {
@@ -48,7 +49,7 @@ export const download = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    await deleteFileById(req.params.id, req.user?.id)
+    await deleteFileById(req.params.id, req.user?.id, req.user?.role)
 
     res.status(204).end()
   } catch (error) {
@@ -58,7 +59,7 @@ export const remove = async (req, res, next) => {
 
 export const downloadContent = async (req, res, next) => {
   try {
-    const { stream, file } = await getDownloadStream(req.params.id, req.user?.id)
+    const { stream, file } = await getDownloadStream(req.params.id, req.user?.id, req.user?.role)
     const safeFileName = encodeURIComponent(file.fileName)
 
     res.setHeader('Content-Type', file.mimeType || 'application/octet-stream')

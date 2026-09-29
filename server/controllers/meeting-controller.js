@@ -26,10 +26,11 @@ export const list = async (req, res, next) => {
   try {
     const page = Number(req.query.page ?? 1)
     const limit = Number(req.query.limit ?? 20)
-    const { from, to, status, q } = req.query
+    const { from, to, status, q, scope } = req.query
+    const listsEveryMeeting = req.user?.role === 'admin' && scope !== 'mine'
 
     const { rows, total } = await listMeetingsForQuery({
-      userId: req.user?.role === 'admin' ? null : req.user?.id,
+      userId: listsEveryMeeting ? null : req.user?.id,
       callerRole: req.user?.role,
       page,
       limit,
@@ -75,7 +76,7 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    await deleteMeetingById(req.params.id, req.user?.id)
+    await deleteMeetingById(req.params.id, req.user?.id, req.user?.role)
 
     res.status(204).end()
   } catch (error) {

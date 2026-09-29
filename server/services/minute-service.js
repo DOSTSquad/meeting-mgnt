@@ -6,6 +6,7 @@ import {
 } from '../repositories/minute-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
 import { findUsersByIds } from '../repositories/user-repository.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -28,42 +29,24 @@ const loadMeetingOrThrow = async (meetingId) => {
   return meeting
 }
 
-const assertAuthenticated = (callerId) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-}
-
 const assertCanAccessMeeting = async (meeting, callerId, callerRole) => {
-  assertAuthenticated(callerId)
-
-  if (callerRole === 'admin' || callerId === meeting.ownerId) {
-    return
-  }
-
   const participants = await listByMeeting(meeting.id)
-  const isParticipant = participants.some((participant) => participant.userId === callerId)
 
-  if (!isParticipant) {
-    throw createHttpError('You do not have access to this meeting', 403)
-  }
+  assertCan(
+    'meeting:view',
+    { callerId, callerRole, meeting, participants },
+    'You do not have access to this meeting'
+  )
 }
 
-const assertCanManageMinutes = async (meeting, callerId) => {
-  assertAuthenticated(callerId)
-
-  if (callerId === meeting.ownerId) {
-    return
-  }
-
+const assertCanManageMinutes = async (meeting, callerId, callerRole) => {
   const participants = await listByMeeting(meeting.id)
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
-  )
 
-  if (!isOrganizer) {
-    throw createHttpError('Only the meeting creator or an organizer can update minutes', 403)
-  }
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting creator or an organizer can update minutes'
+  )
 }
 
 const assertValidNullableUuid = (field, value) => {
@@ -106,9 +89,15 @@ export const getMinutesForMeeting = async (meetingId, callerId, callerRole) => {
   }
 }
 
-export const updateMinutesForMeeting = async ({ meetingId, minuteId, input, callerId }) => {
+export const updateMinutesForMeeting = async ({
+  meetingId,
+  minuteId,
+  input,
+  callerId,
+  callerRole,
+}) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanManageMinutes(meeting, callerId)
+  await assertCanManageMinutes(meeting, callerId, callerRole)
 
   const updates = {}
 

@@ -16,6 +16,7 @@ import {
   putObject,
   removeObject,
 } from './minio-client.js'
+import { assertCan } from './permissions.js'
 
 const TTL_SECONDS = 60
 
@@ -26,37 +27,19 @@ const createHttpError = (message, statusCode) => {
   return error
 }
 
-const assertManagePermission = (meeting, callerId, participants) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
+const assertManagePermission = (meeting, callerId, participants, callerRole) =>
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting creator or an organizer can manage files'
+  )
 
-  if (callerId === meeting.ownerId) {
-    return
-  }
-
-  const isOrganizer = participants.some((p) => p.userId === callerId && p.role === 'organizer')
-
-  if (!isOrganizer) {
-    throw createHttpError('Only the meeting creator or an organizer can manage files', 403)
-  }
-}
-
-const assertIsParticipant = (meeting, callerId, participants, callerRole) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerRole === 'admin' || callerId === meeting.ownerId) {
-    return
-  }
-
-  const isParticipant = participants.some((p) => p.userId === callerId)
-
-  if (!isParticipant) {
-    throw createHttpError('Only meeting participants can access files', 403)
-  }
-}
+const assertIsParticipant = (meeting, callerId, participants, callerRole) =>
+  assertCan(
+    'meeting:view',
+    { callerId, callerRole, meeting, participants },
+    'Only meeting participants can access files'
+  )
 
 const loadMeetingOrThrow = async (meetingId) => {
   const meeting = await findMeetingById(meetingId)
@@ -82,14 +65,21 @@ const getStorageTarget = (meetingId, fileId, file, storageKind) => {
       }
 }
 
-export const uploadFile = async (meetingId, callerId, file, description, storageKind = 'file') => {
+export const uploadFile = async (
+  meetingId,
+  callerId,
+  file,
+  description,
+  storageKind = 'file',
+  callerRole
+) => {
   if (!file) {
     throw createHttpError('No file provided', 400)
   }
 
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listByMeeting(meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertIsParticipant(meeting, callerId, participants, callerRole)
 
   const id = randomUUID()
   const { bucketName, objectKey } = getStorageTarget(meetingId, id, file, storageKind)
@@ -131,7 +121,7 @@ const buildContentDisposition = (fileName) => {
   return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Encoded}`
 }
 
-export const getDownloadUrl = async (fileId, callerId) => {
+export const getDownloadUrl = async (fileId, callerId, callerRole) => {
   const fileRow = await findFileById(fileId)
 
   if (!fileRow) {
@@ -140,7 +130,7 @@ export const getDownloadUrl = async (fileId, callerId) => {
 
   const meeting = await loadMeetingOrThrow(fileRow.meetingId)
   const participants = await listByMeeting(fileRow.meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertIsParticipant(meeting, callerId, participants, callerRole)
 
   const url = await presignedGetObject(fileRow.bucketName, fileRow.objectKey, TTL_SECONDS, {
     'response-content-disposition': buildContentDisposition(fileRow.fileName),
@@ -151,7 +141,7 @@ export const getDownloadUrl = async (fileId, callerId) => {
   return { url, expiresAt }
 }
 
-export const deleteFileById = async (fileId, callerId) => {
+export const deleteFileById = async (fileId, callerId, callerRole) => {
   const fileRow = await findFileById(fileId)
 
   if (!fileRow) {
@@ -160,13 +150,13 @@ export const deleteFileById = async (fileId, callerId) => {
 
   const meeting = await loadMeetingOrThrow(fileRow.meetingId)
   const participants = await listByMeeting(fileRow.meetingId)
-  assertManagePermission(meeting, callerId, participants)
+  assertManagePermission(meeting, callerId, participants, callerRole)
 
   await deleteFile(fileId)
   await removeObject(fileRow.bucketName, fileRow.objectKey)
 }
 
-export const getDownloadStream = async (fileId, callerId) => {
+export const getDownloadStream = async (fileId, callerId, callerRole) => {
   const fileRow = await findFileById(fileId)
 
   if (!fileRow) {
@@ -175,7 +165,7 @@ export const getDownloadStream = async (fileId, callerId) => {
 
   const meeting = await loadMeetingOrThrow(fileRow.meetingId)
   const participants = await listByMeeting(fileRow.meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertIsParticipant(meeting, callerId, participants, callerRole)
 
   const stream = await getObject(fileRow.bucketName, fileRow.objectKey)
 

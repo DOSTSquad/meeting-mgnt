@@ -200,6 +200,57 @@
       ]
     },
     {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Returns `{ users: [...] }` (id, name, email, role, department, createdAt) for the user directory. Any signed-in user can call it."
+          }
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{participantUserId}}"]
+            },
+            "description": "Admin only (403 for staff). Partial update: `name`, `email`, `role`, `department`, `password`. `role` must be `staff` or `admin` (400 otherwise); `id` must be a UUID; `email` must be valid; a non-empty `password` needs at least 8 characters (empty leaves it unchanged). An admin cannot edit their own account (400). Returns `200 { user }` or 404.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"staff\",\n  \"department\": \"operations\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete user",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{participantUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{participantUserId}}"]
+            },
+            "description": "Admin only (403 for staff). An admin cannot delete their own account (400). Returns 204."
+          }
+        }
+      ]
+    },
+    {
       "name": "Meetings",
       "item": [
         {
@@ -257,7 +308,7 @@
                 }
               ]
             },
-            "description": "Returns `{ meetings: [...] }` plus pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames for repository search/display, `participantCount` is the full attendee count, and `participantNames` is a short preview of up to three names for repository/list views."
+            "description": "Returns `{ meetings: [...] }` for the meetings the caller owns or attends. Admins receive every meeting by default; add `scope=mine` to limit an admin to their own (`scope=all` is the default and does nothing for staff). Also returns pagination headers:\n- `X-Total-Count`: total matching rows\n- `Link` (RFC 5988): `first`, `last` always; `prev`/`next` at boundaries; preserves filter query params.\n\nEach meeting includes `tagId`, `tag`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `fileNames` lists uploaded filenames for repository search/display, `participantCount` is the full attendee count, and `participantNames` is a short preview of up to three names for repository/list views."
           }
         },
         {
@@ -330,7 +381,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
             },
-            "description": "Returns `{ meeting }`. Meeting responses include `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `calendarSequence` is the persistent ICS revision, `fileNames` lists uploaded filenames, and `participantNames` is a short preview of up to three names."
+            "description": "Returns `{ meeting }` to the meeting owner, a participant, or an admin (403 otherwise). Meeting responses include `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`; `calendarSequence` is the persistent ICS revision, `fileNames` lists uploaded filenames, and `participantNames` is a short preview of up to three names."
           }
         },
         {
@@ -352,7 +403,7 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"completed\",\n  \"location\": \"Room 5.2\"\n}"
             },
-            "description": "Organizer-only partial update. Changes to title, description, start/end, timezone, or location increment `calendarSequence` and send a best-effort `METHOD:REQUEST` ICS to participants and emailed external invitees. Cancellation increments the sequence and sends `METHOD:CANCEL`; same-value, tag-only, completion, and archival updates do not send calendar email."
+            "description": "Partial update for the meeting owner, an organizer, or an admin. Changes to title, description, start/end, timezone, or location increment `calendarSequence` and send a best-effort `METHOD:REQUEST` ICS to participants and emailed external invitees. Cancellation increments the sequence and sends `METHOD:CANCEL`; same-value, tag-only, completion, and archival updates do not send calendar email."
           }
         },
         {
@@ -364,7 +415,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}"]
             },
-            "description": "Hard delete for the meeting owner or an organizer. Returns 204 on success, 403 for other callers, or 404 if not found."
+            "description": "Hard delete for the meeting owner, an organizer, or an admin. Returns 204 on success, 403 for other callers, or 404 if not found."
           }
         }
       ]
@@ -803,7 +854,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "minutes"]
             },
-            "description": "Returns `{ minutes }`. If the meeting has no minutes yet, the API creates an empty draft minutes row."
+            "description": "Returns `{ minutes }` to the meeting owner, a participant, or an admin. If the meeting has no minutes yet, the API creates an empty draft minutes row."
           },
           "event": [
             {
@@ -839,7 +890,7 @@
               "mode": "raw",
               "raw": "{\n  \"content\": \"Reviewed delivery risk and agreed follow-up owners.\",\n  \"keyDiscussions\": \"Timeline risk\\nResourcing\",\n  \"decisions\": \"Keep current milestone scope.\",\n  \"facilitatorId\": null,\n  \"recorderId\": null,\n  \"generatedFromTranscriptId\": null\n}"
             },
-            "description": "Updates moved minutes fields. Only the meeting creator or an organizer can update minutes."
+            "description": "Updates moved minutes fields. Only the meeting owner, an organizer, or an admin can update minutes."
           },
           "event": [
             {
@@ -958,7 +1009,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "minutes", "apply-generated"]
             },
-            "description": "Applies a reviewed analysis run to the draft minutes. Owner or organizer only.\n\n`expectedVersion` is required. Send the version the client currently holds; the guard is in the UPDATE's WHERE clause, so a human edit landing in between cannot be overwritten.\n\n409 returns `{ error, currentVersion, minutes }` and changes nothing. Do not retry automatically — show the user what changed first.\n\nWrites content, key_discussions, decisions, and generated_from_transcript_id. The result stays `draft`: applying never approves or publishes, and the analysis provider is not called again."
+            "description": "Applies a reviewed analysis run to the draft minutes. Owner, organizer, or admin only.\n\n`expectedVersion` is required. Send the version the client currently holds; the guard is in the UPDATE's WHERE clause, so a human edit landing in between cannot be overwritten.\n\n409 returns `{ error, currentVersion, minutes }` and changes nothing. Do not retry automatically — show the user what changed first.\n\nWrites content, key_discussions, decisions, and generated_from_transcript_id. The result stays `draft`: applying never approves or publishes, and the analysis provider is not called again."
           },
           "response": []
         }
@@ -977,7 +1028,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording"]
             },
-            "description": "Returns `{ recording, transcript, analysisRun }`. All are null when no active recording exists. Any meeting participant can read recording metadata, transcript status, and analysis-run status."
+            "description": "Returns `{ recording, transcript, analysisRun }`. All are null when no active recording exists. Any meeting participant (or an admin) can read recording metadata, transcript status, and analysis-run status."
           },
           "event": [
             {
@@ -1022,7 +1073,7 @@
                 }
               ]
             },
-            "description": "Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409."
+            "description": "Owner, organizer, or admin only. Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409."
           },
           "event": [
             {
@@ -1050,7 +1101,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording", "generate"]
             },
-            "description": "Queues Speech-to-Text and analysis for the active recording. Returns 202 with `generationStatus='queued'`, the processing transcript, and the queued analysis run. A request while generation is already active returns 409."
+            "description": "Owner, organizer, or admin only. Queues Speech-to-Text and analysis for the active recording. Returns 202 with `generationStatus='queued'`, the processing transcript, and the queued analysis run. A request while generation is already active returns 409."
           },
           "event": [
             {
@@ -1077,7 +1128,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording"]
             },
-            "description": "Archives the active recording and removes its MinIO object. Returns 204."
+            "description": "Owner, organizer, or admin only. Archives the active recording and removes its MinIO object. Returns 204."
           }
         },
         {
@@ -1095,7 +1146,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "workflow", "events"]
             },
-            "description": "Server-sent events for one meeting's recording workflow.\n\nFrames: `snapshot` (PostgreSQL state, always first on every connection), `status` (a transition, reloaded from PostgreSQL rather than forwarded from Redis), `settled` (transcription reached completed or failed; the server then closes), `error` (stream ended early, e.g. access revoked mid-stream), and `: heartbeat` comment frames every WORKFLOW_SSE_HEARTBEAT_MS.\n\nPayloads carry identifiers, statuses, error messages, timestamps, and segmentCount only. Never transcript text, audio, credentials, or presigned URLs — refetch GET /meetings/{{meetingId}}/recording after `settled` for the transcript body.\n\nMeeting access is authorised before any stream header is written, so a non-participant receives 403 rather than an empty 200.\n\nAuthenticate with the Authorization header. EventSource cannot send one, so browser clients use fetch. Never put the JWT in a query parameter.\n\nPostman shows the raw stream; it will not close on its own until `settled` arrives."
+            "description": "Server-sent events for one meeting's recording workflow. Available to the owner, participants, and admins; anyone else gets a normal 403 before the stream opens.\n\nFrames: `snapshot` (PostgreSQL state, always first on every connection), `status` (a transition, reloaded from PostgreSQL rather than forwarded from Redis), `settled` (transcription reached completed or failed; the server then closes), `error` (stream ended early, e.g. access revoked mid-stream), and `: heartbeat` comment frames every WORKFLOW_SSE_HEARTBEAT_MS.\n\nPayloads carry identifiers, statuses, error messages, timestamps, and segmentCount only. Never transcript text, audio, credentials, or presigned URLs — refetch GET /meetings/{{meetingId}}/recording after `settled` for the transcript body.\n\nMeeting access is authorised before any stream header is written, so a non-participant receives 403 rather than an empty 200.\n\nAuthenticate with the Authorization header. EventSource cannot send one, so browser clients use fetch. Never put the JWT in a query parameter.\n\nPostman shows the raw stream; it will not close on its own until `settled` arrives."
           },
           "response": []
         },
@@ -1108,7 +1159,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "recording", "analysis"]
             },
-            "description": "The latest analysis for the meeting, for any participant.\n\nReturns `{ analysisRun, suggestions, transcript }`. The run carries summary, keyDiscussions, decisions, and provenance (provider, model, promptVersion, transcriptId). Evidence indexes are resolved server-side into the transcript passages they cite, so each item arrives with `{ segmentIndex, startSeconds, endSeconds, speaker, text }`.\n\nRead-only. Suggestions stay `proposed` and are not action items; promoting them is #65. Nothing here modifies minutes.\n\n`analysisRun` is null until the analysis worker finishes. Watch GET /meetings/{{meetingId}}/workflow/events for the transition rather than polling this."
+            "description": "The latest analysis for the meeting, for any participant or an admin.\n\nReturns `{ analysisRun, suggestions, transcript }`. The run carries summary, keyDiscussions, decisions, and provenance (provider, model, promptVersion, transcriptId). Evidence indexes are resolved server-side into the transcript passages they cite, so each item arrives with `{ segmentIndex, startSeconds, endSeconds, speaker, text }`.\n\nRead-only. Suggestions stay `proposed` and are not action items; promoting them is #65. Nothing here modifies minutes.\n\n`analysisRun` is null until the analysis worker finishes. Watch GET /meetings/{{meetingId}}/workflow/events for the transition rather than polling this."
           },
           "response": []
         },
@@ -1127,7 +1178,7 @@
                 "accept"
               ]
             },
-            "description": "Creates the official action item and marks the suggestion accepted, in one transaction.\n\nExactly-once: a duplicate request returns 200 with alreadyReviewed=true and creates no second task and no second notification. A first acceptance returns 201.\n\nThe action item's source ('ai') and source_ref (the analysis run id) are set by the server. `source` is not accepted in the request at all.\n\nThe assignee is re-checked against current meeting participants; someone who has left the meeting is rejected with 400."
+            "description": "Owner, organizer, or admin only. Creates the official action item and marks the suggestion accepted, in one transaction.\n\nExactly-once: a duplicate request returns 200 with alreadyReviewed=true and creates no second task and no second notification. A first acceptance returns 201.\n\nThe action item's source ('ai') and source_ref (the analysis run id) are set by the server. `source` is not accepted in the request at all.\n\nThe assignee is re-checked against current meeting participants; someone who has left the meeting is rejected with 400."
           },
           "response": []
         },
@@ -1146,7 +1197,7 @@
                 "reject"
               ]
             },
-            "description": "Marks the suggestion rejected and records the reviewer and timestamp. Creates no action item.\n\nRejected suggestions are kept: what was offered and turned down is part of the record."
+            "description": "Owner, organizer, or admin only. Marks the suggestion rejected and records the reviewer and timestamp. Creates no action item.\n\nRejected suggestions are kept: what was offered and turned down is part of the record."
           },
           "response": []
         },
@@ -1159,7 +1210,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "analysis-suggestions", "{{suggestionId}}"]
             },
-            "description": "Edits a suggestion while it is still `proposed`. An accepted or rejected suggestion returns 409: it is a record of what was decided, not a draft.\n\nEditable: title, description, assigneeId, dueDate, priority. Provenance fields are not editable.",
+            "description": "Owner, organizer, or admin only. Edits a suggestion while it is still `proposed`. An accepted or rejected suggestion returns 409: it is a record of what was decided, not a draft.\n\nEditable: title, description, assigneeId, dueDate, priority. Provenance fields are not editable.",
             "header": [
               {
                 "key": "Content-Type",
@@ -1188,7 +1239,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "participants"]
             },
-            "description": "Returns `{ participants: [...] }`. Each row includes `userId`, `name`, `email`, `role`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
+            "description": "Returns `{ participants: [...] }` to the meeting owner, participants, and admins. Each row includes `userId`, `name`, `email`, `role`, `addedBy`, `addedAt`. Also available nested on `GET /meetings/{{meetingId}}`."
           }
         },
         {
@@ -1210,7 +1261,7 @@
               "mode": "raw",
               "raw": "{\n  \"userIds\": [\"<user-uuid-1>\", \"<user-uuid-2>\"],\n  \"role\": \"attendee\"\n}"
             },
-            "description": "Adds one or more users to the meeting. `userIds` is a 1–50 element array of user UUIDs. `role` is optional (default `attendee`); allowed: `organizer`, `attendee`, `optional`.\n\nIdempotent — re-posting an existing `userId` is a no-op (use PATCH to change role). Returns `201 { participants }` containing the current rows for every requested id.\n\nThe test script auto-saves the first returned `userId` to `participantUserId` so the PATCH/DELETE requests below work out of the box."
+            "description": "Adds one or more users to the meeting. Owner, organizer, or admin only. `userIds` is a 1–50 element array of user UUIDs. `role` is optional (default `attendee`); allowed: `organizer`, `attendee`, `optional`.\n\nIdempotent — re-posting an existing `userId` is a no-op (use PATCH to change role). Returns `201 { participants }` containing the current rows for every requested id.\n\nThe test script auto-saves the first returned `userId` to `participantUserId` so the PATCH/DELETE requests below work out of the box."
           },
           "event": [
             {
@@ -1248,7 +1299,7 @@
               "mode": "raw",
               "raw": "{\n  \"role\": \"organizer\"\n}"
             },
-            "description": "Update a participant's `role`. Empty body returns 400.\n\nAllowed `role`: `organizer`, `attendee`, `optional`.\n\nDemoting the last organizer returns 400."
+            "description": "Update a participant's `role` (owner, organizer, or admin only). Empty body returns 400.\n\nAllowed `role`: `organizer`, `attendee`, `optional`.\n\nDemoting the last organizer returns 400."
           }
         },
         {
@@ -1260,7 +1311,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "participants", "{{participantUserId}}"]
             },
-            "description": "Removes the participant from the meeting. Returns 204 on success, 404 if not a participant, 400 if they are the last organizer."
+            "description": "Removes the participant from the meeting (owner, organizer, or admin only). Returns 204 on success, 404 if not a participant, 400 if they are the last organizer."
           }
         }
       ]
@@ -1295,7 +1346,7 @@
                 }
               ]
             },
-            "description": "Multipart upload. Field name must be `file`. Returns `201 { file }`. Auto-saves `fileId` to collection variable."
+            "description": "Multipart upload for the owner, participants, and admins. Field name must be `file`. Returns `201 { file }`. Auto-saves `fileId` to collection variable."
           },
           "event": [
             {
@@ -1321,7 +1372,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["meetings", "{{meetingId}}", "files"]
             },
-            "description": "Returns `{ files: [...] }` for the meeting. Any participant can list."
+            "description": "Returns `{ files: [...] }` for the meeting. The owner, any participant, or an admin can list."
           }
         },
         {
@@ -1333,7 +1384,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["files", "{{fileId}}", "download"]
             },
-            "description": "Returns `{ url, expiresAt }`. The presigned URL is valid for 60 seconds — paste it into a browser or use it in a fetch to retrieve the file bytes directly from MinIO."
+            "description": "Returns `{ url, expiresAt }` to the owner, participants, and admins. The presigned URL is valid for 60 seconds — paste it into a browser or use it in a fetch to retrieve the file bytes directly from MinIO."
           }
         },
         {
@@ -1345,7 +1396,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["files", "{{fileId}}"]
             },
-            "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only creator or organizer can delete."
+            "description": "Hard delete — removes the DB row and the MinIO object. Returns 204. Only the owner, an organizer, or an admin can delete."
           }
         }
       ]
@@ -1402,7 +1453,7 @@
               "mode": "raw",
               "raw": "{\n  \"title\": \"Write the design doc\",\n  \"description\": \"Capture decisions from today\",\n  \"assigneeId\": \"<user-uuid>\",\n  \"dueDate\": \"2026-05-10T17:00:00+10:00\",\n  \"priority\": \"high\"\n}"
             },
-            "description": "Creates an action item. `title` is required (≤255 chars). `assigneeId`, `dueDate`, `description`, `priority` are optional. Defaults: `status='todo'`, `priority='medium'`, `source='manual'`. Auto-saves `actionItemId` to collection variable."
+            "description": "Creates an action item (owner, participants, or admin). `title` is required (≤255 chars). `assigneeId`, `dueDate`, `description`, `priority` are optional. Defaults: `status='todo'`, `priority='medium'`, `source='manual'`. Auto-saves `actionItemId` to collection variable."
           },
           "event": [
             {
@@ -1442,7 +1493,7 @@
                 }
               ]
             },
-            "description": "Returns `{ actionItems: [...] }` ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters. Each action item includes derived `isOverdue` and `dueState` fields; overdue is not a persisted status."
+            "description": "Returns `{ actionItems: [...] }` to the owner, participants, and admins, ordered by `createdAt DESC`. Supports optional `status` and `assigneeId` query filters. Each action item includes derived `isOverdue` and `dueState` fields; overdue is not a persisted status."
           }
         },
         {
@@ -1454,7 +1505,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["action-items", "{{actionItemId}}"]
             },
-            "description": "Returns `{ actionItem }` with full action item detail, including derived `isOverdue` and `dueState`. Meeting creators, meeting participants, and the assigned user can view it."
+            "description": "Returns `{ actionItem }` with full action item detail, including derived `isOverdue` and `dueState`. The meeting owner, participants, admins, and the assigned user can view it."
           }
         },
         {
@@ -1476,7 +1527,7 @@
               "mode": "raw",
               "raw": "{\n  \"status\": \"completed\",\n  \"priority\": \"high\"\n}"
             },
-            "description": "Partial update — send only the fields to change. Allowed: `title`, `description`, `assigneeId`, `dueDate`, `status`, `priority`. Empty body returns 400. Transitioning `status` to `completed` stamps `completedAt`; transitioning away clears it."
+            "description": "Partial update — send only the fields to change. Owner, participants, and admins can change any field; a non-participant assignee can change only `status`. Allowed: `title`, `description`, `assigneeId`, `dueDate`, `status`, `priority`. Empty body returns 400. Transitioning `status` to `completed` stamps `completedAt`; transitioning away clears it."
           }
         },
         {
@@ -1488,7 +1539,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["action-items", "{{actionItemId}}"]
             },
-            "description": "Hard delete. Returns 204 on success, 404 if not found. Any meeting participant can delete."
+            "description": "Hard delete. Returns 204 on success, 404 if not found. Any meeting participant, the owner, or an admin can delete."
           }
         }
       ]

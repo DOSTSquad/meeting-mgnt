@@ -8,6 +8,7 @@ import {
 import { findMeetingById } from '../repositories/meeting-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
 import { notifyActionItemAssigned } from './notification-service.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -26,23 +27,14 @@ const loadMeetingOrThrow = async (meetingId) => {
   return meeting
 }
 
-const assertCanReview = async (meeting, callerId) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerId === meeting.ownerId) {
-    return
-  }
-
+const assertCanReview = async (meeting, callerId, callerRole) => {
   const participants = await listByMeeting(meeting.id)
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
-  )
 
-  if (!isOrganizer) {
-    throw createHttpError('Only the meeting creator or an organizer can review suggestions', 403)
-  }
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting creator or an organizer can review suggestions'
+  )
 }
 
 /**
@@ -75,9 +67,9 @@ const loadProposedSuggestion = async (meetingId, suggestionId) => {
   return suggestion
 }
 
-export const editSuggestion = async ({ meetingId, suggestionId, input, callerId }) => {
+export const editSuggestion = async ({ meetingId, suggestionId, input, callerId, callerRole }) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanReview(meeting, callerId)
+  await assertCanReview(meeting, callerId, callerRole)
 
   const existing = await loadProposedSuggestion(meetingId, suggestionId)
 
@@ -104,9 +96,15 @@ export const editSuggestion = async ({ meetingId, suggestionId, input, callerId 
  * no state where a task exists that no suggestion claims, or a suggestion claims
  * a task that was never written.
  */
-export const acceptSuggestion = async ({ meetingId, suggestionId, callerId, logger = console }) => {
+export const acceptSuggestion = async ({
+  meetingId,
+  suggestionId,
+  callerId,
+  callerRole,
+  logger = console,
+}) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanReview(meeting, callerId)
+  await assertCanReview(meeting, callerId, callerRole)
 
   const existing = await loadProposedSuggestion(meetingId, suggestionId)
 
@@ -173,9 +171,9 @@ export const acceptSuggestion = async ({ meetingId, suggestionId, callerId, logg
   return { ...result, alreadyReviewed: false }
 }
 
-export const rejectSuggestion = async ({ meetingId, suggestionId, callerId }) => {
+export const rejectSuggestion = async ({ meetingId, suggestionId, callerId, callerRole }) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanReview(meeting, callerId)
+  await assertCanReview(meeting, callerId, callerRole)
 
   const existing = await loadProposedSuggestion(meetingId, suggestionId)
 

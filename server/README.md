@@ -135,6 +135,36 @@ database write and does not roll back a meeting when an email provider fails.
 
 All `/api/*` routes require a JWT bearer token except the auth endpoints and `/api/public/invitations/*`. Public invitation routes require the random token delivered by email. Obtain a user token from register or login and send it as `Authorization: Bearer <token>` for protected routes.
 
+### Roles and permissions
+
+Permissions are defined in one place, `server/services/permissions.js`, and enforced through `assertCan(action, context)` in the services. A caller is allowed when their **account role** or their **meeting role** matches the action's rule.
+
+- **Account role** (`users.role`): `staff` (default) or `admin`. An admin is a normal staff account that can also manage accounts and view or manage every meeting.
+- **Meeting role** (derived per request): `owner` (`meetings.owner_id`), otherwise the caller's `meeting_participants.role` — `organizer`, `attendee`, or `optional` — otherwise none.
+
+| Action                                                      | Account role | Meeting role                                              |
+| ----------------------------------------------------------- | ------------ | --------------------------------------------------------- |
+| `user:manage`                                               | `admin`      | —                                                         |
+| `meeting:view`                                              | `admin`      | owner, organizer, attendee, optional                      |
+| `meeting:manage`                                            | `admin`      | owner, organizer                                          |
+| `actionItem:list`, `actionItem:create`, `actionItem:delete` | `admin`      | owner, organizer, attendee, optional                      |
+| `actionItem:view`                                           | `admin`      | as `meeting:view`, or the assignee                        |
+| `actionItem:update`                                         | `admin`      | as `meeting:view`, or the assignee changing only `status` |
+
+`meeting:view` covers reading a meeting, its participants, files (list, upload, download), minutes, recording, analysis and workflow events. `meeting:manage` covers updating or deleting the meeting, managing participants, deleting files, updating minutes, applying generated minutes, managing recordings, and reviewing analysis suggestions.
+
+Exceptions that do not follow the table: meeting change requests are readable only by the meeting owner (no admin or organizer bypass), and meeting requests are managed only by their creator.
+
+### Users (`/api/users`)
+
+| Method | Path   | Body                                                        | Returns                              |
+| ------ | ------ | ----------------------------------------------------------- | ------------------------------------ |
+| GET    | `/`    | —                                                           | `200 { users }` (any signed-in user) |
+| PUT    | `/:id` | partial: `{ name?, email?, role?, department?, password? }` | `200 { user }`, `404`                |
+| DELETE | `/:id` | —                                                           | `204`                                |
+
+`PUT` and `DELETE` require an `admin` account (`403` otherwise) and cannot target the caller's own account (`400`). `role` must be `staff` or `admin` (`400` otherwise; the database also enforces this with `users_role_check`). `id` must be a UUID, `email` a valid address, and a non-empty `password` at least 8 characters. An empty `password` leaves the password unchanged. Apply migration `0040_add_user_role_check.sql`, which resets any unknown role to `staff` before adding the constraint.
+
 ### Auth (`/api/auth`)
 
 | Method | Path        | Body                        | Returns                          |
@@ -148,7 +178,7 @@ All `/api/*` routes require a JWT bearer token except the auth endpoints and `/a
 | Method | Path   | Body / Query                                                                             | Returns                                               |
 | ------ | ------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | POST   | `/`    | `{ title, description?, startsAt, endsAt, ownerId?, timezoneName?, location?, status? }` | `201 { meeting }`                                     |
-| GET    | `/`    | `?page=&limit=&from=&to=&status=&q=`                                                     | `200 { meetings }` + `Link` & `X-Total-Count` headers |
+| GET    | `/`    | `?page=&limit=&from=&to=&status=&q=&scope=`                                              | `200 { meetings }` + `Link` & `X-Total-Count` headers |
 | GET    | `/:id` | —                                                                                        | `200 { meeting }` or `404`                            |
 | PUT    | `/:id` | partial subset of POST body fields                                                       | `200 { meeting }` or `404`                            |
 | DELETE | `/:id` | —                                                                                        | `204` or `404`                                        |
@@ -157,12 +187,14 @@ Datetime fields (`startsAt`, `endsAt`) accept ISO 8601 strings with offset (e.g.
 
 Meeting responses include immutable `ownerId` and audit-only `createdBy`, plus `tagId`, `tag`, `calendarSequence`, `fileCount`, `fileNames`, `participantCount`, and `participantNames`. `ownerId` defaults to the caller for backwards compatibility. The creator and owner are both added as organizers when they differ. `calendarSequence` is the persistent revision used by calendar clients to apply ICS updates and cancellations. `fileCount` is the number of uploaded files attached to that meeting, while `fileNames` lists the uploaded filenames for repository search/display. `participantCount` is the full attendee count, while `participantNames` is a short preview of up to three names for repository/list views.
 
-`GET /api/meetings/:id` is available only to the meeting owner or meeting participants. Non-participants receive `403`, matching meeting file access rules.
+`GET /api/meetings/:id` is available only to the meeting owner, meeting participants, or an admin. Other callers receive `403`, matching meeting file access rules.
+
+`GET /api/meetings` returns the meetings the caller owns or attends. For an admin it returns every meeting by default; pass `scope=mine` to limit an admin to their own (`scope=all` is the default and has no effect for staff). Invalid `scope` values return `400`.
 
 `POST /api/meetings` sends a best-effort calendar email to the organizer. `PUT /api/meetings/:id`
-is restricted to the meeting owner or an organizer and sends material calendar updates to
+is restricted to the meeting owner, an organizer, or an admin and sends material calendar updates to
 registered participants plus emailed external invitees linked through a confirmed meeting request.
-`DELETE /api/meetings/:id` is restricted to the meeting owner or an organizer.
+`DELETE /api/meetings/:id` is restricted to the meeting owner, an organizer, or an admin.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
@@ -245,7 +277,7 @@ Notifications are table-backed lifecycle records. New rows are created for meeti
 
 `GET` eagerly creates an empty draft minutes row if the meeting does not have one yet. `content`, `keyDiscussions`, and `decisions` live on `minutes`, not `meetings`. `facilitatorId`, `recorderId`, and `generatedFromTranscriptId` are nullable UUID references. Allowed minutes `status` values: `draft`, `approved`, `published`.
 
-Any meeting participant can read minutes. Only the meeting owner or a participant with `role='organizer'` can update minutes.
+Any meeting participant (or an admin) can read minutes. Only the meeting owner, a participant with `role='organizer'`, or an admin can update minutes.
 
 ### Meeting Recording (`/api/meetings/:meetingId/recording`)
 
@@ -258,7 +290,7 @@ Meeting recordings are the dedicated audio source for transcript/minutes generat
 | POST   | `/generate` | —                                                       | `202 { recording, transcript, analysisRun, generationStatus }` |
 | DELETE | `/`         | —                                                       | `204`                                                          |
 
-Any meeting participant can read recording metadata, transcript status, and analysis-run status. Only the meeting owner or an organizer can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+Any meeting participant (or an admin) can read recording metadata, transcript status, and analysis-run status. Only the meeting owner, an organizer, or an admin can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
 
 Uploading always stores audio metadata only and returns `transcript: null` and `analysisRun: null`. When `AI_PIPELINE_ENABLED=true`, `POST /generate` transactionally creates a `processing` transcript, a `queued` analysis run, and a durable `recording.generation_requested` outbox event. The server worker publishes a transcription command to Redis Streams; the Python `ai-worker` writes a result artifact to MinIO and emits a result event. The server consumes that event, completes the transcript in PostgreSQL, and creates the analysis outbox event in the same transaction. PostgreSQL statuses are the user-visible source of truth. Only one generation may run for a recording; another request while its transcript is `processing` or its analysis is `queued` or `processing` returns `409`. The recording changes to `transcribing` only when the AI worker emits a started event. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`.
 
@@ -338,7 +370,7 @@ because the write has already committed.
 
 ### Reviewing Suggestions (`/api/meetings/:meetingId/analysis-suggestions/:suggestionId`)
 
-Owner or organizer only.
+Owner, organizer, or admin only.
 
 | Method  | Path                    | Effect                                                                          |
 | ------- | ----------------------- | ------------------------------------------------------------------------------- |
@@ -376,8 +408,8 @@ and turned down is as much a part of the record as what was taken.
 
 ### Apply Generated Minutes (`POST /api/meetings/:meetingId/minutes/apply-generated`)
 
-Applies a reviewed analysis run to the meeting's draft minutes. Owner or
-organizer only.
+Applies a reviewed analysis run to the meeting's draft minutes. Owner,
+organizer, or admin only.
 
 ```json
 { "analysisRunId": "…", "expectedVersion": 3 }
@@ -411,7 +443,7 @@ a `404`.
 
 ### Analysis Review (`GET /api/meetings/:meetingId/recording/analysis`)
 
-The latest analysis for a meeting, for any participant. Returns the run with its
+The latest analysis for a meeting, for any participant or an admin. Returns the run with its
 summary, key discussions, decisions, provenance, and proposed action-item
 suggestions. Evidence indexes are resolved server-side into the transcript
 passages they cite, so a reviewer sees the quotation without the client holding
@@ -440,8 +472,8 @@ Worker tuning: `AI_JOB_MAX_ATTEMPTS` (default `3`), `AI_JOB_RETRY_DELAY_SECONDS`
 
 Server-sent events carrying recording, transcript, and analysis-run status for
 one meeting. Meeting access is authorised **before** any stream header is
-written, so a non-participant gets a normal `403` rather than a `200` that turns
-out to be empty.
+written, so a caller who is neither a participant nor an admin gets a normal `403`
+rather than a `200` that turns out to be empty.
 
 Frames:
 
@@ -524,7 +556,7 @@ the available CPU/GPU capacity.
 Allowed `role` values: `organizer`, `attendee`, `optional` (default `attendee`).
 
 `POST` is idempotent — re-adding an existing participant is a no-op (use `PATCH` to change role).
-Only the meeting owner or a participant with `role='organizer'` can add, update, or remove participants. The last organizer cannot be demoted or removed, and the immutable owner cannot be removed or downgraded. Participant details are visible only to the owner and meeting participants.
+Only the meeting owner, a participant with `role='organizer'`, or an admin can add, update, or remove participants. The last organizer cannot be demoted or removed, and the immutable owner cannot be removed or downgraded. Participant details are visible only to the owner, meeting participants, and admins.
 
 `GET /api/meetings/:id` now includes a `participants` array alongside the meeting.
 
@@ -541,7 +573,7 @@ Upload accepts PDF, DOCX, XLSX, PPTX, PNG, JPEG, GIF, WEBP, TXT, Markdown, and a
 
 Download returns a short-lived (60 s) MinIO presigned GET URL. The client fetches the file directly from MinIO using that URL.
 
-Any meeting participant (including the owner or any participant role) can upload, list, and request download URLs. Only the meeting owner or a participant with `role='organizer'` can delete files. Non-participants receive `403`.
+Any meeting participant (including the owner or any participant role) or an admin can upload, list, and request download URLs. Only the meeting owner, a participant with `role='organizer'`, or an admin can delete files. Other callers receive `403`.
 
 ### Action Items (`/api/meetings/:meetingId/action-items` and `/api/action-items`)
 
@@ -557,8 +589,8 @@ Any meeting participant (including the owner or any participant role) can upload
 - `status` — one of `todo` (default), `in_progress`, `completed`, `cancelled`. Transitioning to `completed` stamps `completedAt`; moving away clears it.
 - `isOverdue` and `dueState` are derived from `dueDate` and workflow `status`; they are not persisted statuses. `dueState` is one of `none`, `upcoming`, `overdue`, or `closed`.
 - `priority` — one of `low`, `medium` (default), `high`.
-- Any meeting participant (including the owner) can create, read, update, or delete action items. An assigned user can update their own item status even if older data does not include them as a meeting participant. Other non-participants receive `403`.
-- `/action-items` defaults to `scope=mine`, which returns only items assigned to the caller. `scope=owned` returns every item attached to meetings whose `ownerId` is the caller, including items assigned to others and unassigned items.
+- Any meeting participant (including the owner) or an admin can create, read, update, or delete action items. An assigned user can read their own item and update its status even if older data does not include them as a meeting participant. Other callers receive `403`.
+- `/action-items` defaults to `scope=mine`, which returns only items assigned to the caller (admins included; they read other meetings' items through the per-meeting list). `scope=owned` returns every item attached to meetings whose `ownerId` is the caller, including items assigned to others and unassigned items.
 - Each item also carries `source` (`manual` default, or `ai` for AI-extracted items) and an optional `sourceRef` for linking back to transcript/minute context.
 
 A Postman collection covering every endpoint (with auto-token capture) is at [`docs/postman/dost-meeting-mgnt.postman_collection.json`](../docs/postman/dost-meeting-mgnt.postman_collection.json).

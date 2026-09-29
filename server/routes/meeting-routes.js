@@ -79,6 +79,7 @@ meetingRouter.get(
       .withMessage('to must be a valid ISO 8601 datetime')
       .toDate(),
     query('status').optional().isIn(ALLOWED_STATUSES).withMessage('Invalid status'),
+    query('scope').optional().isIn(['all', 'mine']).withMessage('scope must be all or mine'),
     query('q')
       .optional()
       .isString()

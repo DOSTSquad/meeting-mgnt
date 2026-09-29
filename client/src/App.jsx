@@ -65,16 +65,11 @@ const AppShell = ({ token, user, onLogout }) => {
   )
   const activePage = getActivePage(location.pathname)
   const isAdmin = user.role === 'admin'
-  const meetingEligibleUsers = users.filter((candidate) => candidate.role !== 'admin')
-  const visibleMeetings = meetings.filter((meeting) => {
-    const owner = users.find((candidate) => candidate.id === meeting.ownerId)
-    return owner?.role !== 'admin'
-  })
   const validActionItems = actionItems.filter(
-    (item) => !item.meetingId || visibleMeetings.some((meeting) => meeting.id === item.meetingId)
+    (item) => !item.meetingId || meetings.some((meeting) => meeting.id === item.meetingId)
   )
   const validOwnedMeetingActionItems = ownedMeetingActionItems.filter(
-    (item) => !item.meetingId || visibleMeetings.some((meeting) => meeting.id === item.meetingId)
+    (item) => !item.meetingId || meetings.some((meeting) => meeting.id === item.meetingId)
   )
   const activeMeetingId = location.pathname.match(/^\/meetings\/([^/]+)$/)?.[1] ?? null
   const selectedActionItemIdFromQuery =
@@ -96,7 +91,8 @@ const AppShell = ({ token, user, onLogout }) => {
   const reloadMeetingsData = useCallback(async () => {
     try {
       const client = getApiClient(token)
-      setMeetings(await listMeetings(client, { limit: 100 }))
+      const params = activePage === 'repository' ? { limit: 100 } : { limit: 100, scope: 'mine' }
+      setMeetings(await listMeetings(client, params))
     } catch (error) {
       if (error.response?.status === 401) {
         onLogout()
@@ -104,7 +100,7 @@ const AppShell = ({ token, user, onLogout }) => {
       }
       setErrorMessage(error.response?.data?.error || 'Unable to load meetings')
     }
-  }, [token, onLogout])
+  }, [token, onLogout, activePage])
 
   const reloadActionItemsData = useCallback(async () => {
     try {
@@ -189,7 +185,7 @@ const AppShell = ({ token, user, onLogout }) => {
         const [dashboard, loadedMeetings, loadedActionItems, loadedOwnedActionItems] =
           await Promise.all([
             getDashboard(client),
-            listMeetings(client, { limit: 100 }),
+            listMeetings(client, { limit: 100, scope: 'mine' }),
             listActionItems(client),
             listActionItems(client, 'owned'),
           ])
@@ -268,7 +264,7 @@ const AppShell = ({ token, user, onLogout }) => {
         const [loadedActionItems, loadedOwnedActionItems, loadedMeetings] = await Promise.all([
           listActionItems(client),
           listActionItems(client, 'owned'),
-          listMeetings(client, { limit: 100 }),
+          listMeetings(client, { limit: 100, scope: 'mine' }),
         ])
 
         if (isCancelled) {
@@ -474,29 +470,22 @@ const AppShell = ({ token, user, onLogout }) => {
           />
 
           <Routes>
-            <Route
-              path="/"
-              element={<Navigate to={isAdmin ? '/meetings' : '/dashboard'} replace />}
-            />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route
               path="/dashboard"
               element={
-                isAdmin ? (
-                  <Navigate to="/meetings" replace />
-                ) : (
-                  <DashboardView
-                    data={dashboardData}
-                    currentUser={user}
-                    meetings={visibleMeetings}
-                    allActionItems={validActionItems}
-                    onOpenCreateModal={openNewMeetingModal}
-                    onOpenMeeting={openMeetingDetail}
-                    onOpenMeetingRequest={openMeetingRequestModal}
-                    onOpenAvailabilityRequest={openAvailabilityRequestModal}
-                    onViewAllMeetings={() => navigate('/meetings')}
-                    onViewAllActionItems={() => navigate('/action-items')}
-                  />
-                )
+                <DashboardView
+                  data={dashboardData}
+                  currentUser={user}
+                  meetings={meetings}
+                  allActionItems={validActionItems}
+                  onOpenCreateModal={openNewMeetingModal}
+                  onOpenMeeting={openMeetingDetail}
+                  onOpenMeetingRequest={openMeetingRequestModal}
+                  onOpenAvailabilityRequest={openAvailabilityRequestModal}
+                  onViewAllMeetings={() => navigate('/meetings')}
+                  onViewAllActionItems={() => navigate('/action-items')}
+                />
               }
             />
             <Route
@@ -507,7 +496,7 @@ const AppShell = ({ token, user, onLogout }) => {
                     currentUser={user}
                     token={token}
                     users={users}
-                    meetings={visibleMeetings}
+                    meetings={meetings}
                     actionItems={validActionItems}
                     notifications={notifications}
                     onOpenMeeting={openMeetingDetail}
@@ -521,7 +510,7 @@ const AppShell = ({ token, user, onLogout }) => {
               path="/meetings"
               element={
                 <RepositoryView
-                  meetings={visibleMeetings}
+                  meetings={meetings}
                   search={repositorySearch}
                   onSearch={setRepositorySearch}
                   onOpenMeeting={openMeetingDetail}
@@ -531,17 +520,13 @@ const AppShell = ({ token, user, onLogout }) => {
             <Route
               path="/my-meetings"
               element={
-                isAdmin ? (
-                  <Navigate to="/meetings" replace />
-                ) : (
-                  <MyMeetingsView
-                    meetings={visibleMeetings.filter((meeting) => meeting.ownerId === user.id)}
-                    currentUser={user}
-                    token={token}
-                    actionItems={validOwnedMeetingActionItems}
-                    onOpenMeeting={openMeetingDetail}
-                  />
-                )
+                <MyMeetingsView
+                  meetings={meetings.filter((meeting) => meeting.ownerId === user.id)}
+                  currentUser={user}
+                  token={token}
+                  actionItems={validOwnedMeetingActionItems}
+                  onOpenMeeting={openMeetingDetail}
+                />
               }
             />
             <Route
@@ -592,7 +577,7 @@ const AppShell = ({ token, user, onLogout }) => {
                     canUpdateMeetingStatus={canUpdateSelectedMeetingStatus}
                     canEditMeetingTag={canUpdateSelectedMeetingStatus}
                     currentUserId={user.id}
-                    users={meetingEligibleUsers}
+                    users={users}
                     tags={tags}
                     onAddParticipant={addParticipant}
                     onRemoveParticipant={removeParticipant}
@@ -607,27 +592,20 @@ const AppShell = ({ token, user, onLogout }) => {
             <Route
               path="/action-items"
               element={
-                isAdmin ? (
-                  <Navigate to="/meetings" replace />
-                ) : (
-                  <ActionItemsView
-                    actionItems={validActionItems}
-                    summaryActionItems={validActionItems}
-                    meetings={visibleMeetings}
-                    users={meetingEligibleUsers}
-                    currentUserId={user.id}
-                    selectedActionItemId={selectedActionItemIdFromQuery}
-                    onSelectedActionItemHandled={() => navigate('/action-items', { replace: true })}
-                    onMoveActionItem={moveActionItemStatus}
-                    onOpenMeeting={openMeetingDetail}
-                  />
-                )
+                <ActionItemsView
+                  actionItems={validActionItems}
+                  summaryActionItems={validActionItems}
+                  meetings={meetings}
+                  users={users}
+                  currentUserId={user.id}
+                  selectedActionItemId={selectedActionItemIdFromQuery}
+                  onSelectedActionItemHandled={() => navigate('/action-items', { replace: true })}
+                  onMoveActionItem={moveActionItemStatus}
+                  onOpenMeeting={openMeetingDetail}
+                />
               }
             />
-            <Route
-              path="*"
-              element={<Navigate to={isAdmin ? '/meetings' : '/dashboard'} replace />}
-            />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
       </div>
@@ -637,9 +615,9 @@ const AppShell = ({ token, user, onLogout }) => {
         onCloseCreateModal={closeCreateMeetingModal}
         onCreatedMeeting={handleCreatedMeeting}
         token={token}
-        users={meetingEligibleUsers}
+        users={users}
         tags={tags}
-        meetings={visibleMeetings}
+        meetings={meetings}
         meetingRequestId={activeMeetingRequestId}
         currentUserId={user.id}
         activeAvailabilityRequest={activeAvailabilityRequest}

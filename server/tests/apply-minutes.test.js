@@ -27,6 +27,7 @@ const TRANSCRIPT_ID = '33333333-3333-4333-8333-333333333333'
 const OWNER_ID = '44444444-4444-4444-8444-444444444444'
 const ORGANIZER_ID = '55555555-5555-4555-8555-555555555555'
 const OUTSIDER_ID = '66666666-6666-4666-8666-666666666666'
+const ADMIN_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 
 const readyRun = (overrides = {}) => ({
   id: ANALYSIS_RUN_ID,
@@ -112,6 +113,16 @@ describe('applying generated minutes', () => {
   it('refuses a participant who is not an organizer', async () => {
     await expect(apply({ callerId: OUTSIDER_ID })).rejects.toMatchObject({ statusCode: 403 })
     expect(applyGeneratedMinuteContent).not.toHaveBeenCalled()
+  })
+
+  it('allows an admin who is not part of the meeting', async () => {
+    await expect(apply({ callerId: ADMIN_ID, callerRole: 'admin' })).resolves.toBeDefined()
+  })
+
+  it('refuses a staff account that is not part of the meeting', async () => {
+    await expect(apply({ callerId: OUTSIDER_ID, callerRole: 'staff' })).rejects.toMatchObject({
+      statusCode: 403,
+    })
   })
 
   it('refuses an unauthenticated caller', async () => {

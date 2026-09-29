@@ -8,7 +8,11 @@ import {
 
 export const generateForMeeting = async (req, res, next) => {
   try {
-    const result = await generateMinutesFromRecording(req.params.meetingId, req.user?.id)
+    const result = await generateMinutesFromRecording(
+      req.params.meetingId,
+      req.user?.id,
+      req.user?.role
+    )
     res.status(202).json(result)
   } catch (error) {
     next(error)
@@ -30,6 +34,7 @@ export const uploadForMeeting = async (req, res, next) => {
     const result = await uploadRecordingForMeeting({
       meetingId: req.params.meetingId,
       callerId: req.user?.id,
+      callerRole: req.user?.role,
       file: req.file,
       replace: req.body?.replace === 'true' || req.body?.replace === true,
     })
@@ -42,7 +47,7 @@ export const uploadForMeeting = async (req, res, next) => {
 
 export const removeForMeeting = async (req, res, next) => {
   try {
-    await archiveRecordingForMeeting(req.params.meetingId, req.user?.id)
+    await archiveRecordingForMeeting(req.params.meetingId, req.user?.id, req.user?.role)
 
     res.status(204).end()
   } catch (error) {
@@ -52,7 +57,7 @@ export const removeForMeeting = async (req, res, next) => {
 
 export const getAnalysisForMeeting = async (req, res, next) => {
   try {
-    const result = await getLatestAnalysisReview(req.params.meetingId, req.user?.id)
+    const result = await getLatestAnalysisReview(req.params.meetingId, req.user?.id, req.user?.role)
 
     res.json(result)
   } catch (error) {

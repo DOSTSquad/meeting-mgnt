@@ -10,6 +10,7 @@ import { listByMeeting } from '../repositories/participant-repository.js'
 import { createTag, findTagByName } from '../repositories/tag-repository.js'
 import { findUserById } from '../repositories/user-repository.js'
 import { notifyMeetingCreated } from './notification-service.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -101,21 +102,6 @@ const deliverCalendarBestEffort = async (deliverCalendar, payload) => {
   }
 }
 
-const assertCanAccessMeeting = (meeting, callerId, participants, callerRole) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerRole === 'admin' || callerId === meeting.ownerId) {
-    return
-  }
-
-  const isParticipant = participants.some((participant) => participant.userId === callerId)
-  if (!isParticipant) {
-    throw createHttpError('Only meeting participants can access this meeting', 403)
-  }
-}
-
 export const createMeetingForUser = async (input, userId, deliverCalendar) => {
   if (!userId) {
     throw createHttpError('Authentication required', 401)
@@ -194,7 +180,11 @@ export const getMeetingById = async (id, callerId, callerRole) => {
   }
 
   const participants = await listByMeeting(id)
-  assertCanAccessMeeting(meeting, callerId, participants, callerRole)
+  assertCan(
+    'meeting:view',
+    { callerId, callerRole, meeting, participants },
+    'Only meeting participants can access this meeting'
+  )
 
   return { ...meeting, participants }
 }
@@ -207,16 +197,11 @@ export const updateMeetingById = async (id, input, callerId, deliverCalendar, ca
   }
 
   const participants = await listByMeeting(id)
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting: existing, participants },
+    'Only meeting organizers can update this meeting'
   )
-  if (callerRole !== 'admin' && existing.ownerId !== callerId && !isOrganizer) {
-    throw createHttpError('Only meeting organizers can update this meeting', 403)
-  }
 
   const updates = {}
 
@@ -288,23 +273,18 @@ export const updateMeetingById = async (id, input, callerId, deliverCalendar, ca
   return meeting
 }
 
-export const deleteMeetingById = async (id, callerId) => {
+export const deleteMeetingById = async (id, callerId, callerRole) => {
   const meeting = await findMeetingById(id)
   if (!meeting) {
     throw createHttpError('Meeting not found', 404)
   }
 
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
   const participants = await listByMeeting(id)
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting owner or an organizer can delete this meeting'
   )
-  if (meeting.ownerId !== callerId && !isOrganizer) {
-    throw createHttpError('Only the meeting owner or an organizer can delete this meeting', 403)
-  }
 
   const removed = await deleteMeeting(id)
 

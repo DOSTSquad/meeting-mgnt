@@ -6,6 +6,7 @@ import {
   findMinuteByMeetingId,
 } from '../repositories/minute-repository.js'
 import { listByMeeting } from '../repositories/participant-repository.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode, extra = {}) => {
   const error = new Error(message)
@@ -14,26 +15,14 @@ const createHttpError = (message, statusCode, extra = {}) => {
   return Object.assign(error, extra)
 }
 
-const assertCanManageMinutes = async (meeting, callerId) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerId === meeting.ownerId) {
-    return
-  }
-
+const assertCanManageMinutes = async (meeting, callerId, callerRole) => {
   const participants = await listByMeeting(meeting.id)
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
-  )
 
-  if (!isOrganizer) {
-    throw createHttpError(
-      'Only the meeting creator or an organizer can apply generated minutes',
-      403
-    )
-  }
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting creator or an organizer can apply generated minutes'
+  )
 }
 
 /**
@@ -47,6 +36,7 @@ export const applyGeneratedMinutes = async ({
   analysisRunId,
   expectedVersion,
   callerId,
+  callerRole,
 }) => {
   const meeting = await findMeetingById(meetingId)
 
@@ -54,7 +44,7 @@ export const applyGeneratedMinutes = async ({
     throw createHttpError('Meeting not found', 404)
   }
 
-  await assertCanManageMinutes(meeting, callerId)
+  await assertCanManageMinutes(meeting, callerId, callerRole)
 
   const analysisRun = await findAnalysisRunById(analysisRunId)
 

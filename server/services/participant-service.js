@@ -7,6 +7,7 @@ import {
   updateOne,
 } from '../repositories/participant-repository.js'
 import { findUsersByIds } from '../repositories/user-repository.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -19,23 +20,12 @@ export const ALLOWED_ROLES = ['organizer', 'attendee', 'optional']
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const assertManagePermission = (meeting, callerId, participants, callerRole) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerRole === 'admin' || callerId === meeting.ownerId) {
-    return
-  }
-
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
+const assertManagePermission = (meeting, callerId, participants, callerRole) =>
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting creator or an organizer can manage participants'
   )
-
-  if (!isOrganizer) {
-    throw createHttpError('Only the meeting creator or an organizer can manage participants', 403)
-  }
-}
 
 const loadMeetingOrThrow = async (meetingId) => {
   const meeting = await findMeetingById(meetingId)
@@ -51,16 +41,11 @@ export const listParticipantsForMeeting = async (meetingId, callerId, callerRole
   const meeting = await loadMeetingOrThrow(meetingId)
 
   const participants = await listByMeeting(meetingId)
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  const canView =
-    callerRole === 'admin' || meeting.ownerId === callerId ||
-    participants.some((participant) => participant.userId === callerId)
-  if (!canView) {
-    throw createHttpError('Only meeting participants can view participants', 403)
-  }
+  assertCan(
+    'meeting:view',
+    { callerId, callerRole, meeting, participants },
+    'Only meeting participants can view participants'
+  )
 
   return { participants }
 }

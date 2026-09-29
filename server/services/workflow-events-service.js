@@ -50,8 +50,8 @@ const toWorkflowSnapshot = ({ recording, transcript, analysisRun }) => ({
  * outlive the caller's permission: a participant removed mid-stream fails the
  * next reload rather than continuing to receive updates.
  */
-export const getWorkflowSnapshot = async (meetingId, callerId) => {
-  const result = await getRecordingForMeeting(meetingId, callerId)
+export const getWorkflowSnapshot = async (meetingId, callerId, callerRole) => {
+  const result = await getRecordingForMeeting(meetingId, callerId, callerRole)
 
   return toWorkflowSnapshot(result)
 }

@@ -38,7 +38,7 @@ export const list = async (req, res, next) => {
 
 export const getOne = async (req, res, next) => {
   try {
-    const { actionItem } = await getActionItem(req.params.id, req.user?.id)
+    const { actionItem } = await getActionItem(req.params.id, req.user?.id, req.user?.role)
 
     res.json({ actionItem })
   } catch (error) {
@@ -51,7 +51,8 @@ export const create = async (req, res, next) => {
     const { actionItem } = await createActionItem(
       req.params.meetingId,
       req.body ?? {},
-      req.user?.id
+      req.user?.id,
+      req.user?.role
     )
 
     res.status(201).json({ actionItem })
@@ -62,7 +63,12 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
-    const { actionItem } = await updateActionItem(req.params.id, req.body ?? {}, req.user?.id)
+    const { actionItem } = await updateActionItem(
+      req.params.id,
+      req.body ?? {},
+      req.user?.id,
+      req.user?.role
+    )
 
     res.json({ actionItem })
   } catch (error) {
@@ -72,7 +78,7 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
-    await deleteActionItem(req.params.id, req.user?.id)
+    await deleteActionItem(req.params.id, req.user?.id, req.user?.role)
 
     res.status(204).end()
   } catch (error) {
