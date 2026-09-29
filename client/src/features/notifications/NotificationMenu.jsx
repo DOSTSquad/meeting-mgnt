@@ -4,6 +4,12 @@ import { Archive, ArrowRight, Bell, CalendarDays, CheckSquare, CheckCheck } from
 import { sortNotificationsUnreadFirst } from '../../services/notificationService.js'
 
 const notificationCopy = {
+  meeting_change_requested: {
+    title: 'Meeting change requested',
+    tone: 'amber',
+    actionLabel: 'Read request',
+    icon: CalendarDays,
+  },
   meeting_created: {
     title: 'Meeting created',
     tone: 'blue',

@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarClock, CheckCircle2, ListTodo } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Clock3, ListTodo } from 'lucide-react'
 
 import { isOverdueActionItem } from '../../utils/actionItems.js'
 
@@ -6,7 +6,6 @@ const getActionItemBreakdown = (items) => {
   const config = [
     { id: 'todo', label: 'To-do', color: '#94a3b8', dotClass: 'bg-slate-400' },
     { id: 'in_progress', label: 'In progress', color: '#3b82f6', dotClass: 'bg-blue-500' },
-    { id: 'completed', label: 'Completed', color: '#10b981', dotClass: 'bg-emerald-500' },
   ]
 
   return config.map((entry) => ({
@@ -16,9 +15,7 @@ const getActionItemBreakdown = (items) => {
 }
 
 const getPriorityBreakdown = (items) => {
-  const trackedItems = items.filter((item) =>
-    ['todo', 'in_progress', 'completed'].includes(item.status)
-  )
+  const trackedItems = items.filter((item) => ['todo', 'in_progress'].includes(item.status))
   const config = [
     { id: 'high', label: 'High', color: '#f43f5e', dotClass: 'bg-rose-500' },
     { id: 'medium', label: 'Medium', color: '#f59e0b', dotClass: 'bg-amber-500' },
@@ -64,8 +61,6 @@ const getDueSoonCount = (items) => {
 const ActionItemStatusChart = ({ items }) => {
   const breakdown = getActionItemBreakdown(items)
   const total = breakdown.reduce((sum, item) => sum + item.count, 0)
-  const completed = breakdown.find((item) => item.id === 'completed')?.count || 0
-  const completionRate = total ? Math.round((completed / total) * 100) : 0
   const statusRadius = 56
   const statusCircumference = 2 * Math.PI * statusRadius
   const statusSegments = getDonutSegments(breakdown, statusCircumference)
@@ -77,7 +72,7 @@ const ActionItemStatusChart = ({ items }) => {
           viewBox="0 0 140 140"
           className="h-full w-full -rotate-90"
           role="img"
-          aria-label={`${completionRate}% action item completion rate by status`}
+          aria-label={`${total} active action items by status`}
         >
           <circle cx="70" cy="70" r={statusRadius} fill="none" stroke="#e2e8f0" strokeWidth="12" />
           {statusSegments.map((item) => (
@@ -95,8 +90,8 @@ const ActionItemStatusChart = ({ items }) => {
           ))}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-extrabold text-slate-900">{completionRate}%</span>
-          <span className="text-xs font-bold text-slate-500">completed</span>
+          <span className="text-3xl font-extrabold text-slate-900">{total}</span>
+          <span className="text-xs font-bold text-slate-500">active items</span>
         </div>
       </div>
 
@@ -153,11 +148,8 @@ const ActionItemPriorityChart = ({ items }) => {
 }
 
 export const ActionItemsSummary = ({ actionItems }) => {
-  const trackedItems = actionItems.filter((item) => item.status !== 'cancelled')
-  const completedCount = trackedItems.filter((item) => item.status === 'completed').length
-  const completionRate = trackedItems.length
-    ? Math.round((completedCount / trackedItems.length) * 100)
-    : 0
+  const trackedItems = actionItems.filter((item) => ['todo', 'in_progress'].includes(item.status))
+  const inProgressCount = trackedItems.filter((item) => item.status === 'in_progress').length
   const overdueCount = trackedItems.filter(isOverdueActionItem).length
   const dueSoonCount = getDueSoonCount(trackedItems)
 
@@ -167,12 +159,12 @@ export const ActionItemsSummary = ({ actionItems }) => {
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <ListTodo className="h-5 w-5 text-slate-600" aria-hidden="true" />
           <p className="mt-3 text-3xl font-extrabold text-slate-900">{trackedItems.length}</p>
-          <p className="text-xs font-bold text-slate-500">Tracked action items</p>
+          <p className="text-xs font-bold text-slate-500">Active action items</p>
         </article>
         <article className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-          <p className="mt-3 text-3xl font-extrabold text-slate-900">{completionRate}%</p>
-          <p className="text-xs font-bold text-slate-500">Action items completed</p>
+          <Clock3 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+          <p className="mt-3 text-3xl font-extrabold text-slate-900">{inProgressCount}</p>
+          <p className="text-xs font-bold text-slate-500">In progress action items</p>
         </article>
         <article className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
           <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
@@ -190,12 +182,12 @@ export const ActionItemsSummary = ({ actionItems }) => {
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-slate-800">Status progress</h2>
+              <h2 className="text-lg font-extrabold text-slate-800">Active status breakdown</h2>
               <p className="mt-1 text-xs font-semibold text-slate-500">
-                Completion across the current workflow
+                To-do and in-progress work
               </p>
             </div>
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+            <Clock3 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
           </div>
           <ActionItemStatusChart items={trackedItems} />
         </article>

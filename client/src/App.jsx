@@ -380,6 +380,7 @@ const AppShell = ({ token, user, onLogout }) => {
   }, [])
 
   const meetingDetail = useMeetingDetailController({
+    currentUserId: user.id,
     token,
     activeMeetingId,
     onError: setErrorMessage,
@@ -418,8 +419,7 @@ const AppShell = ({ token, user, onLogout }) => {
     removeRecording,
   } = meetingDetail
   const canManageSelectedMeeting = Boolean(
-    user.role === 'admin' ||
-    selectedMeetingDetail?.meeting?.ownerId === user.id
+    user.role === 'admin' || selectedMeetingDetail?.meeting?.ownerId === user.id
   )
   const canUpdateSelectedMeetingStatus =
     isAdmin || selectedMeetingDetail?.meeting?.ownerId === user.id
@@ -551,6 +551,16 @@ const AppShell = ({ token, user, onLogout }) => {
                   <MeetingDetailView
                     key={activeMeetingId}
                     detail={selectedMeetingDetail}
+                    onRequestMeetingChange={meetingDetail.requestMeetingChange}
+                    changeRequestInbox={meetingDetail.changeRequestInbox}
+                    openChangeRequestInbox={
+                      new URLSearchParams(location.search).get('changeRequests') === '1'
+                    }
+                    onCloseChangeRequestInbox={() =>
+                      navigate(`/meetings/${activeMeetingId}`, { replace: true })
+                    }
+                    onRefreshChangeRequests={meetingDetail.refreshChangeRequests}
+                    onMarkChangeRequestRead={meetingDetail.markChangeRequestRead}
                     analysisReview={analysisReview}
                     applyMinutesState={applyMinutesState}
                     onApplyGeneratedMinutes={applyGeneratedMinutesToDraft}
@@ -607,9 +617,7 @@ const AppShell = ({ token, user, onLogout }) => {
                     users={meetingEligibleUsers}
                     currentUserId={user.id}
                     selectedActionItemId={selectedActionItemIdFromQuery}
-                    onSelectedActionItemHandled={() =>
-                      navigate('/action-items', { replace: true })
-                    }
+                    onSelectedActionItemHandled={() => navigate('/action-items', { replace: true })}
                     onMoveActionItem={moveActionItemStatus}
                     onOpenMeeting={openMeetingDetail}
                   />
