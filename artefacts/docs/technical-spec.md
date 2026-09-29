@@ -51,15 +51,15 @@ A person can hold different meeting roles in different meetings. Permissions com
 
 ```mermaid
 flowchart TB
-  Browser["Browser"] -->|HTTPS| Caddy["Caddy reverse proxy"]
+  Browser(["Browser"]) -->|HTTPS| Caddy["Caddy reverse proxy"]
   Caddy -->|static application| React["React web application"]
   Caddy -->|API, SSE, health| API["Express API service"]
-  API -->|invitations, calendar| Email["Email service"]
+  API -->|invitations, calendar| Email(["Email service"])
 
   subgraph Data["Data services"]
-    Postgres["PostgreSQL database"]
-    Redis["Redis Streams and Pub/Sub"]
-    MinIO["MinIO object storage"]
+    Postgres[("PostgreSQL")]
+    Redis[("Redis Streams and Pub/Sub")]
+    MinIO[("MinIO object storage")]
   end
 
   subgraph AI["Workflow and AI processing"]
@@ -72,6 +72,19 @@ flowchart TB
   NodeWorker --> Data
   AIWorker --> Data
   AIWorker --> Ollama
+
+  classDef entry fill:#f1f5f9,stroke:#64748b,color:#0f172a
+  classDef app fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef store fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef ai fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  classDef ext fill:#fef3c7,stroke:#d97706,color:#78350f
+  class Browser,Caddy entry
+  class React,API app
+  class Postgres,Redis,MinIO store
+  class NodeWorker,AIWorker,Ollama ai
+  class Email ext
+  style Data fill:#f0fdf4,stroke:#86efac,stroke-dasharray:4 3
+  style AI fill:#faf5ff,stroke:#c4b5fd,stroke-dasharray:4 3
 ```
 
 Caddy is the only public entrypoint. The browser loads the React application from Caddy and sends
@@ -133,6 +146,11 @@ stateDiagram-v2
   ready_to_confirm --> cancelled
   confirmed --> [*]
   cancelled --> [*]
+
+  classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  class confirmed good
+  class cancelled bad
 ```
 
 - A meeting request exists before a meeting is created.
@@ -152,6 +170,13 @@ stateDiagram-v2
   completed --> archived
   cancelled --> archived
   archived --> [*]
+
+  classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef done fill:#e2e8f0,stroke:#64748b,color:#0f172a
+  class completed good
+  class cancelled bad
+  class archived done
 ```
 
 Status transitions are forward-only. Archived meetings are terminal.
@@ -175,7 +200,7 @@ event. Delivery is best effort: a failed email does not block the change.
 
 ```mermaid
 sequenceDiagram
-  actor U as Owner or organizer
+  participant U as Owner or organizer
   participant API as API service
   participant DB as PostgreSQL
   participant W as Workflow worker
@@ -183,24 +208,37 @@ sequenceDiagram
   participant AI as AI worker
   participant S as MinIO
   participant O as Ollama
-  U->>API: Upload recording
-  API->>S: Store audio
-  U->>API: Generate minutes
-  API->>DB: Create transcript, analysis run, outbox event
-  W->>DB: Claim outbox event
-  W->>R: Publish transcription job
-  AI->>R: Consume job
-  AI->>S: Read audio, write transcript artifact
-  AI->>R: Publish transcript result
-  W->>DB: Validate and save transcript
-  W->>R: Publish analysis job
-  AI->>O: Request structured analysis
-  O-->>AI: Summary, decisions, action suggestions
-  AI->>R: Publish analysis result
-  W->>DB: Save result as ready for review
-  API-->>U: Status update over SSE
-  U->>API: Review result
-  API->>DB: Apply summary to minutes, create accepted action items
+
+  rect rgb(239, 246, 255)
+    Note over U,O: Upload
+    U->>API: Upload recording
+    API->>S: Store audio
+  end
+  rect rgb(245, 243, 255)
+    Note over U,O: Transcription
+    U->>API: Generate minutes
+    API->>DB: Create transcript, analysis run, outbox event
+    W->>DB: Claim outbox event
+    W->>R: Publish transcription job
+    AI->>R: Consume job
+    AI->>S: Read audio, write transcript artifact
+    AI->>R: Publish transcript result
+    W->>DB: Validate and save transcript
+  end
+  rect rgb(255, 251, 235)
+    Note over U,O: Analysis
+    W->>R: Publish analysis job
+    AI->>O: Request structured analysis
+    O-->>AI: Summary, decisions, action suggestions
+    AI->>R: Publish analysis result
+    W->>DB: Save result as ready for review
+  end
+  rect rgb(240, 253, 244)
+    Note over U,O: Review
+    API-->>U: Status update over SSE
+    U->>API: Review result
+    API->>DB: Apply summary to minutes, create accepted action items
+  end
 ```
 
 - PostgreSQL holds the authoritative workflow state. Redis carries commands, results, and status

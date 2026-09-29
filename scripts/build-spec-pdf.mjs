@@ -34,7 +34,7 @@ const STYLES = `
   @bottom-right { content: counter(page) ' / ' counter(pages); font: 8pt -apple-system, 'Helvetica Neue', Arial, sans-serif; color: #64748b; }
 }
 .wide-page { page: wide; }
-.wide-page .mermaid svg { max-height: 150mm; }
+.wide-page .mermaid svg { max-height: 158mm; }
 .mermaid.compact svg { max-height: 100mm; }
 p:has(+ table) { break-after: avoid; }
 * { box-sizing: border-box; }
@@ -138,10 +138,40 @@ const start = async () => {
   buildToc(root)
   mermaid.initialize({
     startOnLoad: false,
-    theme: 'neutral',
+    theme: 'base',
     securityLevel: 'strict',
-    themeVariables: { fontSize: '15px' },
-    sequence: { wrap: true, actorMargin: 30, width: 130, mirrorActors: false },
+    themeVariables: {
+      fontFamily: "-apple-system, 'Helvetica Neue', Arial, sans-serif",
+      fontSize: '15px',
+      primaryColor: '#dbeafe',
+      primaryBorderColor: '#2563eb',
+      primaryTextColor: '#0f172a',
+      secondaryColor: '#f1f5f9',
+      tertiaryColor: '#f8fafc',
+      lineColor: '#64748b',
+      textColor: '#0f172a',
+      edgeLabelBackground: '#ffffff',
+      actorBkg: '#dbeafe',
+      actorBorder: '#2563eb',
+      actorTextColor: '#0f172a',
+      actorLineColor: '#94a3b8',
+      signalColor: '#334155',
+      signalTextColor: '#0f172a',
+      noteBkgColor: '#ffffff',
+      noteBorderColor: '#cbd5e1',
+      noteTextColor: '#334155',
+    },
+    flowchart: { curve: 'basis', padding: 14, nodeSpacing: 40, rankSpacing: 50 },
+    sequence: {
+      wrap: true,
+      actorMargin: 20,
+      width: 150,
+      messageMargin: 26,
+      noteMargin: 6,
+      boxMargin: 6,
+      mirrorActors: false,
+      noteAlign: 'left',
+    },
     er: { fontSize: 14, minEntityWidth: 110 },
   })
   await mermaid.run({ querySelector: '.mermaid' })
