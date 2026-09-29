@@ -82,17 +82,17 @@ same-origin API requests to it; Caddy forwards them to the private API service.
 
 ### 3.2 System Components
 
-| Component            | Technology                     | Responsibility                                                        |
-| -------------------- | ------------------------------ | --------------------------------------------------------------------- |
-| Web application      | React single-page application  | Dashboard, meetings, scheduling, minutes, files, action items, admin. |
-| API service          | Node.js and Express            | Business rules, authorization, validation, workflow transitions, SSE. |
-| Node workflow worker | Node.js worker runtime         | Dispatches workflow outbox events and persists AI results.            |
-| Python AI worker     | Python, Whisper, Redis Streams | Transcribes recordings; generates summaries and action suggestions.   |
-| Ollama               | Private local LLM runtime      | Structured analysis of completed transcripts.                         |
-| Database             | PostgreSQL                     | Authoritative business data and workflow state.                       |
-| Object storage       | MinIO                          | Meeting files, recordings, and AI artifacts.                          |
-| Redis                | Redis Streams and Pub/Sub      | AI commands and results; workflow-status invalidations.               |
-| Reverse proxy        | Caddy                          | TLS, static delivery, API routing, SSE.                               |
+| Component            | Technology                     | Responsibility                                                                                     |
+| -------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Web application      | React single-page application  | Dashboard, meetings, scheduling, minutes, files, action items, admin, audio extraction from video. |
+| API service          | Node.js and Express            | Business rules, authorization, validation, workflow transitions, SSE.                              |
+| Node workflow worker | Node.js worker runtime         | Dispatches workflow outbox events and persists AI results.                                         |
+| Python AI worker     | Python, Whisper, Redis Streams | Transcribes recordings; generates summaries and action suggestions.                                |
+| Ollama               | Private local LLM runtime      | Structured analysis of completed transcripts.                                                      |
+| Database             | PostgreSQL                     | Authoritative business data and workflow state.                                                    |
+| Object storage       | MinIO                          | Meeting files, recordings, and AI artifacts.                                                       |
+| Redis                | Redis Streams and Pub/Sub      | AI commands and results; workflow-status invalidations.                                            |
+| Reverse proxy        | Caddy                          | TLS, static delivery, API routing, SSE.                                                            |
 
 ### 3.3 Application Modules
 
@@ -106,7 +106,7 @@ same-origin API requests to it; Caddy forwards them to the private API service.
 | Calendar invitations          | iCalendar emails when a meeting is created, updated, or cancelled.                 |
 | Change requests               | Attendees privately ask the owner to change a meeting.                             |
 | Files and minutes             | Upload, download, delete materials; draft, approve, publish minutes.               |
-| Recording-to-minutes workflow | Recording, transcription, analysis, review, live status updates.                   |
+| Recording-to-minutes workflow | Audio or video recording, transcription, analysis, review, live status updates.    |
 | AI review                     | Summary applied to minutes; action-item suggestions accepted, edited, or rejected. |
 
 ## 4. Core Workflows
@@ -178,6 +178,9 @@ event. Delivery is best effort: a failed email does not block the change.
 
 - Participants upload, list, and download meeting materials. Owners, organizers, and admins delete
   them. Download links are short-lived.
+- A recording can be picked as an audio file (MP3, WAV, M4A) or a video (MP4, MOV, WebM, MKV). For
+  a video, the browser copies the audio track into an `.m4a` file and uploads only that; the video
+  is never sent to the server. The step needs no re-encoding, so it typically takes seconds.
 - A meeting has one active recording. Uploading stores the audio only; replacing it must be requested
   explicitly and archives the previous one.
 - An owner or organizer starts generation explicitly. It requires the AI pipeline to be enabled.
@@ -396,7 +399,7 @@ section 7.2.
 | GET    | `/files/:id/content`                                             | Stream file content.                                                     |
 | DELETE | `/files/:id`                                                     | Delete a file.                                                           |
 | GET    | `/meetings/:meetingId/recording`                                 | Get the active recording and its generation status.                      |
-| PUT    | `/meetings/:meetingId/recording`                                 | Upload or replace the recording.                                         |
+| PUT    | `/meetings/:meetingId/recording`                                 | Upload or replace the recording (audio only).                            |
 | DELETE | `/meetings/:meetingId/recording`                                 | Archive the active recording.                                            |
 | POST   | `/meetings/:meetingId/recording/generate`                        | Start transcription and analysis.                                        |
 | GET    | `/meetings/:meetingId/recording/analysis`                        | Read the latest analysis, suggestions, and transcript.                   |
@@ -519,15 +522,16 @@ Additional rules:
 
 ### 9.2 Constraints
 
-| Constraint                                                                                       | Impact                                                              |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| Single-host deployment (Docker Compose for PostgreSQL, Redis, MinIO; systemd for API and worker) | Host or disk failure causes outage; not a high-availability design. |
-| PostgreSQL, Redis, and MinIO are single-node                                                     | Backups and restore tests are required even for a pilot.            |
-| CPU AI is the only verified path; the GPU profile is an unverified benchmark option              | Processing takes minutes per recording.                             |
-| Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                  |
-| Uploads are limited to 50 MB per file, including recordings                                      | Recordings above 50 MB cannot be uploaded.                          |
-| Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                            |
-| Registration is self-service                                                                     | Anyone who can reach the application can create a `staff` account.  |
+| Constraint                                                                                       | Impact                                                                                     |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Single-host deployment (Docker Compose for PostgreSQL, Redis, MinIO; systemd for API and worker) | Host or disk failure causes outage; not a high-availability design.                        |
+| PostgreSQL, Redis, and MinIO are single-node                                                     | Backups and restore tests are required even for a pilot.                                   |
+| CPU AI is the only verified path; the GPU profile is an unverified benchmark option              | Processing takes minutes per recording.                                                    |
+| Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                                         |
+| Uploads are limited to 50 MB per file, including recordings and audio extracted from a video     | A recording above 50 MB cannot be uploaded; at 128 kbps that is about 52 minutes of audio. |
+| Audio extraction from video runs in the browser and supports MP4, MOV, WebM, and MKV             | Other formats (for example AVI) must be converted to audio before upload.                  |
+| Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                                                   |
+| Registration is self-service                                                                     | Anyone who can reach the application can create a `staff` account.                         |
 
 ## 10. Deployment
 
@@ -588,6 +592,7 @@ process is running.
 | Calendar invitations                | iCalendar emails on create, update, and cancel.                                      |
 | Attendee change requests            | Private attendee messages to the owner, with notification and inbox.                 |
 | Dashboard and notifications         | Upcoming meetings, requests, action items, notification state.                       |
+| Video recordings                    | The browser extracts the audio track before upload; the video is not uploaded.       |
 | Speech-to-text transcription        | Whisper transcripts with timestamped segments.                                       |
 | AI summaries and action-item review | Local LLM summaries, decisions, and suggestions reviewed by a person.                |
 | RBAC and admin controls             | Account roles, admin user management, and central permission checks (see 7.2).       |
