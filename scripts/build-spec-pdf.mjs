@@ -36,7 +36,9 @@ const STYLES = `
 .wide-page { page: wide; }
 .wide-page .mermaid svg { max-height: 158mm; }
 .mermaid.compact svg { max-height: 100mm; }
-p:has(+ table) { break-after: avoid; }
+.mermaid.er svg { max-height: 82mm; }
+.mermaid.er.tall svg { max-height: 118mm; }
+p:has(+ table), p:has(+ .mermaid) { break-after: avoid; }
 * { box-sizing: border-box; }
 body { font: 10pt/1.5 -apple-system, 'Helvetica Neue', Arial, sans-serif; color: #0f172a; margin: 0; }
 h1 { font-size: 24pt; margin: 0 0 4pt; color: #0f172a; }
@@ -72,7 +74,7 @@ const PAGE_SCRIPT = `
 const flagClass = (text) =>
   'flag-' + text.slice(1, -1).toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
-const WIDE_DIAGRAM = /^\\s*(sequenceDiagram|erDiagram)/
+const WIDE_DIAGRAM = /^\\s*(sequenceDiagram)/
 
 const moveWideDiagramToOwnPage = (diagram) => {
   if (!WIDE_DIAGRAM.test(diagram.textContent)) {
@@ -123,6 +125,8 @@ const start = async () => {
     diagram.className = 'mermaid'
     diagram.textContent = code.textContent
     diagram.classList.toggle('compact', /^\\s*flowchart/.test(code.textContent))
+    diagram.classList.toggle('er', /^\\s*erDiagram/.test(code.textContent))
+    diagram.classList.toggle('tall', /%%\\s*tall/.test(code.textContent))
     code.parentElement.replaceWith(diagram)
   })
 
@@ -172,7 +176,7 @@ const start = async () => {
       mirrorActors: false,
       noteAlign: 'left',
     },
-    er: { fontSize: 14, minEntityWidth: 110 },
+    er: { fontSize: 15, minEntityWidth: 120, entityPadding: 12 },
   })
   await mermaid.run({ querySelector: '.mermaid' })
   document.body.dataset.ready = 'true'

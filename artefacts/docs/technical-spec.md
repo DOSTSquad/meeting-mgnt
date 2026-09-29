@@ -266,30 +266,47 @@ Schema changes are managed as versioned SQL migrations (`0001`–`0040`).
 
 ### 5.1 Entity Relationship Overview
 
+The model is shown in three parts; section 5.2 describes every entity.
+
+**Meetings and participants**
+
 ```mermaid
 erDiagram
   USER ||--o{ MEETING : owns
-  USER ||--o{ PARTICIPANT : participates
+  USER ||--o{ PARTICIPANT : "participates as"
   MEETING ||--o{ PARTICIPANT : has
+  TAG ||--o{ MEETING : classifies
   MEETING ||--o{ MEETING_FILE : has
-  MEETING ||--o{ ACTION_ITEM : has
-  USER ||--o{ ACTION_ITEM : assigned
   MEETING ||--o| MINUTES : has
+  PARTICIPANT ||--o{ CHANGE_REQUEST : sends
+  MEETING ||--o{ CHANGE_REQUEST : receives
+  USER ||--o{ NOTIFICATION : receives
+```
+
+**Scheduling requests**
+
+```mermaid
+erDiagram
+  USER ||--o{ MEETING_REQUEST : creates
+  MEETING_REQUEST ||--o{ TIME_OPTION : offers
+  MEETING_REQUEST ||--o{ INVITEE : invites
+  TIME_OPTION ||--o{ AVAILABILITY_RESPONSE : receives
+  INVITEE ||--o{ AVAILABILITY_RESPONSE : submits
+```
+
+**Recordings and AI review**
+
+```mermaid
+erDiagram
+  %% tall
   MEETING ||--o{ RECORDING : has
   RECORDING ||--o{ TRANSCRIPT : produces
   RECORDING ||--o{ ANALYSIS_RUN : produces
   TRANSCRIPT ||--o{ ANALYSIS_RUN : informs
   ANALYSIS_RUN ||--o{ ANALYSIS_SUGGESTION : proposes
   ANALYSIS_SUGGESTION |o--o| ACTION_ITEM : becomes
-  PARTICIPANT ||--o{ CHANGE_REQUEST : sends
-  MEETING ||--o{ CHANGE_REQUEST : receives
-  TAG ||--o{ MEETING : classifies
-  USER ||--o{ MEETING_REQUEST : creates
-  MEETING_REQUEST ||--o{ TIME_OPTION : offers
-  MEETING_REQUEST ||--o{ INVITEE : invites
-  TIME_OPTION ||--o{ AVAILABILITY_RESPONSE : receives
-  INVITEE ||--o{ AVAILABILITY_RESPONSE : submits
-  USER ||--o{ NOTIFICATION : receives
+  MEETING ||--o{ ACTION_ITEM : has
+  USER ||--o{ ACTION_ITEM : "is assigned"
 ```
 
 ### 5.2 Logical Data Model
