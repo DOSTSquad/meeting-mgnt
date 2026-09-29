@@ -1,16 +1,28 @@
-# React + Vite
+# Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vite + React + Tailwind CSS v3 front-end for DOST Meeting Management. It talks to the Express API under `/api`.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+From the repo root:
 
-## React Compiler
+| Task            | Command                              |
+| --------------- | ------------------------------------ |
+| Dev server      | `npm run dev --workspace=client`     |
+| Build           | `npm run build --workspace=client`   |
+| Lint            | `npm run lint --workspace=client`    |
+| Tests           | `npm run test --workspace=client`    |
+| Preview a build | `npm run preview --workspace=client` |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Only `VITE_*` variables reach the client. `VITE_API_BASE_URL` sets the API origin; it defaults to `http://localhost:3001` in development and to same-origin `/` in production builds (behind Caddy).
 
-## Expanding the ESLint configuration
+## Layout
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `src/features/` — screens by area: `auth`, `dashboard`, `meetings` (create flow, detail, repository, recording and AI review), `action-items`, `notifications`, `admin`.
+- `src/services/` — API calls (axios).
+- `src/lib/` — shared helpers, including recording upload helpers.
+- `tests/` — tests run with `node --test`.
+
+## Recording upload
+
+The recording pickers accept audio (MP3, WAV, M4A) or video (MP4, MOV, WebM, MKV). For a video, the audio track is copied into an `.m4a` in the browser, in a Web Worker with [`mediabunny`](https://www.npmjs.com/package/mediabunny), and only that file is uploaded. See `src/lib/extractAudio*.js` and `src/lib/recordingFile.js`. The API still accepts audio only, up to 50 MB.

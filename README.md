@@ -1,18 +1,20 @@
 # DOST Meeting Management
 
-Meeting Management is a workspace app for creating meeting scheduling requests, collecting participant availability, confirming meetings, managing meeting files, tracking action items, and maintaining dedicated meeting minutes.
+Meeting Management is a workspace app for creating meeting scheduling requests, collecting participant availability, confirming meetings, managing meeting files, tracking action items, maintaining dedicated meeting minutes, and turning recordings into reviewable AI summaries and action items.
 
 ## Structure
 
 ```
 meeting-mgnt/
 ├── client/                  # Vite + React + Tailwind front-end
-├── server/                  # Node.js + Express API
+├── server/                  # Node.js + Express API and workflow worker
 │   ├── db/migrations/       # versioned SQL migrations
 │   └── scripts/             # migrate/seed scripts
-├── docs/postman/            # importable API collection
+├── ai-service/              # Python AI worker (Whisper transcription, Ollama analysis)
+├── deploy/                  # Caddyfile and systemd units
+├── docs/                    # deployment guidelines, GPU runbook, technical spec, Postman collection
 ├── designs/                 # Pencil design files
-├── docker-compose.yml       # local PostgreSQL, Redis, MinIO
+├── docker-compose.yml       # local PostgreSQL, Redis, MinIO (AI services in the `ai` profile)
 └── package.json             # npm workspace root
 ```
 
@@ -26,10 +28,10 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 4. Apply database migrations with `npm run migrate --workspace=server`.
 5. Optional: seed local demo data with `npm run seed --workspace=server`.
 6. Start the API with `npm run dev --workspace=server`.
-7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`.
+7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`. Run one worker only; without it, generation requests stay `queued`.
 8. Start the client with `npm run dev --workspace=client`.
 
-The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (health/API wrapper), `ai-worker` (Redis Streams consumer that runs Whisper and Llama 3), and `ollama` (the local model runtime it calls). Start them with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
+The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (health/API wrapper), `ai-worker` (Redis Streams consumer that runs Whisper and Llama 3), and `ollama` (the local model runtime it calls). Start them with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
 
@@ -122,7 +124,7 @@ The Codex Cage source revision is pinned in `.github/workflows/codex-cage-issue.
 
 ## Caddy Deployment
 
-[`deploy/Caddyfile`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/deploy/Caddyfile) serves the built React app and proxies API traffic to the Express server.
+[`deploy/Caddyfile`](deploy/Caddyfile) serves the built React app and proxies API traffic to the Express server.
 
 See [Deployment Guidelines](docs/deployment-guidelines.md) for the supported
 single-host topology, release procedure, operational checks, and AI capacity
@@ -131,7 +133,7 @@ documents the Windows WSL2/CUDA validation path.
 
 ## GitHub Actions Deployment
 
-The [`Deploy`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.github/workflows/deploy.yml)
+The [`Deploy`](.github/workflows/deploy.yml)
 workflow runs on pushes to `main` and can also be started manually from GitHub Actions.
 
 Configure these secrets on the `production` **environment**, not as repository
@@ -243,7 +245,7 @@ AI pipeline is off; deploy only fails the run when the unit is actually
 `failed`. Enabling the pipeline requires `AI_PIPELINE_ENABLED=true` plus a
 reachable `REDIS_URL` and `DATABASE_URL` in `.env` on the VPS, otherwise the
 worker fails its startup validation. The full list of workflow settings is in
-[`.env.example`](/Users/jhowliu/Developer/ifn735/meeting-mgnt/.env.example);
+[`.env.example`](.env.example);
 copy any new keys to the VPS `.env` before enabling it.
 
 When `AI_TRANSCRIPTION_PROVIDER=whisper`, build and health-check the existing
@@ -318,7 +320,7 @@ sudo journalctl -u caddy -n 100 --no-pager
 
 The React client currently includes:
 
-- Email-only authentication.
+- Email and password authentication with self-service registration. Admin accounts also get an Admin page for user and role management.
 - Dashboard with upcoming meetings, pending host-created meeting requests, invitee availability requests, action items, and notification dropdown.
 - Five-step create meeting flow:
   1. Create request metadata.
@@ -328,23 +330,25 @@ The React client currently includes:
   5. Confirm the final meeting.
 - Invitee availability voting modal from the dashboard.
 - Meeting Repository route at `/meetings`, organized by meeting tags with a scannable meetings/files list.
-- Meeting Detail route at `/meetings/:meetingId`, including editable meeting metadata, agenda, manual minutes, meeting materials, meeting recording upload, attendees, and action items.
+- Meeting Detail route at `/meetings/:meetingId`, including editable meeting metadata, agenda, manual minutes, meeting materials, recording upload (audio, or a video whose audio track is extracted in the browser), transcript and AI analysis review, attendees, change requests, and action items.
 - Action Items Tracker route at `/action-items`.
-- Topbar notification dropdown. Read/unread state is currently UI-local; persisted notification read state is planned in [GitHub issue #25](https://github.com/DOSTSquad/meeting-mgnt/issues/25).
+- Topbar notification dropdown with persisted read and archive state.
 
 ### Backend
 
 The Express API currently supports:
 
-- JWT auth with email-only login.
+- JWT auth with email and password login and self-service registration.
 - Role-based access: `staff`/`admin` accounts plus per-meeting owner/organizer/attendee/optional roles, defined in `server/services/permissions.js` (see [`server/README.md`](server/README.md#roles-and-permissions)).
 - Meeting CRUD, simple status transitions, pagination, full-text search, tags, and meeting file counts.
-- Meeting request scheduling flow before a real meeting exists.
+- Meeting request scheduling flow before a real meeting exists, with emailed invitation links and calendar (`.ics`) emails.
 - Invitee-safe availability response endpoints.
 - Meeting participant role management. RSVP has been removed as a product/API concept.
 - Meeting-scoped file uploads to MinIO with presigned downloads.
 - Meeting action item CRUD and assignee/status filters.
 - Dedicated meeting minutes API with `content`, `keyDiscussions`, `decisions`, `facilitatorId`, `recorderId`, and status.
+- Recording upload, Whisper transcription, local LLM analysis, and reviewable action-item suggestions through the outbox, Redis Streams, and the AI worker (live status over SSE).
+- Attendee change requests, readable only by the meeting owner.
 - Dashboard aggregate data and derived notifications.
 - Development-only `/api/dev` endpoints (admin accounts only) when the server is started with `NODE_ENV=development`.
 
@@ -387,10 +391,15 @@ The server exposes JWT-protected REST endpoints under `/api`:
 - `/api/meeting-requests` — scheduling request flow with time options, invitees, binary availability responses, and confirmation into a real meeting
 - `/api/meetings/:id/participants` — add, list, update role, and remove meeting participants
 - `/api/meetings/:id/files` + `/api/files/:id` — upload (PDF/DOCX/XLSX/PPTX/images, 50 MB cap), list, presigned download (60 s URL), and delete meeting files
-- `/api/meetings/:id/action-items` + `/api/action-items/:id` — create, list (filter by status/assignee), update, and delete meeting action items (statuses: todo, in_progress, blocked, completed, cancelled)
+- `/api/meetings/:id/action-items` + `/api/action-items/:id` — create, list (filter by status/assignee), update, and delete meeting action items (statuses: todo, in_progress, completed, cancelled)
 - `/api/meetings/:id/minutes` — read/update dedicated meeting minutes; `GET` eagerly creates an empty draft if one does not exist
+- `/api/meetings/:id/recording` — upload, read, archive, and generate from the meeting recording; `/analysis` returns the latest transcript, analysis, and suggestions; `/api/meetings/:id/workflow/events` streams status over SSE
+- `/api/meetings/:id/analysis-suggestions` — edit, accept, or reject AI-suggested action items
+- `/api/meetings/:id/change-requests` — attendees send change requests; only the owner reads them
+- `/api/public/invitations/:token` — invitee availability through an emailed link, no sign-in
+- `/api/tags` — list and create meeting tags
 - `/api/dashboard` — upcoming meetings, pending meeting requests, pending availability requests, and current user's action items
-- `/api/notifications` — currently returns derived notification items; persisted read/unread state is planned
+- `/api/notifications` — persisted notifications with read and archive state
 
 See [`server/README.md`](server/README.md#api-endpoints) for the full endpoint matrix and request/response shapes, and [`docs/postman/dost-meeting-mgnt.postman_collection.json`](docs/postman/dost-meeting-mgnt.postman_collection.json) for an importable Postman collection.
 
@@ -407,8 +416,8 @@ Current notable frames include:
 - Create Meeting host flow
 - Participant availability flow
 
-## Known Gaps / Planned Work
+## Known Limitations
 
-- Persisted notifications with read/unread API state are planned in [issue #25](https://github.com/DOSTSquad/meeting-mgnt/issues/25).
-- AI-generated minutes are scaffolded but not configured yet; the client currently supports manual minutes editing for demos.
-- Notification delivery channels such as email, push, Slack, and Teams are out of scope for the current local app.
+- AI processing runs on CPU by default and takes minutes per recording; the optional GPU profile is in [`docs/gpu-benchmark-runbook.md`](docs/gpu-benchmark-runbook.md).
+- Uploads are limited to 50 MB per file, including audio extracted from a video (about 52 minutes at 128 kbps).
+- Notifications are in-app plus invitation and calendar emails; push, Slack, and Teams are not implemented.
