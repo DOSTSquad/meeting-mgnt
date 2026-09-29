@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { AnalysisActionItemsPanel } from './AnalysisActionItemsPanel.jsx'
 import { AnalysisSummaryPanel } from './AnalysisSummaryPanel.jsx'
+import { RecordingProgress, RecordingStatusPill } from './RecordingProgress.jsx'
 import { TranscriptPanel } from './TranscriptPanel.jsx'
 import { MeetingChangeRequestDialog } from './MeetingChangeRequestDialog.jsx'
 import { MeetingChangeRequestInbox } from './MeetingChangeRequestInbox.jsx'
@@ -11,12 +12,15 @@ import {
   CircleX,
   Eye,
   FileAudio,
+  Play,
   Trash2,
   UploadCloud,
 } from 'lucide-react'
 
 import { formatDateOnly, formatDateTime } from '../../utils/date.js'
+import { formatFileSize } from '../../utils/fileSize.js'
 import { formatMeetingStatus, getMeetingDisplayStatus } from '../../utils/meetingStatus.js'
+import { getRecordingProgress } from './recordingProgress.js'
 
 const actionStatusStyles = {
   todo: {
@@ -334,37 +338,12 @@ export const MeetingDetailView = ({
     nonAdminParticipants.length - visibleParticipants.length,
     0
   )
-  const recordingStatus = detail.recording?.status || 'empty'
-  const isGenerationQueued =
-    recordingStatus === 'uploaded' &&
-    (detail.transcript?.status === 'processing' || detail.analysisRun?.status === 'queued')
-  const recordingStatusLabel = isGenerationQueued
-    ? 'Queued'
-    : {
-        empty: 'No recording',
-        uploaded: 'Uploaded',
-        transcribing: 'Transcribing',
-        transcribed: 'Transcript ready',
-        failed: 'Needs setup',
-      }[recordingStatus] || recordingStatus
-  const transcriptMessage =
-    detail.transcript?.errorMessage ||
-    (detail.transcript?.status === 'completed'
-      ? 'Transcript is ready.'
-      : detail.transcript?.status === 'processing'
-        ? recordingStatus === 'transcribing'
-          ? 'Transcription is running.'
-          : 'Transcription is queued.'
-        : null)
-  const analysisMessage =
-    detail.analysisRun?.errorMessage ||
-    (detail.analysisRun?.status === 'queued'
-      ? 'Analysis is queued.'
-      : detail.analysisRun?.status === 'processing'
-        ? 'Analysis is running.'
-        : detail.analysisRun?.status === 'ready_for_review'
-          ? 'Analysis is ready for review.'
-          : null)
+  const recordingProgress = getRecordingProgress({
+    recording: detail.recording,
+    transcript: detail.transcript,
+    analysisRun: detail.analysisRun,
+  })
+  const recordingSize = formatFileSize(detail.recording?.sizeBytes)
   const minuteStatusClass =
     {
       draft: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -838,60 +817,31 @@ export const MeetingDetailView = ({
           <div className="mt-4 border-t border-slate-100 pt-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-700">Recording source</h3>
-                <p className="mt-1 text-xs text-slate-500">Source audio for this meeting record.</p>
+                <h3 className="text-lg font-extrabold text-slate-900">Recording Source</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Upload a meeting recording to generate a transcript and meeting analysis.
+                </p>
               </div>
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
-                  recordingStatus === 'failed'
-                    ? 'bg-amber-100 text-amber-700'
-                    : detail.recording
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {recordingStatusLabel}
-              </span>
+              <RecordingStatusPill pill={recordingProgress.pill} />
             </div>
 
             {detail.recording ? (
-              <div className="mt-4 bg-slate-50 p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-slate-500">
+              <div className="mt-4 space-y-3">
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-slate-500">
                     <FileAudio className="h-5 w-5" aria-hidden="true" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p
-                      className="truncate text-sm font-bold text-slate-800"
+                      className="truncate text-sm font-bold text-slate-900"
                       title={detail.recording.fileName}
                     >
                       {detail.recording.fileName}
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
                       Uploaded {formatDateOnly(detail.recording.createdAt)}
+                      {recordingSize ? ` \u00b7 ${recordingSize}` : ''}
                     </p>
-                    {transcriptMessage ? (
-                      <p
-                        className={`mt-2 text-xs font-semibold ${
-                          detail.transcript?.status === 'failed'
-                            ? 'text-amber-700'
-                            : 'text-slate-600'
-                        }`}
-                      >
-                        {transcriptMessage}
-                      </p>
-                    ) : null}
-                    {analysisMessage ? (
-                      <p
-                        className={`mt-1 text-xs font-semibold ${
-                          detail.analysisRun?.status === 'failed'
-                            ? 'text-amber-700'
-                            : 'text-slate-600'
-                        }`}
-                      >
-                        {analysisMessage}
-                      </p>
-                    ) : null}
                   </div>
                   {canManageMeeting ? (
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -906,11 +856,12 @@ export const MeetingDetailView = ({
                             setIsGeneratingMinutes(false)
                           }
                         }}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {isGeneratingMinutes ? 'Running...' : 'Text generation'}
+                        <Play className="h-4 w-4 fill-current" aria-hidden="true" />
+                        {isGeneratingMinutes ? 'Running...' : 'Process Recording'}
                       </button>
-                      <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                      <label className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
                         Replace
                         <input
                           type="file"
@@ -925,13 +876,14 @@ export const MeetingDetailView = ({
                       <button
                         type="button"
                         onClick={onRemoveRecording}
-                        className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition hover:bg-rose-50"
+                        className="rounded-xl border border-rose-100 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 transition hover:bg-rose-50"
                       >
                         Remove
                       </button>
                     </div>
                   ) : null}
                 </div>
+                <RecordingProgress steps={recordingProgress.steps} />
                 <TranscriptPanel transcript={detail.transcript} />
                 <AnalysisSummaryPanel
                   review={analysisReview}
