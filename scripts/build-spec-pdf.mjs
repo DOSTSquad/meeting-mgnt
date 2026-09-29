@@ -55,10 +55,6 @@ th { background: #f1f5f9; }
 table.api td:nth-child(1) { width: 52pt; }
 table.api td:nth-child(2) { width: 55%; }
 code { font: 8.5pt ui-monospace, Menlo, monospace; background: #f1f5f9; padding: 0 3pt; border-radius: 3pt; overflow-wrap: break-word; }
-code.flag { font-family: inherit; font-weight: 600; padding: 1pt 5pt; border-radius: 8pt; white-space: nowrap; }
-.flag-implemented { background: #dcfce7; color: #166534; }
-.flag-future-enhancement { background: #e2e8f0; color: #334155; }
-.flag-recommended { background: #ede9fe; color: #5b21b6; }
 .mermaid { text-align: center; margin: 10pt 0 14pt; break-inside: avoid; }
 .mermaid svg { max-width: 100%; height: auto; max-height: 225mm; }
 .toc { margin: 10pt 0 0; padding: 10pt 14pt; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6pt; break-inside: avoid; }
@@ -69,9 +65,6 @@ code.flag { font-family: inherit; font-weight: 600; padding: 1pt 5pt; border-rad
 `
 
 const PAGE_SCRIPT = `
-const flagClass = (text) =>
-  'flag-' + text.slice(1, -1).toLowerCase().replace(/[^a-z0-9]+/g, '-')
-
 const WIDE_DIAGRAM = /^\\s*(sequenceDiagram)/
 
 const moveWideDiagramToOwnPage = (diagram) => {
@@ -111,12 +104,6 @@ const buildToc = (root) => {
 const start = async () => {
   const root = document.getElementById('content')
   root.innerHTML = marked.parse(MARKDOWN, { gfm: true })
-
-  root.querySelectorAll('code').forEach((code) => {
-    if (/^\\[[A-Za-z0-9 ]+\\]$/.test(code.textContent)) {
-      code.classList.add('flag', flagClass(code.textContent))
-    }
-  })
 
   root.querySelectorAll('pre > code.language-mermaid').forEach((code) => {
     const diagram = document.createElement('div')

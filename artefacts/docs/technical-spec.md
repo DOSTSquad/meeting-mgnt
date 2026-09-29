@@ -10,15 +10,7 @@ tracking action items, and turning recordings into reviewable AI-generated summa
 items.
 
 This specification is written for client review. It describes delivered behavior, security,
-non-functional requirements, assumptions, deployment expectations, and future enhancements.
-
-### 1.1 Feature Status Flags
-
-| Flag                   | Meaning                                                                   |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `[Implemented]`        | Available in the current application and included in the delivered scope. |
-| `[Recommended]`        | Policy or target the client should set before production use.             |
-| `[Future Enhancement]` | Potential improvement outside the delivered scope.                        |
+non-functional characteristics, assumptions, and deployment.
 
 ## 2. Users and Roles
 
@@ -90,32 +82,32 @@ same-origin API requests to it; Caddy forwards them to the private API service.
 
 ### 3.2 System Components
 
-| Component            | Technology                     | Status          | Responsibility                                                        |
-| -------------------- | ------------------------------ | --------------- | --------------------------------------------------------------------- |
-| Web application      | React single-page application  | `[Implemented]` | Dashboard, meetings, scheduling, minutes, files, action items, admin. |
-| API service          | Node.js and Express            | `[Implemented]` | Business rules, authorization, validation, workflow transitions, SSE. |
-| Node workflow worker | Node.js worker runtime         | `[Implemented]` | Dispatches workflow outbox events and persists AI results.            |
-| Python AI worker     | Python, Whisper, Redis Streams | `[Implemented]` | Transcribes recordings; generates summaries and action suggestions.   |
-| Ollama               | Private local LLM runtime      | `[Implemented]` | Structured analysis of completed transcripts.                         |
-| Database             | PostgreSQL                     | `[Implemented]` | Authoritative business data and workflow state.                       |
-| Object storage       | MinIO                          | `[Implemented]` | Meeting files, recordings, and AI artifacts.                          |
-| Redis                | Redis Streams and Pub/Sub      | `[Implemented]` | AI commands and results; workflow-status invalidations.               |
-| Reverse proxy        | Caddy                          | `[Implemented]` | TLS, static delivery, API routing, SSE.                               |
+| Component            | Technology                     | Responsibility                                                        |
+| -------------------- | ------------------------------ | --------------------------------------------------------------------- |
+| Web application      | React single-page application  | Dashboard, meetings, scheduling, minutes, files, action items, admin. |
+| API service          | Node.js and Express            | Business rules, authorization, validation, workflow transitions, SSE. |
+| Node workflow worker | Node.js worker runtime         | Dispatches workflow outbox events and persists AI results.            |
+| Python AI worker     | Python, Whisper, Redis Streams | Transcribes recordings; generates summaries and action suggestions.   |
+| Ollama               | Private local LLM runtime      | Structured analysis of completed transcripts.                         |
+| Database             | PostgreSQL                     | Authoritative business data and workflow state.                       |
+| Object storage       | MinIO                          | Meeting files, recordings, and AI artifacts.                          |
+| Redis                | Redis Streams and Pub/Sub      | AI commands and results; workflow-status invalidations.               |
+| Reverse proxy        | Caddy                          | TLS, static delivery, API routing, SSE.                               |
 
 ### 3.3 Application Modules
 
-| Module                        | Status          | Summary                                                                            |
-| ----------------------------- | --------------- | ---------------------------------------------------------------------------------- |
-| Authentication and accounts   | `[Implemented]` | Login, registration, session validation, admin user and role management.           |
-| Access control                | `[Implemented]` | Account roles and meeting roles enforced by one central permission definition.     |
-| Dashboard and notifications   | `[Implemented]` | Upcoming meetings, requests, action items, notification feed with read/archive.    |
-| Meeting repository and detail | `[Implemented]` | Search and filter meetings; participants, files, minutes, recording, action items. |
-| Scheduling requests           | `[Implemented]` | Time options, invitations by email, availability, deadline, confirmation.          |
-| Calendar invitations          | `[Implemented]` | iCalendar emails when a meeting is created, updated, or cancelled.                 |
-| Change requests               | `[Implemented]` | Attendees privately ask the owner to change a meeting.                             |
-| Files and minutes             | `[Implemented]` | Upload, download, delete materials; draft, approve, publish minutes.               |
-| Recording-to-minutes workflow | `[Implemented]` | Recording, transcription, analysis, review, live status updates.                   |
-| AI review                     | `[Implemented]` | Summary applied to minutes; action-item suggestions accepted, edited, or rejected. |
+| Module                        | Summary                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| Authentication and accounts   | Login, registration, session validation, admin user and role management.           |
+| Access control                | Account roles and meeting roles enforced by one central permission definition.     |
+| Dashboard and notifications   | Upcoming meetings, requests, action items, notification feed with read/archive.    |
+| Meeting repository and detail | Search and filter meetings; participants, files, minutes, recording, action items. |
+| Scheduling requests           | Time options, invitations by email, availability, deadline, confirmation.          |
+| Calendar invitations          | iCalendar emails when a meeting is created, updated, or cancelled.                 |
+| Change requests               | Attendees privately ask the owner to change a meeting.                             |
+| Files and minutes             | Upload, download, delete materials; draft, approve, publish minutes.               |
+| Recording-to-minutes workflow | Recording, transcription, analysis, review, live status updates.                   |
+| AI review                     | Summary applied to minutes; action-item suggestions accepted, edited, or rejected. |
 
 ## 4. Core Workflows
 
@@ -127,8 +119,7 @@ same-origin API requests to it; Caddy forwards them to the private API service.
 4. The API rejects unauthenticated or unauthorized requests.
 
 Registration is currently self-service, and new accounts receive the `staff` role. Only an admin
-can change a role. `[Recommended]` For a closed staff-only deployment, restrict account creation to
-administrators.
+can change a role.
 
 ### 4.2 Meeting Request Scheduling
 
@@ -501,26 +492,20 @@ Additional rules:
 - Require meeting access before listing, uploading, streaming, or downloading files.
 - Use short-lived presigned download links.
 - Separate meeting files, recordings, and AI artifacts into different buckets.
-- Treat large recording uploads as high risk; chunked or direct-to-storage upload is
-  a `[Future Enhancement]`.
+- Limit upload size and validate file type before storing (see 7.3).
 
-## 8. Non-Functional Requirements
+## 8. Non-Functional Characteristics
 
-| Area         | Requirement or current behavior                                                                                                                               | Status                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| Performance  | AI processing benchmark on CPU: about 18 minutes for a 26-minute recording (about 12 transcription, 6 analysis). Not a service level.                         | Measured               |
-| Performance  | Response-time targets for dashboard, search, meeting detail, and uploads should be agreed with the client and verified by load testing before production use. | `[Recommended]`        |
-| Performance  | API rate limit of 100 requests per 5 minutes per client IP by default; configurable.                                                                          | `[Implemented]`        |
-| Capacity     | Expected use: 10,000 employees, 1,000–2,000 daily active users (project plan).                                                                                | Sizing basis           |
-| Capacity     | Initial AI host: 8 vCPU / 16 GiB RAM for low volume, 16 vCPU / 32 GiB for a small pilot; one AI worker. Concurrent long recordings need capacity testing.     | Guidance               |
-| Capacity     | Separate persistent disk for AI models, containers, and retained recordings. The client sets the recording retention period.                                  | `[Recommended]`        |
-| Availability | Current deployment is single-host and not highly available. Liveness and readiness endpoints support monitoring.                                              | `[Implemented]`        |
-| Availability | Availability target and recovery objectives (time and data loss) should be set by the client. A highly available topology is a future enhancement (see 10.1). | `[Recommended]`        |
-| Backup       | Verified PostgreSQL backup before every release with migrations; MinIO backup on a defined schedule; restore drills. Redis is not a backup.                   | Documented procedure   |
-| Backup       | Backup frequency and retention period should follow the client's operations policy.                                                                           | `[Recommended]`        |
-| Logging      | Request failures and workflow errors are written to service logs. AI logs must not contain transcript text or credentials.                                    | `[Implemented]`        |
-| Traceability | AI results record transcript, provider, model, and prompt version; suggestion reviews record reviewer and time.                                               | `[Implemented]`        |
-| Audit        | Persistent audit trail for role changes, account deletions, and meeting deletions. None exists today.                                                         | `[Future Enhancement]` |
+| Area         | Requirement or current behavior                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Performance  | AI processing benchmark on CPU: about 18 minutes for a 26-minute recording (about 12 transcription, 6 analysis). Not a service level.                     |
+| Performance  | API rate limit of 100 requests per 5 minutes per client IP by default; configurable.                                                                      |
+| Capacity     | Expected use: 10,000 employees, 1,000–2,000 daily active users (project plan).                                                                            |
+| Capacity     | Initial AI host: 8 vCPU / 16 GiB RAM for low volume, 16 vCPU / 32 GiB for a small pilot; one AI worker. Concurrent long recordings need capacity testing. |
+| Availability | Current deployment is single-host and not highly available. Liveness and readiness endpoints support monitoring.                                          |
+| Backup       | Verified PostgreSQL backup before every release with migrations; MinIO backup on a defined schedule; restore drills. Redis is not a backup.               |
+| Logging      | Request failures and workflow errors are written to service logs. AI logs must not contain transcript text or credentials.                                |
+| Traceability | AI results record transcript, provider, model, and prompt version; suggestion reviews record reviewer and time.                                           |
 
 ## 9. Assumptions and Constraints
 
@@ -534,15 +519,15 @@ Additional rules:
 
 ### 9.2 Constraints
 
-| Constraint                                                                                       | Impact                                                               |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| Single-host deployment (Docker Compose for PostgreSQL, Redis, MinIO; systemd for API and worker) | Host or disk failure causes outage; not a high-availability design.  |
-| PostgreSQL, Redis, and MinIO are single-node                                                     | Backups and restore tests are required even for a pilot.             |
-| CPU AI is the only verified path; the GPU profile is an unverified benchmark option              | Processing takes minutes per recording.                              |
-| Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                   |
-| Uploads are limited to 50 MB per file, including recordings                                      | Large recordings need chunked or direct upload (future enhancement). |
-| Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                             |
-| Registration is open by default                                                                  | Closed registration needs a policy decision (see 4.1).               |
+| Constraint                                                                                       | Impact                                                              |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Single-host deployment (Docker Compose for PostgreSQL, Redis, MinIO; systemd for API and worker) | Host or disk failure causes outage; not a high-availability design. |
+| PostgreSQL, Redis, and MinIO are single-node                                                     | Backups and restore tests are required even for a pilot.            |
+| CPU AI is the only verified path; the GPU profile is an unverified benchmark option              | Processing takes minutes per recording.                             |
+| Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                  |
+| Uploads are limited to 50 MB per file, including recordings                                      | Recordings above 50 MB cannot be uploaded.                          |
+| Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                            |
+| Registration is self-service                                                                     | Anyone who can reach the application can create a `staff` account.  |
 
 ## 10. Deployment
 
@@ -555,14 +540,11 @@ Additional rules:
 4. When AI is enabled, the Node workflow worker dispatches outbox events and consumes results, while
    the Python AI worker runs Whisper and Ollama jobs.
 
-The current model is a single host: Docker Compose runs PostgreSQL, Redis, and MinIO; systemd runs
-the API and workflow worker. It suits demonstrations and small internal pilots, not
-high-availability production. The `[Future Enhancement]` path is an orchestrated container platform
-(Docker Swarm, or Kubernetes/OpenShift where the client already operates it) with explicit high
-availability, persistent storage, backup, and failover for PostgreSQL, Redis, and MinIO.
+The deployment is a single host: Docker Compose runs PostgreSQL, Redis, and MinIO; systemd runs
+the API and workflow worker. It is not a high-availability design.
 
 Host bootstrap, release, backup, automated deployment, and AI operations procedures are in
-`docs/deployment-guidelines.md`. The GPU option is in `docs/gpu-benchmark-runbook.md`.
+`docs/deployment-guidelines.md`. The optional GPU profile is in `docs/gpu-benchmark-runbook.md`.
 
 ### 10.2 Environment Configuration
 
@@ -597,19 +579,15 @@ Production values are set per environment and stored in the client's secret-mana
 Readiness health fails when PostgreSQL, Redis, or MinIO is unavailable. Liveness only confirms the
 process is running.
 
-## 12. Delivered Scope and Future Enhancements
+## 12. Delivered Scope
 
-| Item                                | Status                 | Client-facing note                                                                    |
-| ----------------------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
-| Core meeting management             | `[Implemented]`        | Create, list/search, detail, participants, files, minutes, action items.              |
-| Meeting request scheduling          | `[Implemented]`        | Email invitations with personal links; creators confirm after responses or deadline.  |
-| Calendar invitations                | `[Implemented]`        | iCalendar emails on create, update, and cancel.                                       |
-| Attendee change requests            | `[Implemented]`        | Private attendee messages to the owner, with notification and inbox.                  |
-| Dashboard and notifications         | `[Implemented]`        | Upcoming meetings, requests, action items, notification state.                        |
-| Speech-to-text transcription        | `[Implemented]`        | Whisper transcripts with timestamped segments.                                        |
-| AI summaries and action-item review | `[Implemented]`        | Local LLM summaries, decisions, and suggestions reviewed by a person.                 |
-| RBAC and admin controls             | `[Implemented]`        | Account roles, admin user management, and central permission checks (see 7.2).        |
-| Large recording upload reliability  | `[Future Enhancement]` | Chunked or direct-to-storage upload for recordings above the 50 MB limit.             |
-| On-prem AI model evaluation         | `[Future Enhancement]` | Model, GPU, latency, accuracy, and data-governance trade-offs.                        |
-| Additional notification channels    | `[Future Enhancement]` | Push, Slack, Teams, or similar; email is limited to invitations and calendar updates. |
-| Containerized production deployment | `[Future Enhancement]` | Orchestrated platform with high availability (see 10.1).                              |
+| Item                                | Description                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Core meeting management             | Create, list/search, detail, participants, files, minutes, action items.             |
+| Meeting request scheduling          | Email invitations with personal links; creators confirm after responses or deadline. |
+| Calendar invitations                | iCalendar emails on create, update, and cancel.                                      |
+| Attendee change requests            | Private attendee messages to the owner, with notification and inbox.                 |
+| Dashboard and notifications         | Upcoming meetings, requests, action items, notification state.                       |
+| Speech-to-text transcription        | Whisper transcripts with timestamped segments.                                       |
+| AI summaries and action-item review | Local LLM summaries, decisions, and suggestions reviewed by a person.                |
+| RBAC and admin controls             | Account roles, admin user management, and central permission checks (see 7.2).       |
