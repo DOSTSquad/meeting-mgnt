@@ -10,17 +10,15 @@ tracking action items, and turning recordings into reviewable AI-generated summa
 items.
 
 This specification is written for client review. It describes delivered behavior, security,
-non-functional requirements, assumptions, deployment expectations, and planned extensions.
+non-functional requirements, assumptions, deployment expectations, and future enhancements.
 
 ### 1.1 Feature Status Flags
 
-| Flag                   | Meaning                                                                    |
-| ---------------------- | -------------------------------------------------------------------------- |
-| `[Implemented]`        | Available in the current application and included in the delivered scope.  |
-| `[Scaffolded]`         | Foundation exists, but the full user-facing workflow is not yet delivered. |
-| `[Semester 2 Planned]` | Planned for Semester 2; not part of the current delivery scope.            |
-| `[Future Enhancement]` | Potential improvement outside the confirmed delivery scope.                |
-| `[Proposed]`           | Target or policy suggested for client confirmation; not yet agreed.        |
+| Flag                   | Meaning                                                                   |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `[Implemented]`        | Available in the current application and included in the delivered scope. |
+| `[Recommended]`        | Policy or target the client should set before production use.             |
+| `[Future Enhancement]` | Potential improvement outside the delivered scope.                        |
 
 ## 2. Users and Roles
 
@@ -129,7 +127,7 @@ same-origin API requests to it; Caddy forwards them to the private API service.
 4. The API rejects unauthenticated or unauthorized requests.
 
 Registration is currently self-service, and new accounts receive the `staff` role. Only an admin
-can change a role. `[Proposed]` For a closed staff-only deployment, restrict account creation to
+can change a role. `[Recommended]` For a closed staff-only deployment, restrict account creation to
 administrators.
 
 ### 4.2 Meeting Request Scheduling
@@ -504,25 +502,25 @@ Additional rules:
 - Use short-lived presigned download links.
 - Separate meeting files, recordings, and AI artifacts into different buckets.
 - Treat large recording uploads as high risk; chunked or direct-to-storage upload is
-  `[Semester 2 Planned]`.
+  a `[Future Enhancement]`.
 
 ## 8. Non-Functional Requirements
 
-| Area         | Requirement or current behavior                                                                                                                           | Status               |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| Performance  | AI processing benchmark on CPU: about 18 minutes for a 26-minute recording (about 12 transcription, 6 analysis). Not a service level.                     | Measured             |
-| Performance  | Response-time targets for dashboard, search, meeting detail, and uploads, verified by load testing.                                                       | `[Proposed]`         |
-| Performance  | API rate limit of 100 requests per 5 minutes per client IP by default; configurable.                                                                      | `[Implemented]`      |
-| Capacity     | Expected use: 10,000 employees, 1,000–2,000 daily active users (project plan).                                                                            | Sizing basis         |
-| Capacity     | Initial AI host: 8 vCPU / 16 GiB RAM for low volume, 16 vCPU / 32 GiB for a small pilot; one AI worker. Concurrent long recordings need capacity testing. | Guidance             |
-| Capacity     | Separate persistent disk for AI models, containers, and retained recordings. Recording retention period to be set by the client.                          | `[Proposed]`         |
-| Availability | Current deployment is single-host and not highly available. Liveness and readiness endpoints support monitoring.                                          | `[Implemented]`      |
-| Availability | Availability target and recovery objectives (time and data loss), and a highly available topology.                                                        | `[Proposed]`         |
-| Backup       | Verified PostgreSQL backup before every release with migrations; MinIO backup on a defined schedule; restore drills. Redis is not a backup.               | Documented procedure |
-| Backup       | Backup frequency and retention period.                                                                                                                    | `[Proposed]`         |
-| Logging      | Request failures and workflow errors are written to service logs. AI logs must not contain transcript text or credentials.                                | `[Implemented]`      |
-| Traceability | AI results record transcript, provider, model, and prompt version; suggestion reviews record reviewer and time.                                           | `[Implemented]`      |
-| Audit        | Persistent audit trail for role changes, account deletions, and meeting deletions. None exists today.                                                     | `[Proposed]`         |
+| Area         | Requirement or current behavior                                                                                                                               | Status                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Performance  | AI processing benchmark on CPU: about 18 minutes for a 26-minute recording (about 12 transcription, 6 analysis). Not a service level.                         | Measured               |
+| Performance  | Response-time targets for dashboard, search, meeting detail, and uploads should be agreed with the client and verified by load testing before production use. | `[Recommended]`        |
+| Performance  | API rate limit of 100 requests per 5 minutes per client IP by default; configurable.                                                                          | `[Implemented]`        |
+| Capacity     | Expected use: 10,000 employees, 1,000–2,000 daily active users (project plan).                                                                                | Sizing basis           |
+| Capacity     | Initial AI host: 8 vCPU / 16 GiB RAM for low volume, 16 vCPU / 32 GiB for a small pilot; one AI worker. Concurrent long recordings need capacity testing.     | Guidance               |
+| Capacity     | Separate persistent disk for AI models, containers, and retained recordings. The client sets the recording retention period.                                  | `[Recommended]`        |
+| Availability | Current deployment is single-host and not highly available. Liveness and readiness endpoints support monitoring.                                              | `[Implemented]`        |
+| Availability | Availability target and recovery objectives (time and data loss) should be set by the client. A highly available topology is a future enhancement (see 10.1). | `[Recommended]`        |
+| Backup       | Verified PostgreSQL backup before every release with migrations; MinIO backup on a defined schedule; restore drills. Redis is not a backup.                   | Documented procedure   |
+| Backup       | Backup frequency and retention period should follow the client's operations policy.                                                                           | `[Recommended]`        |
+| Logging      | Request failures and workflow errors are written to service logs. AI logs must not contain transcript text or credentials.                                    | `[Implemented]`        |
+| Traceability | AI results record transcript, provider, model, and prompt version; suggestion reviews record reviewer and time.                                               | `[Implemented]`        |
+| Audit        | Persistent audit trail for role changes, account deletions, and meeting deletions. None exists today.                                                         | `[Future Enhancement]` |
 
 ## 9. Assumptions and Constraints
 
@@ -536,15 +534,15 @@ Additional rules:
 
 ### 9.2 Constraints
 
-| Constraint                                                                                       | Impact                                                              |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| Single-host deployment (Docker Compose for PostgreSQL, Redis, MinIO; systemd for API and worker) | Host or disk failure causes outage; not a high-availability design. |
-| PostgreSQL, Redis, and MinIO are single-node                                                     | Backups and restore tests are required even for a pilot.            |
-| CPU AI is the only verified path; the GPU profile is an unverified benchmark option              | Processing takes minutes per recording.                             |
-| Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                  |
-| Uploads are limited to 50 MB per file, including recordings                                      | Large recordings need chunked or direct upload (Semester 2).        |
-| Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                            |
-| Registration is open by default                                                                  | Closed registration needs a policy decision (see 4.1).              |
+| Constraint                                                                                       | Impact                                                               |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Single-host deployment (Docker Compose for PostgreSQL, Redis, MinIO; systemd for API and worker) | Host or disk failure causes outage; not a high-availability design.  |
+| PostgreSQL, Redis, and MinIO are single-node                                                     | Backups and restore tests are required even for a pilot.             |
+| CPU AI is the only verified path; the GPU profile is an unverified benchmark option              | Processing takes minutes per recording.                              |
+| Transcription and analysis language defaults to English                                          | Other languages need configuration and evaluation.                   |
+| Uploads are limited to 50 MB per file, including recordings                                      | Large recordings need chunked or direct upload (future enhancement). |
+| Redis must not evict Stream data when AI is enabled                                              | Requires the `noeviction` memory policy.                             |
+| Registration is open by default                                                                  | Closed registration needs a policy decision (see 4.1).               |
 
 ## 10. Deployment
 
@@ -599,7 +597,7 @@ Production values are set per environment and stored in the client's secret-mana
 Readiness health fails when PostgreSQL, Redis, or MinIO is unavailable. Liveness only confirms the
 process is running.
 
-## 12. Delivered Scope and Planned Improvements
+## 12. Delivered Scope and Future Enhancements
 
 | Item                                | Status                 | Client-facing note                                                                    |
 | ----------------------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
@@ -611,7 +609,7 @@ process is running.
 | Speech-to-text transcription        | `[Implemented]`        | Whisper transcripts with timestamped segments.                                        |
 | AI summaries and action-item review | `[Implemented]`        | Local LLM summaries, decisions, and suggestions reviewed by a person.                 |
 | RBAC and admin controls             | `[Implemented]`        | Account roles, admin user management, and central permission checks (see 7.2).        |
-| Large recording upload reliability  | `[Semester 2 Planned]` | Chunked or direct-to-storage upload for recordings above the 50 MB limit.             |
+| Large recording upload reliability  | `[Future Enhancement]` | Chunked or direct-to-storage upload for recordings above the 50 MB limit.             |
 | On-prem AI model evaluation         | `[Future Enhancement]` | Model, GPU, latency, accuracy, and data-governance trade-offs.                        |
 | Additional notification channels    | `[Future Enhancement]` | Push, Slack, Teams, or similar; email is limited to invitations and calendar updates. |
 | Containerized production deployment | `[Future Enhancement]` | Orchestrated platform with high availability (see 10.1).                              |
