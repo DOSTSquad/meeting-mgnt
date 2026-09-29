@@ -19,10 +19,7 @@ const navIcons = {
   admin: ShieldCheck,
 }
 
-const adminMenuItems = [
-  { id: 'repository', label: 'Meeting Repository', path: '/meetings' },
-  { id: 'admin', label: 'Admin', path: '/admin' },
-]
+const adminMenuItem = { id: 'admin', label: 'Admin', path: '/admin' }
 
 export const Sidebar = ({
   activePage,
@@ -32,7 +29,7 @@ export const Sidebar = ({
   onToggle,
   onOpenCreateModal,
 }) => {
-  const visibleMenuItems = isAdmin ? adminMenuItems : menuItems
+  const visibleMenuItems = isAdmin ? [...menuItems, adminMenuItem] : menuItems
 
   return (
     <>
@@ -105,7 +102,7 @@ export const Sidebar = ({
             </span>
           ) : null}
         </div>
-        {!isCollapsed && !isAdmin ? (
+        {!isCollapsed ? (
           <button
             type="button"
             onClick={onOpenCreateModal}

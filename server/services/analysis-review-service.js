@@ -38,8 +38,8 @@ const withEvidence = (item, segments) => ({
  * this endpoint cannot drift from the permission rules the rest of the recording
  * surface uses.
  */
-export const getLatestAnalysisReview = async (meetingId, callerId) => {
-  await getRecordingForMeeting(meetingId, callerId)
+export const getLatestAnalysisReview = async (meetingId, callerId, callerRole) => {
+  await getRecordingForMeeting(meetingId, callerId, callerRole)
 
   const recording = await findActiveRecordingByMeetingId(meetingId)
 

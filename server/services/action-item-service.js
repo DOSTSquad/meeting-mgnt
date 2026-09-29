@@ -11,6 +11,7 @@ import {
   updateOne,
 } from '../repositories/action-item-repository.js'
 import { notifyActionItemAssigned } from './notification-service.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -34,57 +35,12 @@ const isOverdueActionItem = (actionItem) => {
 export const ALLOWED_STATUSES = ['todo', 'in_progress', 'completed', 'cancelled']
 export const ALLOWED_PRIORITIES = ['low', 'medium', 'high']
 
-const assertIsParticipant = (meeting, callerId, participants, callerRole) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerRole === 'admin' || callerId === meeting.ownerId) {
-    return
-  }
-
-  const isParticipant = participants.some((p) => p.userId === callerId)
-
-  if (!isParticipant) {
-    throw createHttpError('Only meeting participants can manage action items', 403)
-  }
-}
-
-const assertCanUpdateActionItem = (actionItem, meeting, callerId, participants, updates) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerId === meeting.ownerId || participants.some((p) => p.userId === callerId)) {
-    return
-  }
-
-  const isAssignee = actionItem.assigneeId === callerId
-  const updateKeys = Object.keys(updates ?? {}).filter((key) => updates[key] !== undefined)
-  const onlyUpdatesStatus = updateKeys.length === 1 && updateKeys[0] === 'status'
-
-  if (isAssignee && onlyUpdatesStatus) {
-    return
-  }
-
-  throw createHttpError('Only meeting participants can manage action items', 403)
-}
-
-const assertCanViewActionItem = (actionItem, meeting, callerId, participants) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (
-    callerId === actionItem.assigneeId ||
-    callerId === meeting.ownerId ||
-    participants.some((participant) => participant.userId === callerId)
-  ) {
-    return
-  }
-
-  throw createHttpError('Only meeting participants can view action items', 403)
-}
+const assertCanActOnActionItems = (action, meeting, callerId, participants, callerRole) =>
+  assertCan(
+    action,
+    { callerId, callerRole, meeting, participants },
+    'Only meeting participants can manage action items'
+  )
 
 const loadMeetingOrThrow = async (meetingId) => {
   const meeting = await findMeetingById(meetingId)
@@ -119,10 +75,15 @@ const assertAssigneeIsParticipant = (assigneeId, participants) => {
   }
 }
 
-export const listActionItems = async (meetingId, { status, assigneeId } = {}, callerId, callerRole) => {
+export const listActionItems = async (
+  meetingId,
+  { status, assigneeId } = {},
+  callerId,
+  callerRole
+) => {
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listParticipantsByMeeting(meetingId)
-  assertIsParticipant(meeting, callerId, participants, callerRole)
+  assertCanActOnActionItems('actionItem:list', meeting, callerId, participants, callerRole)
 
   if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
     throw createHttpError(`Invalid status: ${status}`, 400)
@@ -168,20 +129,24 @@ const loadActionItemOrThrow = async (id) => {
   return actionItem
 }
 
-export const getActionItem = async (itemId, callerId) => {
+export const getActionItem = async (itemId, callerId, callerRole) => {
   const actionItem = await loadActionItemOrThrow(itemId)
   const meeting = await loadMeetingOrThrow(actionItem.meetingId)
   const participants = await listParticipantsByMeeting(actionItem.meetingId)
 
-  assertCanViewActionItem(actionItem, meeting, callerId, participants)
+  assertCan(
+    'actionItem:view',
+    { callerId, callerRole, meeting, participants, actionItem },
+    'Only meeting participants can view action items'
+  )
 
   return { actionItem }
 }
 
-export const createActionItem = async (meetingId, input, callerId) => {
+export const createActionItem = async (meetingId, input, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
   const participants = await listParticipantsByMeeting(meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertCanActOnActionItems('actionItem:create', meeting, callerId, participants, callerRole)
 
   const { title, description, assigneeId, dueDate, priority, source, sourceRef } = input ?? {}
 
@@ -221,7 +186,7 @@ export const createActionItem = async (meetingId, input, callerId) => {
   return { actionItem }
 }
 
-export const updateActionItem = async (itemId, input, callerId) => {
+export const updateActionItem = async (itemId, input, callerId, callerRole) => {
   const existing = await loadActionItemOrThrow(itemId)
   const meeting = await loadMeetingOrThrow(existing.meetingId)
   const participants = await listParticipantsByMeeting(existing.meetingId)
@@ -240,7 +205,7 @@ export const updateActionItem = async (itemId, input, callerId) => {
     throw createHttpError('No updates supplied', 400)
   }
 
-  assertCanUpdateActionItem(existing, meeting, callerId, participants, {
+  const changedFields = Object.entries({
     title,
     description,
     assigneeId,
@@ -248,6 +213,14 @@ export const updateActionItem = async (itemId, input, callerId) => {
     status,
     priority,
   })
+    .filter(([, value]) => value !== undefined)
+    .map(([field]) => field)
+
+  assertCan(
+    'actionItem:update',
+    { callerId, callerRole, meeting, participants, actionItem: existing, changedFields },
+    'Only meeting participants can manage action items'
+  )
 
   const updates = {}
 
@@ -309,11 +282,11 @@ export const updateActionItem = async (itemId, input, callerId) => {
   return { actionItem }
 }
 
-export const deleteActionItem = async (itemId, callerId) => {
+export const deleteActionItem = async (itemId, callerId, callerRole) => {
   const existing = await loadActionItemOrThrow(itemId)
   const meeting = await loadMeetingOrThrow(existing.meetingId)
   const participants = await listParticipantsByMeeting(existing.meetingId)
-  assertIsParticipant(meeting, callerId, participants)
+  assertCanActOnActionItems('actionItem:delete', meeting, callerId, participants, callerRole)
 
   if (isOverdueActionItem(existing)) {
     throw createHttpError('Overdue action items cannot be deleted', 409)

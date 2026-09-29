@@ -30,6 +30,7 @@ export const editForMeeting = async (req, res, next) => {
       suggestionId: req.params.suggestionId,
       input,
       callerId: req.user?.id,
+      callerRole: req.user?.role,
     })
 
     res.json(result)
@@ -44,6 +45,7 @@ export const acceptForMeeting = async (req, res, next) => {
       meetingId: req.params.meetingId,
       suggestionId: req.params.suggestionId,
       callerId: req.user?.id,
+      callerRole: req.user?.role,
     })
 
     // A repeat request is answered with what already happened rather than an
@@ -60,6 +62,7 @@ export const rejectForMeeting = async (req, res, next) => {
       meetingId: req.params.meetingId,
       suggestionId: req.params.suggestionId,
       callerId: req.user?.id,
+      callerRole: req.user?.role,
     })
 
     res.json(result)

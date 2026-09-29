@@ -337,6 +337,7 @@ The React client currently includes:
 The Express API currently supports:
 
 - JWT auth with email-only login.
+- Role-based access: `staff`/`admin` accounts plus per-meeting owner/organizer/attendee/optional roles, defined in `server/services/permissions.js` (see [`server/README.md`](server/README.md#roles-and-permissions)).
 - Meeting CRUD, simple status transitions, pagination, full-text search, tags, and meeting file counts.
 - Meeting request scheduling flow before a real meeting exists.
 - Invitee-safe availability response endpoints.
@@ -345,7 +346,7 @@ The Express API currently supports:
 - Meeting action item CRUD and assignee/status filters.
 - Dedicated meeting minutes API with `content`, `keyDiscussions`, `decisions`, `facilitatorId`, `recorderId`, and status.
 - Dashboard aggregate data and derived notifications.
-- Development-only `/api/dev` endpoints when the server is started with `NODE_ENV=development`.
+- Development-only `/api/dev` endpoints (admin accounts only) when the server is started with `NODE_ENV=development`.
 
 ## How to Run Tests
 
@@ -381,6 +382,7 @@ When dependencies are unavailable, `/health` and `/health/ready` return `503` wi
 The server exposes JWT-protected REST endpoints under `/api`:
 
 - `/api/auth` — register, login, current user
+- `/api/users` — list the user directory; admins can update roles/profiles and delete users
 - `/api/meetings` — full CRUD with RFC 5988 `Link`-header pagination, filters by status / date range, full-text search on title + description and uploaded file names via `?q=`, tags, and file counts; `status` transitions are forward-only (scheduled → completed → archived, with cancelled as a side branch)
 - `/api/meeting-requests` — scheduling request flow with time options, invitees, binary availability responses, and confirmation into a real meeting
 - `/api/meetings/:id/participants` — add, list, update role, and remove meeting participants

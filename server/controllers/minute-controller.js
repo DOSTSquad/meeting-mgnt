@@ -3,7 +3,11 @@ import { getMinutesForMeeting, updateMinutesForMeeting } from '../services/minut
 
 export const getForMeeting = async (req, res, next) => {
   try {
-    const { minutes } = await getMinutesForMeeting(req.params.meetingId, req.user?.id, req.user?.role)
+    const { minutes } = await getMinutesForMeeting(
+      req.params.meetingId,
+      req.user?.id,
+      req.user?.role
+    )
 
     res.json({ minutes })
   } catch (error) {
@@ -18,6 +22,7 @@ export const updateForMeeting = async (req, res, next) => {
       minuteId: req.params.minutesId,
       input: req.body ?? {},
       callerId: req.user?.id,
+      callerRole: req.user?.role,
     })
 
     res.json({ minutes })
@@ -33,6 +38,7 @@ export const applyGeneratedForMeeting = async (req, res, next) => {
       analysisRunId: req.body?.analysisRunId,
       expectedVersion: Number(req.body?.expectedVersion),
       callerId: req.user?.id,
+      callerRole: req.user?.role,
     })
 
     res.json(result)

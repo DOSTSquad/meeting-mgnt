@@ -14,6 +14,7 @@ const writeFrame = (res, event, data) => {
 export const streamWorkflowEvents = async (req, res, next) => {
   const { meetingId } = req.params
   const callerId = req.user?.id
+  const callerRole = req.user?.role
 
   let snapshot
 
@@ -21,7 +22,7 @@ export const streamWorkflowEvents = async (req, res, next) => {
     // Authorise and load before writing anything. Once the 200 and the
     // text/event-stream headers are out, a 403 can no longer be expressed, so a
     // non-participant must be refused here.
-    snapshot = await getWorkflowSnapshot(meetingId, callerId)
+    snapshot = await getWorkflowSnapshot(meetingId, callerId, callerRole)
   } catch (error) {
     next(error)
     return
@@ -99,7 +100,7 @@ export const streamWorkflowEvents = async (req, res, next) => {
     try {
       do {
         invalidationQueued = false
-        const fresh = await getWorkflowSnapshot(meetingId, callerId)
+        const fresh = await getWorkflowSnapshot(meetingId, callerId, callerRole)
 
         writeFrame(res, 'status', fresh)
 
@@ -144,7 +145,7 @@ export const streamWorkflowEvents = async (req, res, next) => {
   try {
     // Redis Pub/Sub does not replay. Reloading only after the listener exists
     // closes the gap between authorisation and attaching this stream.
-    snapshot = await getWorkflowSnapshot(meetingId, callerId)
+    snapshot = await getWorkflowSnapshot(meetingId, callerId, callerRole)
     writeFrame(res, 'snapshot', snapshot)
     hasSentSnapshot = true
 

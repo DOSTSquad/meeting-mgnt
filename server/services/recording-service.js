@@ -20,6 +20,7 @@ import {
 } from '../repositories/transcript-repository.js'
 import { createWorkflowOutboxEvent } from '../repositories/workflow-outbox-repository.js'
 import { BUCKET_AUDIO, putObject, removeObject } from './minio-client.js'
+import { assertCan } from './permissions.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -82,45 +83,29 @@ const loadMeetingOrThrow = async (meetingId) => {
   return meeting
 }
 
-const assertCanManageRecording = async (meeting, callerId) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerId === meeting.ownerId) {
-    return
-  }
-
+const assertCanManageRecording = async (meeting, callerId, callerRole) => {
   const participants = await listByMeeting(meeting.id)
-  const isOrganizer = participants.some(
-    (participant) => participant.userId === callerId && participant.role === 'organizer'
+
+  assertCan(
+    'meeting:manage',
+    { callerId, callerRole, meeting, participants },
+    'Only the meeting creator or an organizer can manage recordings'
   )
-
-  if (!isOrganizer) {
-    throw createHttpError('Only the meeting creator or an organizer can manage recordings', 403)
-  }
 }
 
-const assertCanViewRecording = async (meeting, callerId) => {
-  if (!callerId) {
-    throw createHttpError('Authentication required', 401)
-  }
-
-  if (callerId === meeting.ownerId) {
-    return
-  }
-
+const assertCanViewRecording = async (meeting, callerId, callerRole) => {
   const participants = await listByMeeting(meeting.id)
-  const isParticipant = participants.some((participant) => participant.userId === callerId)
 
-  if (!isParticipant) {
-    throw createHttpError('Only meeting participants can access recordings', 403)
-  }
+  assertCan(
+    'meeting:view',
+    { callerId, callerRole, meeting, participants },
+    'Only meeting participants can access recordings'
+  )
 }
 
-export const getRecordingForMeeting = async (meetingId, callerId) => {
+export const getRecordingForMeeting = async (meetingId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanViewRecording(meeting, callerId)
+  await assertCanViewRecording(meeting, callerId, callerRole)
 
   const recording = await findActiveRecordingByMeetingId(meetingId)
   const transcript = recording ? await findLatestTranscriptByRecordingId(recording.id) : null
@@ -132,6 +117,7 @@ export const getRecordingForMeeting = async (meetingId, callerId) => {
 export const uploadRecordingForMeeting = async ({
   meetingId,
   callerId,
+  callerRole,
   file,
   replace = false,
   logger = console,
@@ -139,7 +125,7 @@ export const uploadRecordingForMeeting = async ({
   assertAudioFile(file)
 
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanManageRecording(meeting, callerId)
+  await assertCanManageRecording(meeting, callerId, callerRole)
 
   const existing = await findActiveRecordingByMeetingId(meetingId)
   if (existing && !replace) {
@@ -200,9 +186,9 @@ export const uploadRecordingForMeeting = async ({
   return result
 }
 
-export const generateMinutesFromRecording = async (meetingId, callerId) => {
+export const generateMinutesFromRecording = async (meetingId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanManageRecording(meeting, callerId)
+  await assertCanManageRecording(meeting, callerId, callerRole)
 
   if (!isAiPipelineEnabled()) {
     throw createHttpError('Speech-to-text pipeline is not enabled', 503)
@@ -273,9 +259,9 @@ export const generateMinutesFromRecording = async (meetingId, callerId) => {
   })
 }
 
-export const archiveRecordingForMeeting = async (meetingId, callerId) => {
+export const archiveRecordingForMeeting = async (meetingId, callerId, callerRole) => {
   const meeting = await loadMeetingOrThrow(meetingId)
-  await assertCanManageRecording(meeting, callerId)
+  await assertCanManageRecording(meeting, callerId, callerRole)
 
   const existing = await findActiveRecordingByMeetingId(meetingId)
   if (!existing) {

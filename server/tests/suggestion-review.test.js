@@ -38,6 +38,7 @@ const ORGANIZER_ID = '55555555-5555-4555-8555-555555555555'
 const PARTICIPANT_ID = '66666666-6666-4666-8666-666666666666'
 const OUTSIDER_ID = '77777777-7777-4777-8777-777777777777'
 const ACTION_ITEM_ID = '88888888-8888-4888-8888-888888888888'
+const ADMIN_ID = '99999999-9999-4999-8999-999999999999'
 
 const proposed = (overrides = {}) => ({
   id: SUGGESTION_ID,
@@ -182,6 +183,28 @@ describe('accepting a suggestion', () => {
         meetingId: MEETING_ID,
         suggestionId: SUGGESTION_ID,
         callerId: PARTICIPANT_ID,
+      })
+    ).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('lets an admin who is not in the meeting review, edit and reject', async () => {
+    const admin = { callerId: ADMIN_ID, callerRole: 'admin' }
+    const ids = { meetingId: MEETING_ID, suggestionId: SUGGESTION_ID }
+
+    await expect(acceptSuggestion({ ...ids, ...admin })).resolves.toBeDefined()
+    await expect(
+      editSuggestion({ ...ids, ...admin, input: { title: 'Renamed' } })
+    ).resolves.toBeDefined()
+    await expect(rejectSuggestion({ ...ids, ...admin })).resolves.toBeDefined()
+  })
+
+  it('refuses a staff account outside the meeting', async () => {
+    await expect(
+      acceptSuggestion({
+        meetingId: MEETING_ID,
+        suggestionId: SUGGESTION_ID,
+        callerId: OUTSIDER_ID,
+        callerRole: 'staff',
       })
     ).rejects.toMatchObject({ statusCode: 403 })
   })
