@@ -150,6 +150,15 @@ connectivity. If migration, readiness, or core browser checks fail, stop the
 release and use the documented database/application rollback decision for that
 version.
 
+## Automated Deployment
+
+The `Deploy` GitHub Actions workflow (`.github/workflows/deploy.yml`) runs after CI
+succeeds on `main`, or on demand. It builds the client bundle, syncs code and the
+bundle to the host, runs migrations, and restarts the API and worker services.
+`DEPLOY_HOST`, `DEPLOY_USER`, and `DEPLOY_SSH_KEY` are required repository
+secrets. `DEPLOY_PATH` and the service names are optional repository variables.
+Keep all credentials in protected CI/CD secrets, never in source-controlled files.
+
 ## AI Operations
 
 AI requires three separate runtimes: the API, the server worker, and the Python
