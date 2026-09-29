@@ -223,6 +223,7 @@ export const MeetingDetailView = ({
   onActionItemRemove,
   pendingMaterialFiles,
   pendingRecordingFile,
+  recordingExtractProgress,
   onAddPendingMaterialFiles,
   onUploadRecording,
   onRemoveRecording,
@@ -913,7 +914,7 @@ export const MeetingDetailView = ({
                         Replace
                         <input
                           type="file"
-                          accept=".mp3,.wav,.m4a,audio/*"
+                          accept=".mp3,.wav,.m4a,.mp4,.mov,.webm,.mkv,audio/*,video/*"
                           className="sr-only"
                           onChange={(event) => {
                             onUploadRecording(event.target.files, { replace: true })
@@ -968,10 +969,12 @@ export const MeetingDetailView = ({
                   <FileAudio className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <span className="font-semibold">Upload optional recording</span>
-                <span className="mt-1 text-xs text-slate-400">One active MP3, WAV, or M4A</span>
+                <span className="mt-1 text-xs text-slate-400">
+                  One active MP3, WAV, M4A, or video (audio is extracted in your browser)
+                </span>
                 <input
                   type="file"
-                  accept=".mp3,.wav,.m4a,audio/*"
+                  accept=".mp3,.wav,.m4a,.mp4,.mov,.webm,.mkv,audio/*,video/*"
                   className="sr-only"
                   onChange={(event) => {
                     onUploadRecording(event.target.files)
@@ -987,7 +990,10 @@ export const MeetingDetailView = ({
 
             {pendingRecordingFile ? (
               <p className="mt-3 text-sm font-semibold text-blue-700">
-                {pendingRecordingFile.name} uploading...
+                {pendingRecordingFile.name}{' '}
+                {recordingExtractProgress === null
+                  ? 'uploading...'
+                  : `extracting audio ${Math.round(recordingExtractProgress * 100)}%...`}
               </p>
             ) : null}
           </div>
