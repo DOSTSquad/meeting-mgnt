@@ -342,6 +342,7 @@ export const MeetingDetailView = ({
     recording: detail.recording,
     transcript: detail.transcript,
     analysisRun: detail.analysisRun,
+    pendingUpload: pendingRecordingFile ? { extractProgress: recordingExtractProgress } : null,
   })
   const recordingSize = formatFileSize(detail.recording?.sizeBytes)
   const minuteStatusClass =
@@ -899,6 +900,10 @@ export const MeetingDetailView = ({
                   onRejectSuggestion={onRejectSuggestion}
                 />
               </div>
+            ) : pendingRecordingFile ? (
+              <div className="mt-4">
+                <RecordingProgress steps={recordingProgress.steps} />
+              </div>
             ) : canManageMeeting ? (
               <label
                 className={`mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
@@ -939,15 +944,6 @@ export const MeetingDetailView = ({
                 No recording has been uploaded.
               </p>
             )}
-
-            {pendingRecordingFile ? (
-              <p className="mt-3 text-sm font-semibold text-blue-700">
-                {pendingRecordingFile.name}{' '}
-                {recordingExtractProgress === null
-                  ? 'uploading...'
-                  : `extracting audio ${Math.round(recordingExtractProgress * 100)}%...`}
-              </p>
-            ) : null}
           </div>
         </div>
 
