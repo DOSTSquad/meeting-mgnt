@@ -139,17 +139,28 @@ PostgreSQL/Redis/MinIO, the AI worker, the systemd units, and the sudoers rule t
 needs. Run it once as root; afterwards the Deploy workflow keeps the host up to date.
 
 ```bash
-sudo bash scripts/bootstrap-vps.sh --deploy-user deploy --domain meeting.example.com
+sudo bash scripts/bootstrap-vps.sh --deploy-user deploy --admin-email admin@example.org \
+  --domain meeting.example.com
 ```
 
 | Option             | Purpose                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------- |
 | `--deploy-user`    | Account the Deploy workflow SSHes in as; owns the app directory. Defaults to the sudo caller |
+| `--admin-email`    | Create this administrator after the migrations (required on a fresh host, see below)         |
+| `--admin-name`     | Display name for that account (default `Administrator`)                                      |
 | `--domain`         | Serve this domain over automatic HTTPS. Without it the site is HTTP on the server's IP       |
 | `--app-dir`        | Application directory (default `/srv/meeting-mgnt`)                                          |
 | `--repo-url`       | Repository to clone; defaults to the origin of an existing checkout                          |
 | `--ai-mode`        | `whisper` (default, Whisper + Ollama containers) or `fixture` (canned output, no models)     |
 | `--skip-preflight` | Skip the OS, architecture, systemd, RAM and disk checks                                      |
+
+Self-registration is closed by default, so a host with no administrator has nobody who can log in.
+`--admin-email` therefore creates the first admin (`server/scripts/create-admin.js`). The password
+comes from the `ADMIN_PASSWORD` environment variable if you set it (through sudo:
+`sudo --preserve-env=ADMIN_PASSWORD bash scripts/bootstrap-vps.sh ...`), otherwise a random one is
+generated and printed once at the end of the run; it is never passed as an argument. On a re-run the
+account is left as it is and no password is printed; without `--admin-email` a re-run succeeds when
+an administrator already exists and stops with an error when none does.
 
 The script is idempotent and never modifies an existing `.env`. It generates the database, MinIO
 and JWT secrets, but the SMTP/Resend credentials are for outside services, so edit those in `.env`

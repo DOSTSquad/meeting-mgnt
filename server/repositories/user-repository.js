@@ -61,6 +61,12 @@ export const findUserByEmail = async (email) => {
   return mapUser(result.rows[0])
 }
 
+export const existsAdmin = async () => {
+  const result = await query("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1")
+
+  return result.rowCount > 0
+}
+
 export const findUserById = async (id) => {
   const result = await query(
     `

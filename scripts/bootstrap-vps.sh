@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Bootstrap a fresh single-host Ubuntu VPS for DOST Meeting Management.
 #
-#   sudo bash scripts/bootstrap-vps.sh --deploy-user deploy [--domain meeting.example.com]
+#   sudo bash scripts/bootstrap-vps.sh --deploy-user deploy --admin-email admin@example.org \
+#     [--domain meeting.example.com]
 #
 # Run it once. Afterwards the Deploy workflow (.github/workflows/deploy.yml) handles updates.
 # Every step checks its own state, so re-running is safe. An existing .env is never modified.
@@ -9,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 NODE_MAJOR=22
 REPO_BRANCH=main
 
@@ -30,7 +31,11 @@ DEPLOY_GROUP=
 DOMAIN=
 AI_MODE=whisper
 SKIP_PREFLIGHT=false
+ADMIN_EMAIL=
+ADMIN_NAME=Administrator
 
+ADMIN_RESULT=
+ADMIN_GENERATED_PASSWORD=
 APP_SITE=
 PUBLIC_URL=
 SERVICE_UNITS="meeting-mgnt-server meeting-mgnt-worker"
@@ -68,9 +73,20 @@ Options:
                        in --app-dir, or of the checkout this script is run from.
   --ai-mode MODE       whisper (default): Whisper + Ollama containers on this host.
                        fixture: canned AI output for hosts that cannot run the models.
+  --admin-email EMAIL  Administrator account to create after the migrations. Self-registration is
+                       closed by default, so a host with no admin has nobody who can log in.
+                       Optional on a re-run when an administrator already exists.
+  --admin-name NAME    Display name for that account (default: Administrator).
   --skip-preflight     Skip the OS, architecture, systemd, RAM and disk checks
                        (the root check always runs).
   -h, --help           Show this help.
+
+Environment:
+  ADMIN_PASSWORD       Password for a newly created administrator (at least 8 characters). If unset a
+                       random one is generated and printed once, at the end. It is never taken from
+                       an argument. Pass it through sudo with:
+                         read -rs ADMIN_PASSWORD; export ADMIN_PASSWORD
+                         sudo --preserve-env=ADMIN_PASSWORD bash scripts/bootstrap-vps.sh ...
 EOF
 }
 
@@ -89,6 +105,8 @@ parse_args() {
       --deploy-user) DEPLOY_USER=$(option_value "$@") || exit 1; shift 2 ;;
       --domain) DOMAIN=$(option_value "$@") || exit 1; shift 2 ;;
       --ai-mode) AI_MODE=$(option_value "$@") || exit 1; shift 2 ;;
+      --admin-email) ADMIN_EMAIL=$(option_value "$@") || exit 1; shift 2 ;;
+      --admin-name) ADMIN_NAME=$(option_value "$@") || exit 1; shift 2 ;;
       --skip-preflight) SKIP_PREFLIGHT=true; shift ;;
       -h | --help) usage; exit 0 ;;
       *) die "Unknown option: $1 (see --help)" ;;
@@ -111,6 +129,17 @@ validate_settings() {
   if [ -n "$DOMAIN" ]; then
     [[ $DOMAIN =~ $domain_re ]] || die "--domain must be a bare domain name such as meeting.example.com, got '$DOMAIN'"
   fi
+
+  local email_re='^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+  if [ -n "$ADMIN_EMAIL" ]; then
+    [[ $ADMIN_EMAIL =~ $email_re ]] || die "--admin-email must be an email address, got '$ADMIN_EMAIL'"
+    if [ -n "${ADMIN_PASSWORD:-}" ] && [ "${#ADMIN_PASSWORD}" -lt 8 ]; then
+      die "ADMIN_PASSWORD must be at least 8 characters long"
+    fi
+  fi
+  case $ADMIN_NAME in
+    -*) die "--admin-name must not start with '-', got '$ADMIN_NAME'" ;;
+  esac
 
   if [ -z "$DEPLOY_USER" ]; then
     die "Cannot tell which account the Deploy workflow uses. Pass --deploy-user USER (or root)."
@@ -204,6 +233,16 @@ as_deploy_user() {
     "$@"
   else
     sudo -H -u "$DEPLOY_USER" "$@"
+  fi
+}
+
+# Like as_deploy_user, but lets ADMIN_PASSWORD through sudo's environment reset. Passing it as a
+# `sudo ADMIN_PASSWORD=...` argument instead would put it in the process list.
+as_deploy_user_keeping_admin_password() {
+  if [ "$DEPLOY_USER" = root ]; then
+    "$@"
+  else
+    sudo -H --preserve-env=ADMIN_PASSWORD -u "$DEPLOY_USER" "$@"
   fi
 }
 
@@ -546,6 +585,45 @@ install_application() {
   as_deploy_user bash -c 'cd "$1" && npm run migrate --workspace=server' _ "$APP_DIR"
 }
 
+# Creates the first administrator, or confirms one exists (server/scripts/create-admin.js is
+# idempotent). Its stdout is captured, not streamed: a generated password is printed there and must
+# only reach the final summary, never the log. stderr never carries the password.
+create_first_admin() {
+  local script="$APP_DIR/server/scripts/create-admin.js"
+  local args=(--name "$ADMIN_NAME") stderr_file output errors line status=0
+
+  [ -f "$script" ] || die "$script is missing; cannot create the administrator account."
+  if [ -n "$ADMIN_EMAIL" ]; then
+    args+=(--email "$ADMIN_EMAIL")
+  fi
+
+  stderr_file=$(mktemp)
+  if output=$(as_deploy_user_keeping_admin_password /usr/bin/node "$script" "${args[@]}" 2>"$stderr_file"); then
+    status=0
+  else
+    status=$?
+  fi
+  errors=$(cat "$stderr_file")
+  rm -f "$stderr_file"
+
+  case $status in
+    0) ;;
+    2) die "No administrator exists. Re-run with --admin-email <address> (this script is safe to re-run)." ;;
+    *) die "Creating the administrator account failed: ${errors:-no error output}" ;;
+  esac
+
+  ADMIN_RESULT=$(printf '%s\n' "$output" | sed -n 's/^admin-account: //p' | tail -n 1)
+  ADMIN_GENERATED_PASSWORD=$(printf '%s\n' "$output" | sed -n 's/^admin-password: //p' | head -n 1)
+  [ -n "$ADMIN_RESULT" ] || die "create-admin gave no result line; run it by hand to see why: node $script --help"
+
+  while IFS= read -r line; do
+    case $line in
+      admin-password:* | admin-account:*) ;;
+      *) log "$line" ;;
+    esac
+  done <<<"$output"
+}
+
 # Installs a unit from deploy/ without User=/Group=: the existing production host runs its
 # services as root, and the meeting-mgnt account the shipped units name does not exist here.
 install_unit() {
@@ -677,6 +755,19 @@ install_sudoers() {
   rm -f "$tmp"
 }
 
+admin_summary() {
+  if [ "$ADMIN_RESULT" = created ] && [ -n "$ADMIN_GENERATED_PASSWORD" ]; then
+    printf '  Email:    %s\n  Password: %s\n' "$ADMIN_EMAIL" "$ADMIN_GENERATED_PASSWORD"
+    printf '  Shown once and not stored anywhere. Log in and change it under Account > Change password.\n'
+  elif [ "$ADMIN_RESULT" = created ]; then
+    printf '  Email:    %s\n  Password: the ADMIN_PASSWORD you supplied\n' "$ADMIN_EMAIL"
+  elif [ "$ADMIN_RESULT" = promoted ]; then
+    printf '  %s is now an administrator and keeps its existing password.\n' "$ADMIN_EMAIL"
+  else
+    printf '  An administrator account already exists; nothing was changed.\n'
+  fi
+}
+
 print_summary() {
   local todo
   todo=$(placeholder_keys "$APP_DIR/.env" | tr '\n' ' ')
@@ -692,6 +783,9 @@ Installed
   systemd: $(printf '%s ' $SERVICE_UNITS)
   App directory: $APP_DIR (owned by $DEPLOY_USER)
   Site: $PUBLIC_URL
+
+Administrator account
+$(admin_summary)
 
 Still manual
   1. Put the .env credentials for outside services in place: ${todo:-none left with a placeholder value}
@@ -744,6 +838,8 @@ main() {
   setup_ai_worker
   step "Installing dependencies and running migrations"
   install_application
+  step "Creating the first administrator"
+  create_first_admin
   step "Installing systemd services"
   install_services
   step "Configuring Caddy"

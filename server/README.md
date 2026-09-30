@@ -178,7 +178,25 @@ Self-service sign-up is **closed by default**: `POST /register` returns `403` un
 
 `PUT /me/password` lets a signed-in user change their own password: `currentPassword` must match (`403` otherwise), `newPassword` needs at least 8 characters and must differ from the current one (`400`), and nothing is returned or logged. JWTs are stateless in this codebase, so tokens issued before the change stay valid until `JWT_EXPIRES_IN` runs out; there is no revocation.
 
-**First admin on a fresh install.** No account exists yet and only an admin can create one, so set `SELF_REGISTRATION_ENABLED=true`, restart the API, register once, promote that account (`UPDATE users SET role = 'admin' WHERE email = '<email>';`), then set the flag back to `false` and restart. Local development can use `npm run seed` instead (see Seeding Local Data).
+**First admin on a fresh install.** No account exists yet and only an admin can create one, so create the first admin from the command line (safe to re-run):
+
+```sh
+read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD   # at least 8 characters; keeps it out of shell history
+npm run create-admin --workspace=server -- --email admin@example.org --name "Administrator"
+```
+
+`ADMIN_PASSWORD` is read from the environment, never from an argument (arguments are visible in `ps`). If it is unset a random 20-character password is generated and printed once as an `admin-password:` line; it is not stored anywhere else, so change it after the first login (Account > Change password). The last line of output is `admin-account: created|exists|promoted`.
+
+| Situation                                                    | Result                                                                                  | Exit code |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------- |
+| `--email` is new                                             | Creates an `admin` account                                                              | `0`       |
+| `--email` already belongs to an `admin`                      | Changes nothing (`exists`)                                                              | `0`       |
+| `--email` belongs to a `staff` account                       | Refuses; add `--promote` to make it an admin, its password stays as it was (`promoted`) | `1` / `0` |
+| No `--email` and an admin exists                             | Changes nothing (`exists`)                                                              | `0`       |
+| No `--email` and no admin exists                             | Asks for `--email`                                                                      | `2`       |
+| Invalid email, `ADMIN_PASSWORD` under 8 characters, DB error | Prints the reason (never the password)                                                  | `1`       |
+
+`scripts/bootstrap-vps.sh` runs this for you (`--admin-email`), so a host set up by the script already has its first admin. Local development can use `npm run seed` instead (see Seeding Local Data).
 
 | Method | Path           | Body                               | Returns                                  |
 | ------ | -------------- | ---------------------------------- | ---------------------------------------- |
