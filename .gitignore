@@ -160,3 +160,9 @@ ai-service/*.egg-info/
 .claude/
 docs/slides/
 recap.md
+
+# Local AI workflow output; transcripts of real recordings are personal information
+artefacts/meeting_sep_2-*
+artefacts/HJP6-*
+*-ai-workflow-result.json
+*-whisper-dry-run.*
