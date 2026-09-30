@@ -1,0 +1,22 @@
+[Unit]
+Description=DOST Meeting Management AI Worker (fixture)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=meeting-mgnt
+Group=meeting-mgnt
+WorkingDirectory=/srv/meeting-mgnt/ai-service
+EnvironmentFile=/srv/meeting-mgnt/.env
+Environment=NODE_ENV=production
+ExecStart=/srv/meeting-mgnt/ai-service/.venv/bin/python -m app.worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
