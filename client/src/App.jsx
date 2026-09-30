@@ -7,6 +7,7 @@ import { Sidebar } from './components/layout/Sidebar.jsx'
 import { Topbar } from './components/layout/Topbar.jsx'
 import { getApiClient } from './lib/apiClient.js'
 import { ActionItemsView } from './features/action-items/ActionItemsView.jsx'
+import { ChangePasswordDialog } from './features/auth/ChangePasswordDialog.jsx'
 import { LoginView } from './features/auth/LoginView.jsx'
 import { DashboardView } from './features/dashboard/DashboardView.jsx'
 import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
@@ -17,6 +18,7 @@ import { AdminView } from './features/admin/AdminView.jsx'
 import { useMeetingDetailController } from './features/meetings/useMeetingDetailController.js'
 import { useNotificationActions } from './features/notifications/useNotificationActions.js'
 import { listActionItems, updateActionItem } from './services/actionItemService.js'
+import { changePassword } from './services/authService.js'
 import { loadAppData } from './services/appDataService.js'
 import { getDashboard } from './services/dashboardService.js'
 import { listMeetings } from './services/meetingService.js'
@@ -46,6 +48,7 @@ const AppShell = ({ token, user, onLogout }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [dashboardData, setDashboardData] = useState(null)
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
   const [meetings, setMeetings] = useState([])
   const [actionItems, setActionItems] = useState([])
   const [ownedMeetingActionItems, setOwnedMeetingActionItems] = useState([])
@@ -467,8 +470,15 @@ const AppShell = ({ token, user, onLogout }) => {
             onMarkAllNotificationsRead={markAllNotificationsReadInMenu}
             onOpenNotification={openNotificationTarget}
             onOpenAdmin={() => navigate('/admin')}
+            onOpenChangePassword={() => setIsChangePasswordOpen(true)}
             onLogout={onLogout}
           />
+          {isChangePasswordOpen ? (
+            <ChangePasswordDialog
+              onSubmit={(payload) => changePassword(getApiClient(token), payload)}
+              onClose={() => setIsChangePasswordOpen(false)}
+            />
+          ) : null}
 
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -170,13 +170,16 @@ Exceptions that do not follow the table: meeting change requests are readable on
 
 Self-service sign-up is **closed by default**: `POST /register` returns `403` unless `SELF_REGISTRATION_ENABLED=true` is set in `.env`. With the default, an admin creates accounts through `POST /api/users` (or the Admin > Manage Users > Add user form in the client). A self-registered account is always `staff`; a `role` in the body is ignored. An existing deployment whose `.env` has no `SELF_REGISTRATION_ENABLED` becomes closed on its next restart.
 
+`PUT /me/password` lets a signed-in user change their own password: `currentPassword` must match (`403` otherwise), `newPassword` needs at least 8 characters and must differ from the current one (`400`), and nothing is returned or logged. JWTs are stateless in this codebase, so tokens issued before the change stay valid until `JWT_EXPIRES_IN` runs out; there is no revocation.
+
 **First admin on a fresh install.** No account exists yet and only an admin can create one, so set `SELF_REGISTRATION_ENABLED=true`, restart the API, register once, promote that account (`UPDATE users SET role = 'admin' WHERE email = '<email>';`), then set the flag back to `false` and restart. Local development can use `npm run seed` instead.
 
-| Method | Path        | Body                        | Returns                                  |
-| ------ | ----------- | --------------------------- | ---------------------------------------- |
-| POST   | `/register` | `{ name, email, password }` | `201 { token, user }`, `403` when closed |
-| POST   | `/login`    | `{ email, password }`       | `200 { token, user }`                    |
-| GET    | `/me`       | —                           | `200 { user }` for current token         |
+| Method | Path           | Body                               | Returns                                  |
+| ------ | -------------- | ---------------------------------- | ---------------------------------------- |
+| POST   | `/register`    | `{ name, email, password }`        | `201 { token, user }`, `403` when closed |
+| POST   | `/login`       | `{ email, password }`              | `200 { token, user }`                    |
+| GET    | `/me`          | —                                  | `200 { user }` for current token         |
+| PUT    | `/me/password` | `{ currentPassword, newPassword }` | `204`, `403` wrong current password      |
 
 ### Meetings (`/api/meetings`)
 

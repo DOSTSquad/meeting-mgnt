@@ -22,6 +22,7 @@ export const Topbar = ({
   onMarkAllNotificationsRead,
   onOpenNotification,
   onOpenAdmin,
+  onOpenChangePassword,
   onLogout,
 }) => {
   const profileRef = useRef(null)
@@ -106,6 +107,16 @@ export const Topbar = ({
                   Admin menu
                 </button>
               ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProfileOpen(false)
+                  onOpenChangePassword?.()
+                }}
+                className="mt-1 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Change password
+              </button>
               <button
                 type="button"
                 onClick={onLogout}

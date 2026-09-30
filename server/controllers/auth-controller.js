@@ -1,4 +1,4 @@
-import { loginUser, registerUser } from '../services/auth-service.js'
+import { changePassword, loginUser, registerUser } from '../services/auth-service.js'
 
 export const register = async (req, res, next) => {
   try {
@@ -15,6 +15,20 @@ export const login = async (req, res, next) => {
     const result = await loginUser(req.body ?? {})
 
     res.json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const changeOwnPassword = async (req, res, next) => {
+  try {
+    await changePassword({
+      userId: req.user?.id,
+      currentPassword: req.body?.currentPassword,
+      newPassword: req.body?.newPassword,
+    })
+
+    res.status(204).end()
   } catch (error) {
     next(error)
   }

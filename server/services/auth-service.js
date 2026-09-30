@@ -1,7 +1,12 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-import { createUser, findUserByEmail, findUserById } from '../repositories/user-repository.js'
+import {
+  createUser,
+  findUserByEmail,
+  findUserById,
+  updateUser,
+} from '../repositories/user-repository.js'
 
 const SALT_ROUNDS = 10
 
@@ -116,6 +121,35 @@ export const loginUser = async ({ email, password }) => {
     token: signToken(user),
     user: sanitizeUser(user),
   }
+}
+
+// Tokens are stateless, so a token issued before the change stays valid until it expires.
+export const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  if (!currentPassword) {
+    throw createHttpError('Current password is required', 400)
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    throw createHttpError('Password must be at least 8 characters long', 400)
+  }
+
+  if (newPassword === currentPassword) {
+    throw createHttpError('New password must be different from the current password', 400)
+  }
+
+  const user = await findUserById(userId)
+
+  if (!user) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const currentPasswordMatches = await bcrypt.compare(currentPassword, user.passwordHash)
+
+  if (!currentPasswordMatches) {
+    throw createHttpError('Current password is incorrect', 403)
+  }
+
+  await updateUser(user.id, { passwordHash: await bcrypt.hash(newPassword, SALT_ROUNDS) })
 }
 
 export const verifyToken = (token) => jwt.verify(token, getJwtSecret())
