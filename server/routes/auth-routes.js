@@ -3,12 +3,14 @@ import { body } from 'express-validator'
 
 import { getCurrentUser, login, register } from '../controllers/auth-controller.js'
 import { requireAuth } from '../middleware/auth-middleware.js'
+import { requireSelfRegistrationEnabled } from '../middleware/registration-middleware.js'
 import { handleValidationErrors } from '../middleware/validation-middleware.js'
 
 const authRouter = Router()
 
 authRouter.post(
   '/register',
+  requireSelfRegistrationEnabled,
   [
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('email')

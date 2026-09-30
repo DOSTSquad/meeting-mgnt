@@ -3,7 +3,8 @@ import { CalendarDays, History, Search, ShieldCheck, Users } from 'lucide-react'
 
 import { PageHeader } from '../../components/layout/PageHeader.jsx'
 import { getApiClient } from '../../lib/apiClient.js'
-import { deleteUser, updateUser } from '../../services/userService.js'
+import { createUser, deleteUser, updateUser } from '../../services/userService.js'
+import { AddUserForm } from './AddUserForm.jsx'
 import {
   addMeetingParticipants,
   getMeetingDetail,
@@ -107,6 +108,18 @@ export const AdminView = ({
     )
     setExpandedUser(null)
     setDraft(null)
+  }
+  const addUser = async (payload) => {
+    const created = await createUser(getApiClient(token), payload)
+    setManagedUsers((previous) =>
+      [...(previous ?? users), created].sort((left, right) => left.name.localeCompare(right.name))
+    )
+    addAdminActivity(
+      `Created user: ${created.name}`,
+      `${currentUser.name} created a ${created.role} account for ${created.email}.`
+    )
+    setSaveNotice(`Account created for ${created.email}`)
+    window.setTimeout(() => setSaveNotice(''), 3000)
   }
   const removeUser = async (id) => {
     if (!window.confirm('Delete this user?')) return
@@ -253,6 +266,7 @@ export const AdminView = ({
         ) : null}
         {selectedArea === 'users' ? (
           <div className="mt-4 space-y-3">
+            <AddUserForm onCreate={addUser} />
             <label className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3">
               <Search className="h-4 w-4 text-slate-400" />
               <input

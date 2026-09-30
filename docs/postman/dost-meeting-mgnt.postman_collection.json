@@ -129,7 +129,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Smoke User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
             },
-            "description": "Creates a new user. Returns `{ token, user }` and sets the `token` collection variable on success."
+            "description": "Self-service sign-up, closed by default: returns 403 unless the server sets `SELF_REGISTRATION_ENABLED=true`. Creates a staff user and returns `{ token, user }`, setting the `token` collection variable on success. Use Users > Create user (admin) to add accounts otherwise."
           },
           "event": [
             {
@@ -212,6 +212,28 @@
               "path": ["users"]
             },
             "description": "Returns `{ users: [...] }` (id, name, email, role, department, createdAt) for the user directory. Any signed-in user can call it."
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Admin only (403 for staff, 401 without a token). Creates an account: `name`, `email`, `password` (at least 8 characters) and optional `role` (`staff` default, or `admin`). 409 for a duplicate email, 400 for invalid input. Returns `201 { user }` (no token).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Staff Member\",\n  \"email\": \"new.staff@example.com\",\n  \"password\": \"{{password}}\",\n  \"role\": \"staff\"\n}"
+            }
           }
         },
         {

@@ -157,21 +157,26 @@ Exceptions that do not follow the table: meeting change requests are readable on
 
 ### Users (`/api/users`)
 
-| Method | Path   | Body                                                        | Returns                              |
-| ------ | ------ | ----------------------------------------------------------- | ------------------------------------ |
-| GET    | `/`    | —                                                           | `200 { users }` (any signed-in user) |
-| PUT    | `/:id` | partial: `{ name?, email?, role?, department?, password? }` | `200 { user }`, `404`                |
-| DELETE | `/:id` | —                                                           | `204`                                |
+| Method | Path   | Body                                                        | Returns                               |
+| ------ | ------ | ----------------------------------------------------------- | ------------------------------------- |
+| GET    | `/`    | —                                                           | `200 { users }` (any signed-in user)  |
+| POST   | `/`    | `{ name, email, password, role? }`                          | `201 { user }`, `409` duplicate email |
+| PUT    | `/:id` | partial: `{ name?, email?, role?, department?, password? }` | `200 { user }`, `404`                 |
+| DELETE | `/:id` | —                                                           | `204`                                 |
 
-`PUT` and `DELETE` require an `admin` account (`403` otherwise) and cannot target the caller's own account (`400`). `role` must be `staff` or `admin` (`400` otherwise; the database also enforces this with `users_role_check`). `id` must be a UUID, `email` a valid address, and a non-empty `password` at least 8 characters. An empty `password` leaves the password unchanged. Apply migration `0040_add_user_role_check.sql`, which resets any unknown role to `staff` before adding the constraint.
+`POST`, `PUT` and `DELETE` require an `admin` account (`403` otherwise). `POST` creates an account with a password of at least 8 characters; `role` is `staff` (default) or `admin`. `PUT` and `DELETE` and cannot target the caller's own account (`400`). `role` must be `staff` or `admin` (`400` otherwise; the database also enforces this with `users_role_check`). `id` must be a UUID, `email` a valid address, and a non-empty `password` at least 8 characters. An empty `password` leaves the password unchanged. Apply migration `0040_add_user_role_check.sql`, which resets any unknown role to `staff` before adding the constraint.
 
 ### Auth (`/api/auth`)
 
-| Method | Path        | Body                        | Returns                          |
-| ------ | ----------- | --------------------------- | -------------------------------- |
-| POST   | `/register` | `{ name, email, password }` | `201 { token, user }`            |
-| POST   | `/login`    | `{ email, password }`       | `200 { token, user }`            |
-| GET    | `/me`       | —                           | `200 { user }` for current token |
+Self-service sign-up is **closed by default**: `POST /register` returns `403` unless `SELF_REGISTRATION_ENABLED=true` is set in `.env`. With the default, an admin creates accounts through `POST /api/users` (or the Admin > Manage Users > Add user form in the client). A self-registered account is always `staff`; a `role` in the body is ignored. An existing deployment whose `.env` has no `SELF_REGISTRATION_ENABLED` becomes closed on its next restart.
+
+**First admin on a fresh install.** No account exists yet and only an admin can create one, so set `SELF_REGISTRATION_ENABLED=true`, restart the API, register once, promote that account (`UPDATE users SET role = 'admin' WHERE email = '<email>';`), then set the flag back to `false` and restart. Local development can use `npm run seed` instead.
+
+| Method | Path        | Body                        | Returns                                  |
+| ------ | ----------- | --------------------------- | ---------------------------------------- |
+| POST   | `/register` | `{ name, email, password }` | `201 { token, user }`, `403` when closed |
+| POST   | `/login`    | `{ email, password }`       | `200 { token, user }`                    |
+| GET    | `/me`       | —                           | `200 { user }` for current token         |
 
 ### Meetings (`/api/meetings`)
 

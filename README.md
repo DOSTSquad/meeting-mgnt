@@ -424,7 +424,7 @@ When dependencies are unavailable, `/health` and `/health/ready` return `503` wi
 
 The server exposes JWT-protected REST endpoints under `/api`:
 
-- `/api/auth` — register, login, current user
+- `/api/auth` — login, current user, and register (closed unless `SELF_REGISTRATION_ENABLED=true`; admins create accounts with `POST /api/users`)
 - `/api/users` — list the user directory; admins can update roles/profiles and delete users
 - `/api/meetings` — full CRUD with RFC 5988 `Link`-header pagination, filters by status / date range, full-text search on title + description and uploaded file names via `?q=`, tags, and file counts; `status` transitions are forward-only (scheduled → completed → archived, with cancelled as a side branch)
 - `/api/meeting-requests` — scheduling request flow with time options, invitees, binary availability responses, and confirmation into a real meeting

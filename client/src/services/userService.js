@@ -11,3 +11,8 @@ export const updateUser = async (client, id, payload) => {
 export const deleteUser = async (client, id) => {
   await client.delete(`/api/users/${id}`)
 }
+
+export const createUser = async (client, payload) => {
+  const response = await client.post('/api/users', payload)
+  return response.data.user
+}
