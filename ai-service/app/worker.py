@@ -32,7 +32,6 @@ from app.streams import (
     schedule_retry,
 )
 from app.summarization import summarize_transcript
-from app.transcription import transcribe_audio, validate_compute_profile
 
 RESULT_BUCKET = os.getenv("MINIO_BUCKET_AI_RESULTS", "meeting-ai-results")
 STOP = False
@@ -91,6 +90,9 @@ def _transcribe(payload: dict[str, Any]) -> dict[str, Any]:
 
         if provider != "whisper":
             raise RuntimeError(f"Unknown transcription provider: {provider}")
+
+        # Imported here so fixture-only hosts do not need torch or whisper installed.
+        from app.transcription import transcribe_audio
 
         result = transcribe_audio(str(audio_path), os.getenv("AI_TRANSCRIPTION_LANGUAGE", "en"))
         segments = [
@@ -383,6 +385,8 @@ def run() -> None:
             )
 
     if provider_config["AI_TRANSCRIPTION_PROVIDER"] == "whisper":
+        from app.transcription import validate_compute_profile
+
         profile, device = validate_compute_profile()
         logger.info("AI transcription runtime profile=%s device=%s", profile, device)
 

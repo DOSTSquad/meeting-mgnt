@@ -1,4 +1,7 @@
+import subprocess
+import sys
 import unittest
+from pathlib import Path
 
 
 try:
@@ -33,3 +36,21 @@ class WorkerHelperTests(unittest.TestCase):
     def test_accepts_only_iso_due_dates(self):
         self.assertEqual(_parse_due_date("2026-09-13"), "2026-09-13")
         self.assertIsNone(_parse_due_date("next Friday"))
+
+
+@unittest.skipIf(_IMPORT_ERROR is not None, f"AI worker dependencies unavailable: {_IMPORT_ERROR}")
+class FixtureOnlyImportTests(unittest.TestCase):
+    def test_importing_worker_does_not_load_torch_or_whisper(self):
+        # None entries make any `import torch` / `import whisper` raise, even when installed.
+        script = (
+            "import sys; sys.modules['torch'] = None; sys.modules['whisper'] = None; "
+            "import app.worker"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=Path(__file__).resolve().parent.parent,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
