@@ -15,6 +15,15 @@ const recordingRouter = Router({ mergeParams: true })
 
 const meetingIdValidator = [param('meetingId').isUUID().withMessage('meetingId must be a UUID')]
 
+// A multipart body only exists after multer has run, so this validates after uploadSingle.
+export const recordingConsentValidator = [
+  body('consentConfirmed')
+    .custom((value) => value === 'true' || value === true)
+    .withMessage(
+      'consentConfirmed must be true: confirm every participant agreed to the recording'
+    ),
+]
+
 recordingRouter.get('/', meetingIdValidator, handleValidationErrors, getForMeeting)
 
 recordingRouter.put(
@@ -26,6 +35,8 @@ recordingRouter.put(
   handleValidationErrors,
   uploadSingle,
   handleUploadErrors,
+  recordingConsentValidator,
+  handleValidationErrors,
   uploadForMeeting
 )
 

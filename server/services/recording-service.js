@@ -120,12 +120,17 @@ export const uploadRecordingForMeeting = async ({
   callerRole,
   file,
   replace = false,
+  consentConfirmed = false,
   logger = console,
 }) => {
   assertAudioFile(file)
 
   const meeting = await loadMeetingOrThrow(meetingId)
   await assertCanManageRecording(meeting, callerId, callerRole)
+
+  if (consentConfirmed !== true) {
+    throw createHttpError('Confirm that every participant agreed to the recording', 400)
+  }
 
   const existing = await findActiveRecordingByMeetingId(meetingId)
   if (existing && !replace) {
@@ -158,6 +163,8 @@ export const uploadRecordingForMeeting = async ({
           bucketName: BUCKET_AUDIO,
           objectKey,
           status: 'uploaded',
+          consentConfirmedAt: new Date(),
+          consentConfirmedBy: callerId,
         },
         client
       )

@@ -37,6 +37,8 @@ export const uploadForMeeting = async (req, res, next) => {
       callerRole: req.user?.role,
       file: req.file,
       replace: req.body?.replace === 'true' || req.body?.replace === true,
+      consentConfirmed:
+        req.body?.consentConfirmed === 'true' || req.body?.consentConfirmed === true,
     })
 
     res.status(201).json(result)

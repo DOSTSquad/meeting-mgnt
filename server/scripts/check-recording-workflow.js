@@ -189,6 +189,7 @@ try {
   const uploaded = await uploadRecordingForMeeting({
     meetingId,
     callerId: userId,
+    consentConfirmed: true,
     file: {
       originalname: 'workflow-check.mp3',
       mimetype: 'audio/mpeg',

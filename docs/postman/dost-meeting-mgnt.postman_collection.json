@@ -1066,6 +1066,12 @@
                   "description": "Select an MP3/WAV/M4A audio file ≤ 50 MB"
                 },
                 {
+                  "key": "consentConfirmed",
+                  "value": "true",
+                  "type": "text",
+                  "description": "Required. Must be true: confirms every participant agreed to the recording (otherwise 400)"
+                },
+                {
                   "key": "replace",
                   "value": "true",
                   "type": "text",
@@ -1073,7 +1079,7 @@
                 }
               ]
             },
-            "description": "Owner, organizer, or admin only. Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409."
+            "description": "Owner, organizer, or admin only. Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409. Every upload must send `consentConfirmed=true`, otherwise it returns 400."
           },
           "event": [
             {

@@ -288,14 +288,16 @@ Any meeting participant (or an admin) can read minutes. Only the meeting owner, 
 
 Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
 
-| Method | Path        | Body / Query                                            | Returns                                                        |
-| ------ | ----------- | ------------------------------------------------------- | -------------------------------------------------------------- |
-| GET    | `/`         | —                                                       | `200 { recording, transcript, analysisRun }`                   |
-| PUT    | `/`         | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript: null, analysisRun: null }`       |
-| POST   | `/generate` | —                                                       | `202 { recording, transcript, analysisRun, generationStatus }` |
-| DELETE | `/`         | —                                                       | `204`                                                          |
+| Method | Path        | Body / Query                                                               | Returns                                                        |
+| ------ | ----------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| GET    | `/`         | —                                                                          | `200 { recording, transcript, analysisRun }`                   |
+| PUT    | `/`         | `multipart/form-data`: `file`, `consentConfirmed=true`, optional `replace` | `201 { recording, transcript: null, analysisRun: null }`       |
+| POST   | `/generate` | —                                                                          | `202 { recording, transcript, analysisRun, generationStatus }` |
+| DELETE | `/`         | —                                                                          | `204`                                                          |
 
 Any meeting participant (or an admin) can read recording metadata, transcript status, and analysis-run status. Only the meeting owner, an organizer, or an admin can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+
+Every upload, including `replace`, must send `consentConfirmed=true` to confirm that all participants were told about and agreed to the recording; otherwise the request returns `400` (`details[0].field` is `consentConfirmed`) and nothing is stored. The API records who confirmed and when (`meeting_recordings.consent_confirmed_by`/`consent_confirmed_at`, exposed as `recording.consentConfirmedAt`); recordings uploaded before migration `0041_recording_consent.sql` have `consentConfirmedAt: null`. The web client asks for this with a checkbox above the upload controls.
 
 The endpoint accepts audio only (`audio/*`, up to 50 MB; other types return `415`). When a user picks a video (MP4, MOV, WebM, MKV), the web client copies the audio track into an `.m4a` in the browser (Web Worker, no re-encoding) and uploads only that file; the video is never sent. If the extracted audio is still over 50 MB, or the video has no audio track, the client shows an error and uploads nothing.
 

@@ -8,10 +8,16 @@ export const generateMeetingRecording = async (client, meetingId) => {
   return response.data
 }
 
-export const uploadMeetingRecording = async (client, meetingId, file, { replace = false } = {}) => {
+export const uploadMeetingRecording = async (
+  client,
+  meetingId,
+  file,
+  { replace = false, consentConfirmed = false } = {}
+) => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('replace', String(replace))
+  formData.append('consentConfirmed', String(consentConfirmed))
 
   const response = await client.put(`/api/meetings/${meetingId}/recording`, formData)
   return response.data

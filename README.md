@@ -432,7 +432,7 @@ The server exposes JWT-protected REST endpoints under `/api`:
 - `/api/meetings/:id/files` + `/api/files/:id` — upload (PDF/DOCX/XLSX/PPTX/images, 50 MB cap), list, presigned download (60 s URL), and delete meeting files
 - `/api/meetings/:id/action-items` + `/api/action-items/:id` — create, list (filter by status/assignee), update, and delete meeting action items (statuses: todo, in_progress, completed, cancelled)
 - `/api/meetings/:id/minutes` — read/update dedicated meeting minutes; `GET` eagerly creates an empty draft if one does not exist
-- `/api/meetings/:id/recording` — upload, read, archive, and generate from the meeting recording; `/analysis` returns the latest transcript, analysis, and suggestions; `/api/meetings/:id/workflow/events` streams status over SSE
+- `/api/meetings/:id/recording` — upload (the request must confirm participant consent with `consentConfirmed=true`), read, archive, and generate from the meeting recording; `/analysis` returns the latest transcript, analysis, and suggestions; `/api/meetings/:id/workflow/events` streams status over SSE
 - `/api/meetings/:id/analysis-suggestions` — edit, accept, or reject AI-suggested action items
 - `/api/meetings/:id/change-requests` — attendees send change requests; only the owner reads them
 - `/api/public/invitations/:token` — invitee availability through an emailed link, no sign-in
