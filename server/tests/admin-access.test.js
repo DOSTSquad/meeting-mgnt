@@ -94,6 +94,10 @@ jest.unstable_mockModule('../services/minio-client.js', () => ({
   putObject: jest.fn(),
   removeObject: jest.fn(),
 }))
+jest.unstable_mockModule('../services/storage-cleanup-service.js', () => ({
+  collectMeetingObjects: jest.fn(async () => []),
+  removeObjectsBestEffort: jest.fn(async () => {}),
+}))
 jest.unstable_mockModule('../services/notification-service.js', () => ({
   notifyMeetingCreated: jest.fn(),
   notifyActionItemAssigned: jest.fn(),

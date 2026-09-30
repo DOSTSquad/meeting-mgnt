@@ -194,7 +194,12 @@ Meeting responses include immutable `ownerId` and audit-only `createdBy`, plus `
 `POST /api/meetings` sends a best-effort calendar email to the organizer. `PUT /api/meetings/:id`
 is restricted to the meeting owner, an organizer, or an admin and sends material calendar updates to
 registered participants plus emailed external invitees linked through a confirmed meeting request.
-`DELETE /api/meetings/:id` is restricted to the meeting owner, an organizer, or an admin.
+`DELETE /api/meetings/:id` is restricted to the meeting owner, an organizer, or an admin. It also
+removes the meeting's stored objects (files, recordings, and the AI transcript/analysis artifacts)
+after the database delete; a storage failure is logged with the bucket, key and error code but does
+not fail the request, so a leftover object is possible if MinIO is unreachable at that moment.
+Deleting a user (`DELETE /api/users/:id`) stores nothing to clean up: the database refuses it while
+the account still owns or took part in a meeting, or uploaded a file or recording.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
