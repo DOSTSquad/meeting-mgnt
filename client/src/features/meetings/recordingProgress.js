@@ -1,14 +1,16 @@
 const WAITING_FOR_WORKER = 'Waiting for the AI worker...'
 
+const PIPELINE_KEYS = ['uploading', 'transcribing', 'analysing', 'completed']
+
 const STEP_LABELS = {
-  uploaded: 'Uploaded',
+  uploading: 'Uploading',
   transcribing: 'Transcribing',
   analysing: 'Analysing',
   completed: 'Completed',
 }
 
 const DEFAULT_DESCRIPTIONS = {
-  uploaded: 'File uploaded successfully.',
+  uploading: 'File uploaded successfully.',
   transcribing: 'Converting audio to text...',
   analysing: 'Generating insights and key points...',
   completed: 'Recording ready to view.',
@@ -20,6 +22,11 @@ const buildStep = (key, state, description) => ({
   description: description ?? DEFAULT_DESCRIPTIONS[key],
   state,
 })
+
+const getUploadDescription = (extractProgress) =>
+  typeof extractProgress === 'number'
+    ? `Extracting audio ${Math.round(extractProgress * 100)}%...`
+    : 'Uploading recording...'
 
 const getTranscriptionStep = ({ recording, transcript }) => {
   if (transcript?.status === 'failed') {
@@ -90,22 +97,29 @@ const getPill = (steps) => {
 
 /**
  * Maps the recording, transcript and analysis run onto the four pipeline steps.
- * Derived only from data the API already returns.
+ * `pendingUpload` is the client-side upload in flight (`{ extractProgress }`); it is not part of
+ * the API data, and while it runs every later step waits, even if an older recording exists.
  */
-export const getRecordingProgress = ({ recording, transcript, analysisRun } = {}) => {
-  if (!recording) {
-    return {
-      pill: 'hidden',
-      steps: ['uploaded', 'transcribing', 'analysing', 'completed'].map((key) =>
-        buildStep(key, 'pending')
-      ),
-    }
+export const getRecordingProgress = ({
+  recording,
+  transcript,
+  analysisRun,
+  pendingUpload,
+} = {}) => {
+  if (pendingUpload || !recording) {
+    const steps = PIPELINE_KEYS.map((key) =>
+      key === 'uploading' && pendingUpload
+        ? buildStep(key, 'active', getUploadDescription(pendingUpload.extractProgress))
+        : buildStep(key, 'pending')
+    )
+
+    return { pill: getPill(steps), steps }
   }
 
   const transcriptionStep = getTranscriptionStep({ recording, transcript })
   const analysisStep = getAnalysisStep({ transcriptionStep, analysisRun })
   const completedStep = buildStep('completed', analysisStep.state === 'done' ? 'done' : 'pending')
-  const steps = [buildStep('uploaded', 'done'), transcriptionStep, analysisStep, completedStep]
+  const steps = [buildStep('uploading', 'done'), transcriptionStep, analysisStep, completedStep]
 
   return { pill: getPill(steps), steps }
 }

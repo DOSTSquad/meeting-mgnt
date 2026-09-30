@@ -13,11 +13,11 @@ test('always returns the four steps in order', () => {
 
   assert.deepEqual(
     progress.steps.map((candidate) => candidate.key),
-    ['uploaded', 'transcribing', 'analysing', 'completed']
+    ['uploading', 'transcribing', 'analysing', 'completed']
   )
   assert.deepEqual(
     progress.steps.map((candidate) => candidate.label),
-    ['Uploaded', 'Transcribing', 'Analysing', 'Completed']
+    ['Uploading', 'Transcribing', 'Analysing', 'Completed']
   )
 })
 
@@ -26,7 +26,7 @@ test('recording uploaded and generation not started: only the first step is done
 
   assert.equal(progress.pill, 'hidden')
   assert.deepEqual(states(progress), ['done', 'pending', 'pending', 'pending'])
-  assert.equal(step(progress, 'uploaded').description, 'File uploaded successfully.')
+  assert.equal(step(progress, 'uploading').description, 'File uploaded successfully.')
   assert.equal(step(progress, 'transcribing').description, 'Converting audio to text...')
 })
 
@@ -35,6 +35,33 @@ test('no recording: every step is pending and the pill is hidden', () => {
 
   assert.equal(progress.pill, 'hidden')
   assert.deepEqual(states(progress), ['pending', 'pending', 'pending', 'pending'])
+})
+
+test('upload in flight without a recording: uploading is active and the pill is processing', () => {
+  const progress = getRecordingProgress({ pendingUpload: { extractProgress: null } })
+
+  assert.equal(progress.pill, 'processing')
+  assert.deepEqual(states(progress), ['active', 'pending', 'pending', 'pending'])
+  assert.equal(step(progress, 'uploading').description, 'Uploading recording...')
+})
+
+test('upload in flight with video extraction: the description shows the percentage', () => {
+  const progress = getRecordingProgress({ pendingUpload: { extractProgress: 0.426 } })
+
+  assert.deepEqual(states(progress), ['active', 'pending', 'pending', 'pending'])
+  assert.equal(step(progress, 'uploading').description, 'Extracting audio 43%...')
+})
+
+test('replacing a recording: the old pipeline is reset while the new upload runs', () => {
+  const progress = getRecordingProgress({
+    recording: recording('completed'),
+    transcript: { status: 'completed' },
+    analysisRun: { status: 'ready_for_review' },
+    pendingUpload: { extractProgress: null },
+  })
+
+  assert.equal(progress.pill, 'processing')
+  assert.deepEqual(states(progress), ['active', 'pending', 'pending', 'pending'])
 })
 
 test('queued: transcript processing while the recording is still uploaded', () => {
