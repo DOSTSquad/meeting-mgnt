@@ -26,7 +26,7 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 2. Run `npm install` from the repo root.
 3. Start local infra with `docker compose up -d`.
 4. Apply database migrations with `npm run migrate --workspace=server`.
-5. Optional: seed local demo data with `npm run seed --workspace=server`.
+5. Optional: seed local demo data with `npm run seed --workspace=server`. It prints a generated password for the seeded accounts once at the end (or uses `SEED_PASSWORD` from `.env`), never resets accounts that already exist unless `SEED_RESET_PASSWORDS=true`, and refuses to run with `NODE_ENV=production`.
 6. Start the API with `npm run dev --workspace=server`.
 7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`. Run one worker only; without it, generation requests stay `queued`.
 8. Start the client with `npm run dev --workspace=client`.

@@ -121,30 +121,6 @@ export const LoginView = ({ onLogin }) => {
                 </p>
               ) : null}
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                <p className="mb-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-1.5 font-semibold text-blue-800">
-                  Admin demo: <span className="font-extrabold">admin@meeting.local</span> /{' '}
-                  <span className="font-extrabold">admin</span>
-                </p>
-                <p>
-                  Demo login:{' '}
-                  <span className="font-semibold">paveen.anuntakulnatee@seed.local</span> /{' '}
-                  <span className="font-semibold">Password123!</span>
-                </p>
-                <p>
-                  Alt login: <span className="font-semibold">nattanan.thepsathorn@seed.local</span>{' '}
-                  / <span className="font-semibold">Password123!</span>
-                </p>
-                <p>
-                  Alt login 2: <span className="font-semibold">hannah.law@seed.local</span> /{' '}
-                  <span className="font-semibold">Password123!</span>
-                </p>
-                <p>
-                  Alt login 3: <span className="font-semibold">jhow.liu@seed.local</span> /{' '}
-                  <span className="font-semibold">Password123!</span>
-                </p>
-              </div>
-
               <button
                 type="submit"
                 disabled={isSubmitting}

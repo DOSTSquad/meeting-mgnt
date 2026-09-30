@@ -26,6 +26,12 @@ Run database migrations with `npm run migrate --workspace=server`.
 
 Migrations are located in `server/db/migrations` and tracked in `schema_migrations`.
 
+## Seeding Local Data
+
+`npm run seed --workspace=server` fills a **local development** database with demonstration users (`@seed.local` addresses), meetings, action items and notifications. It is destructive: it truncates meetings and deletes every account that is not a seed user, so it refuses to run when `NODE_ENV=production`.
+
+There is no built-in password. Set `SEED_PASSWORD` in `.env` to choose one; otherwise the run generates a random password (16 characters) and prints it once at the end, next to the accounts that use it. Accounts that already exist keep their password and role, and the summary lists them separately; set `SEED_RESET_PASSWORDS=true` to reset them to the seed password and role. Copy the printed password when you see it: only its hash is stored.
+
 ## Recording Workflow Queue
 
 When `AI_PIPELINE_ENABLED=true`, run the API and server worker runtime as separate processes. The API
@@ -172,7 +178,7 @@ Self-service sign-up is **closed by default**: `POST /register` returns `403` un
 
 `PUT /me/password` lets a signed-in user change their own password: `currentPassword` must match (`403` otherwise), `newPassword` needs at least 8 characters and must differ from the current one (`400`), and nothing is returned or logged. JWTs are stateless in this codebase, so tokens issued before the change stay valid until `JWT_EXPIRES_IN` runs out; there is no revocation.
 
-**First admin on a fresh install.** No account exists yet and only an admin can create one, so set `SELF_REGISTRATION_ENABLED=true`, restart the API, register once, promote that account (`UPDATE users SET role = 'admin' WHERE email = '<email>';`), then set the flag back to `false` and restart. Local development can use `npm run seed` instead.
+**First admin on a fresh install.** No account exists yet and only an admin can create one, so set `SELF_REGISTRATION_ENABLED=true`, restart the API, register once, promote that account (`UPDATE users SET role = 'admin' WHERE email = '<email>';`), then set the flag back to `false` and restart. Local development can use `npm run seed` instead (see Seeding Local Data).
 
 | Method | Path           | Body                               | Returns                                  |
 | ------ | -------------- | ---------------------------------- | ---------------------------------------- |
