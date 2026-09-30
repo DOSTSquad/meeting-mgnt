@@ -152,11 +152,12 @@ deployment branch policy.
 
 Optional repository variables:
 
-| Name                         | Default                       |
-| ---------------------------- | ----------------------------- |
-| `DEPLOY_PATH`                | `/srv/meeting-mgnt`           |
-| `DEPLOY_SERVICE_NAME`        | `meeting-mgnt-server.service` |
-| `DEPLOY_WORKER_SERVICE_NAME` | `meeting-mgnt-worker.service` |
+| Name                            | Default                          |
+| ------------------------------- | -------------------------------- |
+| `DEPLOY_PATH`                   | `/srv/meeting-mgnt`              |
+| `DEPLOY_SERVICE_NAME`           | `meeting-mgnt-server.service`    |
+| `DEPLOY_WORKER_SERVICE_NAME`    | `meeting-mgnt-worker.service`    |
+| `DEPLOY_AI_WORKER_SERVICE_NAME` | `meeting-mgnt-ai-worker.service` |
 
 The client bundle is built on the GitHub runner and copied to the VPS with
 `rsync`, so the VPS never installs devDependencies or runs Vite. The VPS deploy
@@ -165,13 +166,15 @@ user must be able to run `git fetch`, `npm ci --omit=dev`, and
 (`sudo apt install rsync`).
 
 Deploy also calls `systemctl` over sudo. If the deploy user is not root, grant
-passwordless sudo for exactly these four commands:
+passwordless sudo for exactly these six commands:
 
 ```
 <deploy_user> ALL=(root) NOPASSWD: /usr/bin/systemctl restart meeting-mgnt-server.service, \
                            /usr/bin/systemctl restart meeting-mgnt-worker.service, \
+                           /usr/bin/systemctl restart meeting-mgnt-ai-worker.service, \
                            /usr/bin/systemctl status meeting-mgnt-server.service --no-pager, \
-                           /usr/bin/systemctl status meeting-mgnt-worker.service --no-pager
+                           /usr/bin/systemctl status meeting-mgnt-worker.service --no-pager, \
+                           /usr/bin/systemctl status meeting-mgnt-ai-worker.service --no-pager
 ```
 
 Edit sudoers with `sudo EDITOR=vim visudo`, never a bare editor: visudo validates
@@ -184,7 +187,7 @@ Two things about that rule are easy to get wrong:
   `--no-pager` variants have to be listed separately. Deploy only runs
   `systemctl status` on the failure path, so a missing rule stays invisible until
   the run where you actually need the diagnostics.
-- **Only these four need sudo.** Deploy calls `systemctl list-unit-files`,
+- **Only these six need sudo.** Deploy calls `systemctl list-unit-files`,
   `is-failed`, and `is-active` unprivileged; they are read-only and must not be
   added to the sudoers rule.
 
@@ -202,12 +205,12 @@ The service assumes the app is deployed at `/srv/meeting-mgnt`, `.env` exists th
 
 ### Choosing the service account
 
-Both unit files ship with `User=meeting-mgnt` / `Group=meeting-mgnt`, which
-requires the `useradd` line above. **Whatever you choose, both units must
-agree** — the API and the worker share `/srv/meeting-mgnt` and its `.env`.
+The unit files ship with `User=meeting-mgnt` / `Group=meeting-mgnt`, which
+requires the `useradd` line above. **Whatever you choose, all units must
+agree** — the API and the workers share `/srv/meeting-mgnt` and its `.env`.
 
 If you skip creating the dedicated account and run the services as root instead,
-delete the `User=` and `Group=` lines from both unit files. Leaving them in place
+delete the `User=` and `Group=` lines from every unit file. Leaving them in place
 while the account does not exist fails at startup with a misleading error:
 
 ```
@@ -238,6 +241,12 @@ sudo systemctl enable --now meeting-mgnt-worker
 
 Deploy restarts the worker unit only when it is already installed, so the
 workflow stays green until you run the commands above.
+
+On a host that cannot run the models, install the AI worker as a third unit with
+the fixture providers (`ai-service/.venv` and the unit are set up as described in
+[`ai-service/README.md`](ai-service/README.md#fixture-only-host)). Deploy then
+refreshes `ai-service/.venv` from `requirements.fixture.txt` and restarts
+`meeting-mgnt-ai-worker.service`, again only when it is installed.
 
 The worker exits `0` when `AI_PIPELINE_ENABLED` is not `true`, so systemd reports
 it as `inactive (dead)` rather than failed. That is the expected state while the

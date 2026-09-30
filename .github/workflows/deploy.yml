@@ -66,6 +66,7 @@ jobs:
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/meeting-mgnt' }}
       SERVICE_NAME: ${{ vars.DEPLOY_SERVICE_NAME || 'meeting-mgnt-server.service' }}
       WORKER_SERVICE_NAME: ${{ vars.DEPLOY_WORKER_SERVICE_NAME || 'meeting-mgnt-worker.service' }}
+      AI_WORKER_SERVICE_NAME: ${{ vars.DEPLOY_AI_WORKER_SERVICE_NAME || 'meeting-mgnt-ai-worker.service' }}
 
     steps:
       - name: Check deployment configuration
@@ -113,6 +114,12 @@ jobs:
           git pull --ff-only origin main
 
           npm ci --omit=dev --no-audit --no-fund
+
+          # The venv is created by hand on the host (see ai-service/README.md); keep it in
+          # step with requirements so a restart does not fail on a missing import.
+          if [ -x ai-service/.venv/bin/pip ]; then
+            ai-service/.venv/bin/pip install --quiet --no-cache-dir -r ai-service/requirements.fixture.txt
+          fi
           REMOTE
 
       - name: Upload client bundle
@@ -131,30 +138,39 @@ jobs:
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' WORKER_SERVICE_NAME='${WORKER_SERVICE_NAME}' bash -s" <<'REMOTE'
+            "APP_DIR='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' WORKER_SERVICE_NAME='${WORKER_SERVICE_NAME}' AI_WORKER_SERVICE_NAME='${AI_WORKER_SERVICE_NAME}' bash -s" <<'REMOTE'
           set -euo pipefail
+
+          # Restarts an optional unit only when it is installed, so the deploy stays green
+          # until the unit is set up. Only a failed unit is a deployment failure.
+          restart_if_installed() {
+            local label="$1" unit="$2"
+
+            if ! systemctl list-unit-files --no-legend "${unit}" | grep -q .; then
+              echo "${label} unit ${unit} is not installed; skipping restart."
+              return 0
+            fi
+
+            sudo systemctl restart "${unit}"
+
+            if systemctl is-failed --quiet "${unit}"; then
+              echo "${label} unit ${unit} failed to start."
+              sudo systemctl status "${unit}" --no-pager
+              exit 1
+            fi
+
+            echo "${label} unit ${unit} is $(systemctl is-active "${unit}" || true)."
+          }
 
           cd "${APP_DIR}"
           npm run migrate --workspace=server
 
           sudo systemctl restart "${SERVICE_NAME}"
 
-          if systemctl list-unit-files --no-legend "${WORKER_SERVICE_NAME}" | grep -q .; then
-            sudo systemctl restart "${WORKER_SERVICE_NAME}"
-
-            # The worker exits 0 when AI_PIPELINE_ENABLED is not true, so systemd
-            # reports it inactive rather than failed. Only a failed unit is a
-            # deployment failure.
-            if systemctl is-failed --quiet "${WORKER_SERVICE_NAME}"; then
-              echo "Worker unit ${WORKER_SERVICE_NAME} failed to start."
-              sudo systemctl status "${WORKER_SERVICE_NAME}" --no-pager
-              exit 1
-            fi
-
-            echo "Worker unit ${WORKER_SERVICE_NAME} is $(systemctl is-active "${WORKER_SERVICE_NAME}" || true)."
-          else
-            echo "Worker unit ${WORKER_SERVICE_NAME} is not installed; skipping worker restart."
-          fi
+          # The worker exits 0 when AI_PIPELINE_ENABLED is not true, so systemd reports it
+          # inactive rather than failed.
+          restart_if_installed "Worker" "${WORKER_SERVICE_NAME}"
+          restart_if_installed "AI worker" "${AI_WORKER_SERVICE_NAME}"
 
           for attempt in $(seq 1 20); do
             if curl -fsS http://127.0.0.1:3001/health/live; then
