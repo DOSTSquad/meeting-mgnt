@@ -131,6 +131,36 @@ single-host topology, release procedure, operational checks, and AI capacity
 considerations. The optional [GPU Benchmark Runbook](docs/gpu-benchmark-runbook.md)
 documents the Windows WSL2/CUDA validation path.
 
+## Bootstrap a New VPS
+
+On a fresh Ubuntu 22.04/24.04 host, [`scripts/bootstrap-vps.sh`](scripts/bootstrap-vps.sh) does the
+one-time setup that the sections below describe by hand: Node.js 22, Docker, Caddy,
+PostgreSQL/Redis/MinIO, the AI worker, the systemd units, and the sudoers rule the Deploy workflow
+needs. Run it once as root; afterwards the Deploy workflow keeps the host up to date.
+
+```bash
+sudo bash scripts/bootstrap-vps.sh --deploy-user deploy --domain meeting.example.com
+```
+
+| Option             | Purpose                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `--deploy-user`    | Account the Deploy workflow SSHes in as; owns the app directory. Defaults to the sudo caller |
+| `--domain`         | Serve this domain over automatic HTTPS. Without it the site is HTTP on the server's IP       |
+| `--app-dir`        | Application directory (default `/srv/meeting-mgnt`)                                          |
+| `--repo-url`       | Repository to clone; defaults to the origin of an existing checkout                          |
+| `--ai-mode`        | `whisper` (default, Whisper + Ollama containers) or `fixture` (canned output, no models)     |
+| `--skip-preflight` | Skip the OS, architecture, systemd, RAM and disk checks                                      |
+
+The script is idempotent and never modifies an existing `.env`. It generates the database, MinIO
+and JWT secrets, but the SMTP/Resend credentials are for outside services, so edit those in `.env`
+yourself. It also leaves these to you: adding the deploy public key to the deploy user's
+`authorized_keys`, creating the `production` environment secrets below, pointing DNS at the host,
+and running the Deploy workflow once to ship `client/dist`.
+
+Whisper + Ollama on CPU needs at least 8 GiB RAM and 20 GiB free disk (the script refuses
+less); [Deployment Guidelines](docs/deployment-guidelines.md) suggests 8 vCPU / 16 GiB RAM as a
+starting point. The GPU compose file is not covered by the script.
+
 ## GitHub Actions Deployment
 
 The [`Deploy`](.github/workflows/deploy.yml)
