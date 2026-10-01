@@ -35,6 +35,39 @@ const MEETING_PARTICIPANT_COLUMNS = `
   ) AS participant_names
 `
 
+// Latest transcript / analysis run per active recording, chosen by created_at DESC like
+// findLatestTranscriptByRecordingId / findLatestAnalysisRunByRecordingId. Correlated on m.id so it
+// stays valid under GROUP BY m.id; in-flight work wins over a failure so a retry reads as running.
+const MEETING_AI_STATUS_COLUMN = `
+  (
+    SELECT
+      CASE
+        WHEN latest_transcript.status = 'processing'
+          OR latest_run.status IN ('queued', 'processing') THEN 'processing'
+        WHEN latest_transcript.status = 'failed' OR latest_run.status = 'failed' THEN 'failed'
+      END
+    FROM meeting_recordings rec
+    LEFT JOIN LATERAL (
+      SELECT status
+      FROM meeting_transcripts
+      WHERE recording_id = rec.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) latest_transcript ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT status
+      FROM analysis_runs
+      WHERE recording_id = rec.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) latest_run ON TRUE
+    WHERE rec.meeting_id = m.id
+      AND rec.archived_at IS NULL
+    ORDER BY rec.created_at DESC
+    LIMIT 1
+  ) AS ai_status
+`
+
 const mapMeeting = (row) => {
   if (!row) {
     return null
@@ -63,6 +96,11 @@ const mapMeeting = (row) => {
     updatedAt: row.updated_at.toISOString(),
   }
 }
+
+const mapMeetingListRow = (row) => ({
+  ...mapMeeting(row),
+  aiStatus: row.ai_status ?? null,
+})
 
 export const createMeeting = async ({
   title,
@@ -272,7 +310,7 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
 
   const rowsResult = await query(
     `
-      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_FILE_NAMES_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}
+      SELECT ${MEETING_COLUMNS}, ${MEETING_FILE_COUNT_COLUMN}, ${MEETING_FILE_NAMES_COLUMN}, ${MEETING_PARTICIPANT_COLUMNS}, ${MEETING_AI_STATUS_COLUMN}
       FROM meetings m
       LEFT JOIN tags t ON t.id = m.tag_id
       LEFT JOIN users owner ON owner.id = m.owner_id
@@ -288,7 +326,7 @@ export const listMeetings = async ({ userId, page = 1, limit = 20, from, to, sta
   )
 
   return {
-    rows: rowsResult.rows.map(mapMeeting),
+    rows: rowsResult.rows.map(mapMeetingListRow),
     total,
   }
 }

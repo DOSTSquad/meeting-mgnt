@@ -223,6 +223,8 @@ Meeting responses include immutable `ownerId` and audit-only `createdBy`, plus `
 
 `GET /api/meetings` returns the meetings the caller owns or attends. For an admin it returns every meeting by default; pass `scope=mine` to limit an admin to their own (`scope=all` is the default and has no effect for staff). Invalid `scope` values return `400`.
 
+Each item in the `GET /api/meetings` list also carries `aiStatus`, the state of minutes generation for the meeting's active (non-archived) recording, taken from its latest transcript and latest analysis run: `"processing"` when the transcript is `processing` or the analysis run is `queued`/`processing`, `"failed"` when the transcript or analysis run is `failed` (in-flight work wins over a failure), otherwise `null` (no recording, not processed yet, finished, or cancelled). It is computed in the list query itself and is not part of `GET /api/meetings/:id` or the create/update responses. The web client polls the list every 15 seconds while any listed meeting is `"processing"`.
+
 `POST /api/meetings` sends a best-effort calendar email to the organizer. `PUT /api/meetings/:id`
 is restricted to the meeting owner, an organizer, or an admin and sends material calendar updates to
 registered participants plus emailed external invitees linked through a confirmed meeting request.
