@@ -1,0 +1,3 @@
+# Shell scripts are mounted into Linux containers and run by /bin/sh; CRLF from a Windows
+# checkout breaks them.
+*.sh text eol=lf
