@@ -380,15 +380,12 @@ The recommended production model is:
 
 The recommended future direction is containerized deployment. Docker Compose is acceptable for the
 current MVP, local development, and small non-HA demonstrations. For client pilot and production, the
-system should move to an orchestrated container deployment or equivalent managed platform. Docker
-Swarm is a practical next step if the client wants simpler operations than Kubernetes while still
-supporting multi-node services, rolling updates, overlay networking, secrets/configs, and replicated
-stateless services. Kubernetes or OpenShift is also suitable when the client already operates those
-platforms.
+system should move to an orchestrated container deployment or equivalent managed platform, such as
+Kubernetes or OpenShift when the client already operates those platforms.
 
 The production topology should not rely on the development Compose file as its high-availability
 architecture. PostgreSQL, Redis, and MinIO still require explicit HA, persistent storage, backup, and
-failover design whether they run on dedicated hosts, managed services, Docker Swarm, or Kubernetes.
+failover design whether they run on dedicated hosts, managed services, or Kubernetes.
 
 ### 8.2 Environment Configuration
 
@@ -507,10 +504,6 @@ The existing `Deploy` GitHub Actions workflow supports this host/VPS deployment 
 - Host failure, disk failure, or local Docker volume loss can cause service outage or data loss.
 - Backups, restore testing, and manual recovery procedures are required even for a pilot.
 
-### 8.4 Deployment Guideline B: Docker Swarm
-
-To be continued.
-
 ## 9. Testing and Validation
 
 | Scope                    | Validation expectation                                                                   |
@@ -528,17 +521,17 @@ confirm that the application process is running.
 
 ## 10. Delivered Scope and Planned Improvements
 
-| Item                                    | Status                 | Client-facing note                                                                                                                                                                                     |
-| --------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Core meeting management                 | `[Implemented]`        | Meeting creation, list/search, detail, participants, files, minutes, and action items are in scope.                                                                                                    |
-| Meeting request scheduling              | `[Implemented]`        | Invitees can respond to candidate times; creators can confirm after responses or deadline.                                                                                                             |
-| Dashboard and notifications             | `[Implemented]`        | Dashboard aggregates upcoming meetings, requests, action items, and notification state.                                                                                                                |
-| Recording-to-analysis workflow          | `[Implemented]`        | Outbox-backed transcription and analysis workflow persists reviewable results.                                                                                                                         |
-| Large recording upload reliability      | `[Semester 2 Planned]` | Large recording workflows should use chunking or direct object-storage upload patterns.                                                                                                                |
-| Speech-to-text transcription            | `[Implemented]`        | Whisper generates persisted transcript text and timestamped segments from recordings.                                                                                                                  |
-| AI summaries and extracted action items | `[Implemented]`        | Local LLM analysis generates reviewable summaries, decisions, and proposed action items.                                                                                                               |
-| On-prem AI model evaluation             | `[Future Enhancement]` | Model, GPU, latency, accuracy, and data-governance trade-offs should continue to be assessed.                                                                                                          |
-| Expanded RBAC and admin controls        | `[Semester 2 Planned]` | Broader administrative role management and app-wide route checks are planned.                                                                                                                          |
-| External notification delivery channels | `[Future Enhancement]` | Email, push, Slack, Teams, or similar outbound channels are outside the current scope.                                                                                                                 |
-| Backend-driven repository pagination    | `[Future Enhancement]` | May be required when the meeting repository grows beyond comfortable client-side filtering.                                                                                                            |
-| Containerized production deployment     | `[Future Enhancement]` | Recommended future direction. Use Docker Compose for MVP/demo only, Docker Swarm for a simpler client pilot/production path, or Kubernetes/OpenShift where the client already has platform capability. |
+| Item                                    | Status                 | Client-facing note                                                                                                                            |
+| --------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core meeting management                 | `[Implemented]`        | Meeting creation, list/search, detail, participants, files, minutes, and action items are in scope.                                           |
+| Meeting request scheduling              | `[Implemented]`        | Invitees can respond to candidate times; creators can confirm after responses or deadline.                                                    |
+| Dashboard and notifications             | `[Implemented]`        | Dashboard aggregates upcoming meetings, requests, action items, and notification state.                                                       |
+| Recording-to-analysis workflow          | `[Implemented]`        | Outbox-backed transcription and analysis workflow persists reviewable results.                                                                |
+| Large recording upload reliability      | `[Semester 2 Planned]` | Large recording workflows should use chunking or direct object-storage upload patterns.                                                       |
+| Speech-to-text transcription            | `[Implemented]`        | Whisper generates persisted transcript text and timestamped segments from recordings.                                                         |
+| AI summaries and extracted action items | `[Implemented]`        | Local LLM analysis generates reviewable summaries, decisions, and proposed action items.                                                      |
+| On-prem AI model evaluation             | `[Future Enhancement]` | Model, GPU, latency, accuracy, and data-governance trade-offs should continue to be assessed.                                                 |
+| Expanded RBAC and admin controls        | `[Semester 2 Planned]` | Broader administrative role management and app-wide route checks are planned.                                                                 |
+| External notification delivery channels | `[Future Enhancement]` | Email, push, Slack, Teams, or similar outbound channels are outside the current scope.                                                        |
+| Backend-driven repository pagination    | `[Future Enhancement]` | May be required when the meeting repository grows beyond comfortable client-side filtering.                                                   |
+| Containerized production deployment     | `[Future Enhancement]` | Recommended future direction. Use Docker Compose for MVP/demo only, or Kubernetes/OpenShift where the client already has platform capability. |
