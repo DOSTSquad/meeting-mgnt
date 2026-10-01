@@ -2,7 +2,9 @@
 # natively on the Mac (it uses Metal) and the AI containers call it through host.docker.internal.
 # Whisper stays on CPU in the ai-worker container. Enable with COMPOSE_FILE in .env (see .env.example).
 services:
-  # Kept out of the `ai` profile so it does not take port 11434 from the native Ollama.
+  # Kept out of the `ai` profile so it does not take port 11434 from the native Ollama. Without a
+  # native Ollama, enable the `ollama-container` profile: the published 127.0.0.1:11434 is what
+  # host.docker.internal:11434 reaches, so the AI containers need no other change.
   ollama:
     profiles: !override ['ollama-container']
 
