@@ -7,7 +7,7 @@ Guidelines for human and AI contributors to this repo.
 - **Monorepo** via npm workspaces: `client`, `server`
 - **Client**: Vite + React (JS), Tailwind CSS v3, react-router-dom, axios
 - **Server**: Node.js + Express (ESM), dotenv, cors
-- **Infra (local)**: docker-compose with PostgreSQL 16, Redis 7, MinIO
+- **Infra (local)**: docker-compose with PostgreSQL 16, Redis 7, Silo (`pgsty/silo`, MinIO fork; service still named `minio`)
 - **Tooling**: ESLint (flat config), Prettier, Jest (server tests), SQL migration runner
 
 ## Repo Layout

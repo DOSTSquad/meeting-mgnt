@@ -14,7 +14,7 @@ meeting-mgnt/
 ├── deploy/                  # Caddyfile and systemd units
 ├── docs/                    # deployment guidelines, GPU runbook, technical spec, Postman collection
 ├── designs/                 # Pencil design files
-├── docker-compose.yml       # local PostgreSQL, Redis, MinIO (AI services in the `ai` profile)
+├── docker-compose.yml       # local PostgreSQL, Redis, Silo (S3, MinIO fork) (AI services in the `ai` profile)
 └── package.json             # npm workspace root
 ```
 
@@ -31,7 +31,7 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`. Run one worker only; without it, generation requests stay `queued`.
 8. Start the client with `npm run dev --workspace=client`.
 
-The Compose stack starts PostgreSQL 16, Redis 7, MinIO, and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (health/API wrapper), `ai-worker` (Redis Streams consumer that runs Whisper and Llama 3), and `ollama` (the local model runtime it calls). Start them with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
+The Compose stack starts PostgreSQL 16, Redis 7, [Silo](https://github.com/pgsty/silo) (a maintained fork of the archived MinIO; the service is still named `minio`), and a one-shot `minio-init` sidecar. PostgreSQL also mounts [`scripts/postgres-init.sql`](scripts/postgres-init.sql) on first boot to enable the `pgcrypto` and `uuid-ossp` extensions. The optional AI containers are in the `ai` profile: `ai-service` (health/API wrapper), `ai-worker` (Redis Streams consumer that runs Whisper and Llama 3), and `ollama` (the local model runtime it calls). Start them with `docker compose --profile ai up -d --build`, then pull the language model once with `docker compose exec ollama ollama pull llama3` (~4.7 GB). Neither container starts on a plain `docker compose up`.
 
 The server defaults to port `3001`. The Vite client uses the normal Vite dev port and reads `VITE_*` environment variables only.
 
