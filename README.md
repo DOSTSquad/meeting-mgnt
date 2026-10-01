@@ -39,6 +39,29 @@ When the AI workflow is enabled, keep the API, server worker runtime, and Python
 The API handles HTTP, the server worker publishes the PostgreSQL outbox to Redis Streams and consumes
 AI results, and the Python worker executes Whisper or LLM jobs.
 
+### AI on macOS and NVIDIA GPUs
+
+The code is the same on every machine; only the Compose files differ. Set them once in `.env`
+(examples in [`.env.example`](.env.example)) and start everything with `docker compose up -d --build`.
+
+| Machine                        | `COMPOSE_FILE` in `.env`                    | Whisper | Ollama                    |
+| ------------------------------ | ------------------------------------------- | ------- | ------------------------- |
+| Any, CPU only                  | not set                                     | CPU     | CPU                       |
+| macOS                          | `docker-compose.yml:docker-compose.mac.yml` | CPU     | Apple GPU (native Ollama) |
+| Linux or Windows WSL2 + NVIDIA | `docker-compose.yml:docker-compose.gpu.yml` | CUDA    | CUDA                      |
+
+- **macOS**: Docker cannot reach the Apple GPU, so install Ollama natively (`brew install ollama`,
+  then `ollama pull llama3`) and stop the container one (`docker compose stop ollama`).
+  [`docker-compose.mac.yml`](docker-compose.mac.yml) points the AI containers at
+  `host.docker.internal:11434` and keeps the `ollama` container from starting.
+- **NVIDIA**: needs the NVIDIA driver (`nvidia-smi` works) and, on Linux, the NVIDIA Container
+  Toolkit. Check the GPU is used as in the [GPU Benchmark Runbook](docs/gpu-benchmark-runbook.md):
+  the `ai-worker` log shows `profile=gpu device=cuda`, and `ollama ps` shows `100% GPU` (Ollama
+  falls back to CPU silently).
+- Use the same `WHISPER_MODEL` and `OLLAMA_MODEL` on every machine so results are comparable, and
+  set `AI_TRANSCRIPTION_PROVIDER=whisper` and `AI_ANALYSIS_PROVIDER=llm`; the `.env.example`
+  defaults are fixtures.
+
 ## Database Migrations
 
 Run server migrations with:
