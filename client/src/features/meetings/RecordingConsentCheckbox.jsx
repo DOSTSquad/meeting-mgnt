@@ -11,8 +11,7 @@ export const RecordingConsentCheckbox = ({ checked, onChange }) => (
         I confirm every participant has been told about, and agreed to, this recording.
       </span>
       <span className="mt-0.5 block text-xs text-slate-500">
-        Required before you can upload or replace a recording. Your confirmation is stored with the
-        recording.
+        Required before you can upload a recording. Your confirmation is stored with the recording.
       </span>
     </span>
   </label>
