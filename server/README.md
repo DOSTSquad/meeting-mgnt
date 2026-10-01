@@ -26,6 +26,12 @@ Run database migrations with `npm run migrate --workspace=server`.
 
 Migrations are located in `server/db/migrations` and tracked in `schema_migrations`.
 
+## Seeding Local Data
+
+`npm run seed --workspace=server` fills a **local development** database with demonstration users (`@seed.local` addresses), meetings, action items and notifications. It is destructive: it truncates meetings and deletes every account that is not a seed user, so it refuses to run when `NODE_ENV=production`.
+
+There is no built-in password. Set `SEED_PASSWORD` in `.env` to choose one; otherwise the run generates a random password (16 characters) and prints it once at the end, next to the accounts that use it. Accounts that already exist keep their password and role, and the summary lists them separately; set `SEED_RESET_PASSWORDS=true` to reset them to the seed password and role. Copy the printed password when you see it: only its hash is stored.
+
 ## Recording Workflow Queue
 
 When `AI_PIPELINE_ENABLED=true`, run the API and server worker runtime as separate processes. The API
@@ -157,21 +163,47 @@ Exceptions that do not follow the table: meeting change requests are readable on
 
 ### Users (`/api/users`)
 
-| Method | Path   | Body                                                        | Returns                              |
-| ------ | ------ | ----------------------------------------------------------- | ------------------------------------ |
-| GET    | `/`    | —                                                           | `200 { users }` (any signed-in user) |
-| PUT    | `/:id` | partial: `{ name?, email?, role?, department?, password? }` | `200 { user }`, `404`                |
-| DELETE | `/:id` | —                                                           | `204`                                |
+| Method | Path   | Body                                                        | Returns                               |
+| ------ | ------ | ----------------------------------------------------------- | ------------------------------------- |
+| GET    | `/`    | —                                                           | `200 { users }` (any signed-in user)  |
+| POST   | `/`    | `{ name, email, password, role? }`                          | `201 { user }`, `409` duplicate email |
+| PUT    | `/:id` | partial: `{ name?, email?, role?, department?, password? }` | `200 { user }`, `404`                 |
+| DELETE | `/:id` | —                                                           | `204`                                 |
 
-`PUT` and `DELETE` require an `admin` account (`403` otherwise) and cannot target the caller's own account (`400`). `role` must be `staff` or `admin` (`400` otherwise; the database also enforces this with `users_role_check`). `id` must be a UUID, `email` a valid address, and a non-empty `password` at least 8 characters. An empty `password` leaves the password unchanged. Apply migration `0040_add_user_role_check.sql`, which resets any unknown role to `staff` before adding the constraint.
+`POST`, `PUT` and `DELETE` require an `admin` account (`403` otherwise). `POST` creates an account with a password of at least 8 characters; `role` is `staff` (default) or `admin`. `PUT` and `DELETE` and cannot target the caller's own account (`400`). `role` must be `staff` or `admin` (`400` otherwise; the database also enforces this with `users_role_check`). `id` must be a UUID, `email` a valid address, and a non-empty `password` at least 8 characters. An empty `password` leaves the password unchanged. Apply migration `0040_add_user_role_check.sql`, which resets any unknown role to `staff` before adding the constraint.
 
 ### Auth (`/api/auth`)
 
-| Method | Path        | Body                        | Returns                          |
-| ------ | ----------- | --------------------------- | -------------------------------- |
-| POST   | `/register` | `{ name, email, password }` | `201 { token, user }`            |
-| POST   | `/login`    | `{ email, password }`       | `200 { token, user }`            |
-| GET    | `/me`       | —                           | `200 { user }` for current token |
+Self-service sign-up is **closed by default**: `POST /register` returns `403` unless `SELF_REGISTRATION_ENABLED=true` is set in `.env`. With the default, an admin creates accounts through `POST /api/users` (or the Admin > Manage Users > Add user form in the client). A self-registered account is always `staff`; a `role` in the body is ignored. An existing deployment whose `.env` has no `SELF_REGISTRATION_ENABLED` becomes closed on its next restart.
+
+`PUT /me/password` lets a signed-in user change their own password: `currentPassword` must match (`403` otherwise), `newPassword` needs at least 8 characters and must differ from the current one (`400`), and nothing is returned or logged. JWTs are stateless in this codebase, so tokens issued before the change stay valid until `JWT_EXPIRES_IN` runs out; there is no revocation.
+
+**First admin on a fresh install.** No account exists yet and only an admin can create one, so create the first admin from the command line (safe to re-run):
+
+```sh
+read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD   # at least 8 characters; keeps it out of shell history
+npm run create-admin --workspace=server -- --email admin@example.org --name "Administrator"
+```
+
+`ADMIN_PASSWORD` is read from the environment, never from an argument (arguments are visible in `ps`). If it is unset a random 20-character password is generated and printed once as an `admin-password:` line; it is not stored anywhere else, so change it after the first login (Account > Change password). The last line of output is `admin-account: created|exists|promoted`.
+
+| Situation                                                    | Result                                                                                  | Exit code |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------- |
+| `--email` is new                                             | Creates an `admin` account                                                              | `0`       |
+| `--email` already belongs to an `admin`                      | Changes nothing (`exists`)                                                              | `0`       |
+| `--email` belongs to a `staff` account                       | Refuses; add `--promote` to make it an admin, its password stays as it was (`promoted`) | `1` / `0` |
+| No `--email` and an admin exists                             | Changes nothing (`exists`)                                                              | `0`       |
+| No `--email` and no admin exists                             | Asks for `--email`                                                                      | `2`       |
+| Invalid email, `ADMIN_PASSWORD` under 8 characters, DB error | Prints the reason (never the password)                                                  | `1`       |
+
+`scripts/bootstrap-vps.sh` runs this for you (`--admin-email`), so a host set up by the script already has its first admin. Local development can use `npm run seed` instead (see Seeding Local Data).
+
+| Method | Path           | Body                               | Returns                                  |
+| ------ | -------------- | ---------------------------------- | ---------------------------------------- |
+| POST   | `/register`    | `{ name, email, password }`        | `201 { token, user }`, `403` when closed |
+| POST   | `/login`       | `{ email, password }`              | `200 { token, user }`                    |
+| GET    | `/me`          | —                                  | `200 { user }` for current token         |
+| PUT    | `/me/password` | `{ currentPassword, newPassword }` | `204`, `403` wrong current password      |
 
 ### Meetings (`/api/meetings`)
 
@@ -194,7 +226,12 @@ Meeting responses include immutable `ownerId` and audit-only `createdBy`, plus `
 `POST /api/meetings` sends a best-effort calendar email to the organizer. `PUT /api/meetings/:id`
 is restricted to the meeting owner, an organizer, or an admin and sends material calendar updates to
 registered participants plus emailed external invitees linked through a confirmed meeting request.
-`DELETE /api/meetings/:id` is restricted to the meeting owner, an organizer, or an admin.
+`DELETE /api/meetings/:id` is restricted to the meeting owner, an organizer, or an admin. It also
+removes the meeting's stored objects (files, recordings, and the AI transcript/analysis artifacts)
+after the database delete; a storage failure is logged with the bucket, key and error code but does
+not fail the request, so a leftover object is possible if MinIO is unreachable at that moment.
+Deleting a user (`DELETE /api/users/:id`) stores nothing to clean up: the database refuses it while
+the account still owns or took part in a meeting, or uploaded a file or recording.
 
 **Status workflow.** `PUT /api/meetings/:id` enforces forward-only transitions on `status`:
 
@@ -283,14 +320,16 @@ Any meeting participant (or an admin) can read minutes. Only the meeting owner, 
 
 Meeting recordings are the dedicated audio source for transcript/minutes generation. Regular meeting materials may also include audio files, but those files do not automatically become the generation source.
 
-| Method | Path        | Body / Query                                            | Returns                                                        |
-| ------ | ----------- | ------------------------------------------------------- | -------------------------------------------------------------- |
-| GET    | `/`         | —                                                       | `200 { recording, transcript, analysisRun }`                   |
-| PUT    | `/`         | `multipart/form-data`: field `file`, optional `replace` | `201 { recording, transcript: null, analysisRun: null }`       |
-| POST   | `/generate` | —                                                       | `202 { recording, transcript, analysisRun, generationStatus }` |
-| DELETE | `/`         | —                                                       | `204`                                                          |
+| Method | Path        | Body / Query                                                               | Returns                                                        |
+| ------ | ----------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| GET    | `/`         | —                                                                          | `200 { recording, transcript, analysisRun }`                   |
+| PUT    | `/`         | `multipart/form-data`: `file`, `consentConfirmed=true`, optional `replace` | `201 { recording, transcript: null, analysisRun: null }`       |
+| POST   | `/generate` | —                                                                          | `202 { recording, transcript, analysisRun, generationStatus }` |
+| DELETE | `/`         | —                                                                          | `204`                                                          |
 
 Any meeting participant (or an admin) can read recording metadata, transcript status, and analysis-run status. Only the meeting owner, an organizer, or an admin can manage recordings. The API allows one active recording per meeting. Uploading a second recording without `replace=true` returns `409`; replacing archives the old recording and removes its object. Recordings are stored in the `meeting-audio` bucket with keys shaped as `meetings/{meetingId}/recordings/{recordingId}`.
+
+Every upload, including `replace`, must send `consentConfirmed=true` to confirm that all participants were told about and agreed to the recording; otherwise the request returns `400` (`details[0].field` is `consentConfirmed`) and nothing is stored. The API records who confirmed and when (`meeting_recordings.consent_confirmed_by`/`consent_confirmed_at`, exposed as `recording.consentConfirmedAt`); recordings uploaded before migration `0041_recording_consent.sql` have `consentConfirmedAt: null`. The web client asks for this with a checkbox above the upload controls.
 
 The endpoint accepts audio only (`audio/*`, up to 50 MB; other types return `415`). When a user picks a video (MP4, MOV, WebM, MKV), the web client copies the audio track into an `.m4a` in the browser (Web Worker, no re-encoding) and uploads only that file; the video is never sent. If the extracted audio is still over 50 MB, or the video has no audio track, the client shows an error and uploads nothing.
 

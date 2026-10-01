@@ -491,9 +491,9 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
   )
 
   const uploadRecording = useCallback(
-    async (incomingFiles, { replace = false } = {}) => {
+    async (incomingFiles, { replace = false, consentConfirmed = false } = {}) => {
       const [file] = Array.from(incomingFiles || [])
-      if (!file || !selectedMeetingId) {
+      if (!file || !selectedMeetingId || !consentConfirmed) {
         return
       }
 
@@ -514,6 +514,7 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
 
         const result = await uploadMeetingRecording(client, selectedMeetingId, recordingFile, {
           replace,
+          consentConfirmed,
         })
         setSelectedMeetingDetail((prev) =>
           prev

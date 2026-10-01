@@ -135,6 +135,7 @@ try {
   const uploaded = await uploadRecordingForMeeting({
     meetingId,
     callerId: userId,
+    consentConfirmed: true,
     file: {
       originalname: path.basename(AUDIO),
       mimetype: mimeType,

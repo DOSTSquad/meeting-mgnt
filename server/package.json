@@ -13,6 +13,7 @@
     "check:workflow": "node scripts/check-recording-workflow.js",
     "check:whisper": "node scripts/check-whisper-smoke.js",
     "seed": "node scripts/seed.js",
+    "create-admin": "node scripts/create-admin.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "test:db": "RUN_DB_TESTS=true NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
   },

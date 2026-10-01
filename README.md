@@ -26,7 +26,7 @@ The root `package.json` declares `client` and `server` as npm workspaces.
 2. Run `npm install` from the repo root.
 3. Start local infra with `docker compose up -d`.
 4. Apply database migrations with `npm run migrate --workspace=server`.
-5. Optional: seed local demo data with `npm run seed --workspace=server`.
+5. Optional: seed local demo data with `npm run seed --workspace=server`. It prints a generated password for the seeded accounts once at the end (or uses `SEED_PASSWORD` from `.env`), never resets accounts that already exist unless `SEED_RESET_PASSWORDS=true`, and refuses to run with `NODE_ENV=production`.
 6. Start the API with `npm run dev --workspace=server`.
 7. Start the worker runtime with `npm run worker:dev --workspace=server` when `AI_PIPELINE_ENABLED=true`. Run one worker only; without it, generation requests stay `queued`.
 8. Start the client with `npm run dev --workspace=client`.
@@ -139,17 +139,28 @@ PostgreSQL/Redis/MinIO, the AI worker, the systemd units, and the sudoers rule t
 needs. Run it once as root; afterwards the Deploy workflow keeps the host up to date.
 
 ```bash
-sudo bash scripts/bootstrap-vps.sh --deploy-user deploy --domain meeting.example.com
+sudo bash scripts/bootstrap-vps.sh --deploy-user deploy --admin-email admin@example.org \
+  --domain meeting.example.com
 ```
 
 | Option             | Purpose                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------- |
 | `--deploy-user`    | Account the Deploy workflow SSHes in as; owns the app directory. Defaults to the sudo caller |
+| `--admin-email`    | Create this administrator after the migrations (required on a fresh host, see below)         |
+| `--admin-name`     | Display name for that account (default `Administrator`)                                      |
 | `--domain`         | Serve this domain over automatic HTTPS. Without it the site is HTTP on the server's IP       |
 | `--app-dir`        | Application directory (default `/srv/meeting-mgnt`)                                          |
 | `--repo-url`       | Repository to clone; defaults to the origin of an existing checkout                          |
 | `--ai-mode`        | `whisper` (default, Whisper + Ollama containers) or `fixture` (canned output, no models)     |
 | `--skip-preflight` | Skip the OS, architecture, systemd, RAM and disk checks                                      |
+
+Self-registration is closed by default, so a host with no administrator has nobody who can log in.
+`--admin-email` therefore creates the first admin (`server/scripts/create-admin.js`). The password
+comes from the `ADMIN_PASSWORD` environment variable if you set it (through sudo:
+`sudo --preserve-env=ADMIN_PASSWORD bash scripts/bootstrap-vps.sh ...`), otherwise a random one is
+generated and printed once at the end of the run; it is never passed as an argument. On a re-run the
+account is left as it is and no password is printed; without `--admin-email` a re-run succeeds when
+an administrator already exists and stops with an error when none does.
 
 The script is idempotent and never modifies an existing `.env`. It generates the database, MinIO
 and JWT secrets, but the SMTP/Resend credentials are for outside services, so edit those in `.env`
@@ -424,7 +435,7 @@ When dependencies are unavailable, `/health` and `/health/ready` return `503` wi
 
 The server exposes JWT-protected REST endpoints under `/api`:
 
-- `/api/auth` — register, login, current user
+- `/api/auth` — login, current user, change own password (`PUT /me/password`), and register (closed unless `SELF_REGISTRATION_ENABLED=true`; admins create accounts with `POST /api/users`)
 - `/api/users` — list the user directory; admins can update roles/profiles and delete users
 - `/api/meetings` — full CRUD with RFC 5988 `Link`-header pagination, filters by status / date range, full-text search on title + description and uploaded file names via `?q=`, tags, and file counts; `status` transitions are forward-only (scheduled → completed → archived, with cancelled as a side branch)
 - `/api/meeting-requests` — scheduling request flow with time options, invitees, binary availability responses, and confirmation into a real meeting
@@ -432,7 +443,7 @@ The server exposes JWT-protected REST endpoints under `/api`:
 - `/api/meetings/:id/files` + `/api/files/:id` — upload (PDF/DOCX/XLSX/PPTX/images, 50 MB cap), list, presigned download (60 s URL), and delete meeting files
 - `/api/meetings/:id/action-items` + `/api/action-items/:id` — create, list (filter by status/assignee), update, and delete meeting action items (statuses: todo, in_progress, completed, cancelled)
 - `/api/meetings/:id/minutes` — read/update dedicated meeting minutes; `GET` eagerly creates an empty draft if one does not exist
-- `/api/meetings/:id/recording` — upload, read, archive, and generate from the meeting recording; `/analysis` returns the latest transcript, analysis, and suggestions; `/api/meetings/:id/workflow/events` streams status over SSE
+- `/api/meetings/:id/recording` — upload (the request must confirm participant consent with `consentConfirmed=true`), read, archive, and generate from the meeting recording; `/analysis` returns the latest transcript, analysis, and suggestions; `/api/meetings/:id/workflow/events` streams status over SSE
 - `/api/meetings/:id/analysis-suggestions` — edit, accept, or reject AI-suggested action items
 - `/api/meetings/:id/change-requests` — attendees send change requests; only the owner reads them
 - `/api/public/invitations/:token` — invitee availability through an emailed link, no sign-in

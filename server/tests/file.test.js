@@ -115,6 +115,11 @@ const buildRequest = ({
   },
 })
 
+// The route validator rejects a recording upload without consent before the controller runs, so
+// every request that reaches the controller carries it.
+const buildRecordingUploadRequest = ({ body = {}, ...rest } = {}) =>
+  buildRequest({ ...rest, body: { consentConfirmed: 'true', ...body } })
+
 const runHandler = async (handler, req) => {
   const res = createResponseRecorder()
   let nextError
@@ -377,7 +382,7 @@ dbDescribe('File controller (DB-backed)', () => {
     it('uploads one active recording for minutes workflow', async () => {
       const { res, nextError } = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -412,12 +417,45 @@ dbDescribe('File controller (DB-backed)', () => {
       expect(mockPublishAiJob).not.toHaveBeenCalled()
     })
 
+    it('rejects a recording upload without consent confirmation', async () => {
+      const { nextError } = await runHandler(
+        uploadRecordingHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({ originalname: 'no-consent.mp3', mimetype: 'audio/mpeg' }),
+        })
+      )
+
+      expect(nextError.statusCode).toBe(400)
+      expect(mockPutObject).not.toHaveBeenCalled()
+    })
+
+    it('records who confirmed consent and when', async () => {
+      const { res } = await runHandler(
+        uploadRecordingHandler,
+        buildRecordingUploadRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile({ originalname: 'consented.mp3', mimetype: 'audio/mpeg' }),
+        })
+      )
+
+      expect(res.body.recording.consentConfirmedAt).toEqual(expect.any(String))
+
+      const { rows } = await query(
+        'SELECT consent_confirmed_by FROM meeting_recordings WHERE id = $1',
+        [res.body.recording.id]
+      )
+      expect(rows[0].consent_confirmed_by).toBe(creatorUser.id)
+    })
+
     it('creates durable workflow rows when generation is requested', async () => {
       process.env.AI_PIPELINE_ENABLED = 'true'
 
       const uploaded = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -490,7 +528,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const uploaded = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -538,7 +576,7 @@ dbDescribe('File controller (DB-backed)', () => {
     it('removes the newly uploaded object if the database transaction fails', async () => {
       const { nextError } = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -563,7 +601,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const { nextError } = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -592,7 +630,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const first = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({ originalname: 'first-cleanup.mp3', mimetype: 'audio/mpeg' }),
@@ -604,7 +642,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const replace = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({ originalname: 'second-cleanup.mp3', mimetype: 'audio/mpeg' }),
@@ -631,7 +669,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const uploaded = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -697,7 +735,7 @@ dbDescribe('File controller (DB-backed)', () => {
     it('allows an attendee participant to view recording metadata', async () => {
       const uploaded = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({
@@ -727,7 +765,7 @@ dbDescribe('File controller (DB-backed)', () => {
     it('rejects a second active recording unless replace is true', async () => {
       await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({ originalname: 'first.mp3', mimetype: 'audio/mpeg' }),
@@ -736,7 +774,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const conflict = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({ originalname: 'second.mp3', mimetype: 'audio/mpeg' }),
@@ -746,7 +784,7 @@ dbDescribe('File controller (DB-backed)', () => {
 
       const replace = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({ originalname: 'second.mp3', mimetype: 'audio/mpeg' }),
@@ -772,7 +810,7 @@ dbDescribe('File controller (DB-backed)', () => {
     it('removes the active recording by archiving it and deleting the object', async () => {
       const uploaded = await runHandler(
         uploadRecordingHandler,
-        buildRequest({
+        buildRecordingUploadRequest({
           params: { meetingId: baseMeeting.id },
           user: { id: creatorUser.id },
           file: makeFakeFile({ originalname: 'remove-me.mp3', mimetype: 'audio/mpeg' }),

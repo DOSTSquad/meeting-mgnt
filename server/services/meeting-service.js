@@ -11,6 +11,7 @@ import { createTag, findTagByName } from '../repositories/tag-repository.js'
 import { findUserById } from '../repositories/user-repository.js'
 import { notifyMeetingCreated } from './notification-service.js'
 import { assertCan } from './permissions.js'
+import { collectMeetingObjects, removeObjectsBestEffort } from './storage-cleanup-service.js'
 
 const createHttpError = (message, statusCode) => {
   const error = new Error(message)
@@ -286,11 +287,14 @@ export const deleteMeetingById = async (id, callerId, callerRole) => {
     'Only the meeting owner or an organizer can delete this meeting'
   )
 
+  const storedObjects = await collectMeetingObjects(id)
   const removed = await deleteMeeting(id)
 
   if (!removed) {
     throw createHttpError('Meeting not found', 404)
   }
+
+  await removeObjectsBestEffort(storedObjects)
 }
 
 export const listMeetingsForQuery = async ({

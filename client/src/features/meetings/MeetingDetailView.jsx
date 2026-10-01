@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { AnalysisActionItemsPanel } from './AnalysisActionItemsPanel.jsx'
 import { AnalysisSummaryPanel } from './AnalysisSummaryPanel.jsx'
 import { RecordingProgress, RecordingStatusPill } from './RecordingProgress.jsx'
+import { RecordingConsentCheckbox } from './RecordingConsentCheckbox.jsx'
 import { TranscriptPanel } from './TranscriptPanel.jsx'
 import { MeetingChangeRequestDialog } from './MeetingChangeRequestDialog.jsx'
 import { MeetingChangeRequestInbox } from './MeetingChangeRequestInbox.jsx'
@@ -252,6 +253,7 @@ export const MeetingDetailView = ({
   const [changeRequestDialog, setChangeRequestDialog] = useState(null)
   const [isDragOverMaterialFiles, setIsDragOverMaterialFiles] = useState(false)
   const [isDragOverRecording, setIsDragOverRecording] = useState(false)
+  const [recordingConsent, setRecordingConsent] = useState(false)
   const [pendingMeetingStatus, setPendingMeetingStatus] = useState(null)
   const [isGeneratingMinutes, setIsGeneratingMinutes] = useState(false)
   const [currentTime] = useState(() => Date.now())
@@ -826,6 +828,10 @@ export const MeetingDetailView = ({
               <RecordingStatusPill pill={recordingProgress.pill} />
             </div>
 
+            {canManageMeeting && !pendingRecordingFile ? (
+              <RecordingConsentCheckbox checked={recordingConsent} onChange={setRecordingConsent} />
+            ) : null}
+
             {detail.recording ? (
               <div className="mt-4 space-y-3">
                 <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
@@ -862,14 +868,26 @@ export const MeetingDetailView = ({
                         <Play className="h-4 w-4 fill-current" aria-hidden="true" />
                         {isGeneratingMinutes ? 'Running...' : 'Process Recording'}
                       </button>
-                      <label className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700">
+                      <label
+                        className={`rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition ${
+                          recordingConsent
+                            ? 'cursor-pointer hover:border-blue-200 hover:text-blue-700'
+                            : 'cursor-not-allowed opacity-60'
+                        }`}
+                        title={recordingConsent ? undefined : 'Confirm participant consent first'}
+                      >
                         Replace
                         <input
                           type="file"
                           accept=".mp3,.wav,.m4a,.mp4,.mov,.webm,.mkv,audio/*,video/*"
                           className="sr-only"
+                          disabled={!recordingConsent}
                           onChange={(event) => {
-                            onUploadRecording(event.target.files, { replace: true })
+                            onUploadRecording(event.target.files, {
+                              replace: true,
+                              consentConfirmed: recordingConsent,
+                            })
+                            setRecordingConsent(false)
                             event.target.value = ''
                           }}
                         />
@@ -906,20 +924,26 @@ export const MeetingDetailView = ({
               </div>
             ) : canManageMeeting ? (
               <label
-                className={`mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
-                  isDragOverRecording
-                    ? 'border-blue-400 bg-blue-50 text-blue-700'
-                    : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
+                className={`mt-4 flex min-h-28 flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
+                  !recordingConsent
+                    ? 'cursor-not-allowed border-slate-200 text-slate-400 opacity-60'
+                    : isDragOverRecording
+                      ? 'cursor-pointer border-blue-400 bg-blue-50 text-blue-700'
+                      : 'cursor-pointer border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
                 }`}
                 onDragOver={(event) => {
                   event.preventDefault()
-                  setIsDragOverRecording(true)
+                  setIsDragOverRecording(recordingConsent)
                 }}
                 onDragLeave={() => setIsDragOverRecording(false)}
                 onDrop={(event) => {
                   event.preventDefault()
                   setIsDragOverRecording(false)
-                  onUploadRecording(event.dataTransfer?.files)
+                  if (!recordingConsent) {
+                    return
+                  }
+                  onUploadRecording(event.dataTransfer?.files, { consentConfirmed: true })
+                  setRecordingConsent(false)
                 }}
               >
                 <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
@@ -933,8 +957,10 @@ export const MeetingDetailView = ({
                   type="file"
                   accept=".mp3,.wav,.m4a,.mp4,.mov,.webm,.mkv,audio/*,video/*"
                   className="sr-only"
+                  disabled={!recordingConsent}
                   onChange={(event) => {
-                    onUploadRecording(event.target.files)
+                    onUploadRecording(event.target.files, { consentConfirmed: recordingConsent })
+                    setRecordingConsent(false)
                     event.target.value = ''
                   }}
                 />

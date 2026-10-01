@@ -1,11 +1,22 @@
 import bcrypt from 'bcryptjs'
 import { deleteUser, updateUser } from '../repositories/user-repository.js'
+import { createAccount } from '../services/auth-service.js'
 import { listUsersForDirectory } from '../services/user-service.js'
 
 export const list = async (req, res, next) => {
   try {
     const { users } = await listUsersForDirectory(req.user?.id)
     res.json({ users })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const create = async (req, res, next) => {
+  try {
+    const user = await createAccount(req.body ?? {})
+
+    res.status(201).json({ user })
   } catch (error) {
     next(error)
   }

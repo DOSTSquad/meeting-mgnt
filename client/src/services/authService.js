@@ -39,3 +39,7 @@ export const login = async ({ email, password }) => {
 
   return data
 }
+
+export const changePassword = async (client, { currentPassword, newPassword }) => {
+  await client.put('/api/auth/me/password', { currentPassword, newPassword })
+}

@@ -5,6 +5,12 @@ import '../load-env.js'
 import bcrypt from 'bcryptjs'
 
 import { closePool, query } from '../db/postgres.js'
+import {
+  assertSeedAllowed,
+  formatSeedCredentialSummary,
+  resolveSeedPassword,
+  shouldResetCredentials,
+} from './seed-credentials.js'
 
 const SALT_ROUNDS = 10
 
@@ -14,49 +20,42 @@ const usersSeed = [
     email: 'paveen.anuntakulnatee@seed.local',
     role: 'admin',
     department: 'operations',
-    password: 'Password123!',
   },
   {
     name: 'Nattanan Thepsathorn',
     email: 'nattanan.thepsathorn@seed.local',
     role: 'staff',
     department: 'operations',
-    password: 'Password123!',
   },
   {
     name: 'Hannah Law',
     email: 'hannah.law@seed.local',
     role: 'staff',
     department: 'operations',
-    password: 'Password123!',
   },
   {
     name: 'Elsie shim',
     email: 'elsie.shim@seed.local',
     role: 'staff',
     department: 'engineering',
-    password: 'Password123!',
   },
   {
     name: 'Jonel Hong',
     email: 'jonel.hong@seed.local',
     role: 'staff',
     department: 'operations',
-    password: 'Password123!',
   },
   {
     name: 'Yuhan Lei',
     email: 'yuhan.lei@seed.local',
     role: 'staff',
     department: 'engineering',
-    password: 'Password123!',
   },
   {
     name: 'Jhow liu',
     email: 'jhow.liu@seed.local',
     role: 'staff',
     department: 'operations',
-    password: 'Password123!',
   },
 ]
 
@@ -203,11 +202,25 @@ const buildMeetingsSeed = () => {
 
 const meetingsSeed = buildMeetingsSeed()
 
-const seedUsers = async () => {
+const findExistingSeedEmails = async () => {
+  const result = await query('SELECT email FROM users WHERE email = ANY($1::text[])', [
+    usersSeed.map((user) => user.email.toLowerCase()),
+  ])
+
+  return new Set(result.rows.map((row) => row.email))
+}
+
+// An existing account keeps its password and role unless SEED_RESET_PASSWORDS=true, so re-running
+// the seed never locks anyone out or demotes an admin.
+const seedUsers = async ({ password, resetCredentials }) => {
   const usersByEmail = new Map()
+  const existingEmails = await findExistingSeedEmails()
+  const appliedEmails = []
+  const keptEmails = []
 
   for (const user of usersSeed) {
-    const passwordHash = await bcrypt.hash(user.password, SALT_ROUNDS)
+    const email = user.email.toLowerCase()
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
     const result = await query(
       `
         INSERT INTO users (name, email, password_hash, role, department)
@@ -215,18 +228,23 @@ const seedUsers = async () => {
         ON CONFLICT (email) DO UPDATE
         SET
           name = EXCLUDED.name,
-          password_hash = EXCLUDED.password_hash,
-          role = EXCLUDED.role,
-          department = EXCLUDED.department
+          department = EXCLUDED.department,
+          password_hash = CASE WHEN $6::boolean THEN EXCLUDED.password_hash ELSE users.password_hash END,
+          role = CASE WHEN $6::boolean THEN EXCLUDED.role ELSE users.role END
         RETURNING id, email
       `,
-      [user.name, user.email.toLowerCase(), passwordHash, user.role, user.department]
+      [user.name, email, passwordHash, user.role, user.department, resetCredentials]
     )
 
     usersByEmail.set(result.rows[0].email, result.rows[0].id)
+    if (existingEmails.has(email) && !resetCredentials) {
+      keptEmails.push(email)
+    } else {
+      appliedEmails.push(email)
+    }
   }
 
-  return usersByEmail
+  return { usersByEmail, appliedEmails, keptEmails }
 }
 
 const clearPreviousSeedMeetings = async () => {
@@ -554,7 +572,11 @@ const seedNotifications = async () => {
 }
 
 const main = async () => {
-  const usersByEmail = await seedUsers()
+  const { password, generated } = resolveSeedPassword()
+  const { usersByEmail, appliedEmails, keptEmails } = await seedUsers({
+    password,
+    resetCredentials: shouldResetCredentials(),
+  })
 
   await clearPreviousSeedMeetings()
   await clearNonSeedUsers()
@@ -571,7 +593,18 @@ const main = async () => {
   console.log(`- users: ${usersSeed.length}`)
   console.log(`- meetings: ${meetingsSeed.length}`)
   console.log(`- action_items: ${actionItemCount}`)
-  console.log('Sample login: paveen.anuntakulnatee@seed.local / Password123!')
+
+  formatSeedCredentialSummary({ password, generated, appliedEmails, keptEmails }).forEach((line) =>
+    console.log(line)
+  )
+}
+
+// Checked before anything touches the database.
+try {
+  assertSeedAllowed()
+} catch (error) {
+  console.error(error.message)
+  process.exit(1)
 }
 
 try {

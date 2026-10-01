@@ -16,6 +16,7 @@ const RECORDING_COLUMNS = `
   status,
   error_message,
   archived_at,
+  consent_confirmed_at,
   created_at
 `
 
@@ -40,6 +41,7 @@ const mapRecording = (row) => {
     status: row.status,
     errorMessage: row.error_message,
     archivedAt: mapNullableDate(row.archived_at),
+    consentConfirmedAt: mapNullableDate(row.consent_confirmed_at),
     createdAt: row.created_at.toISOString(),
   }
 }
@@ -71,6 +73,8 @@ export const createRecording = async (
     bucketName,
     objectKey,
     status = 'uploaded',
+    consentConfirmedAt = null,
+    consentConfirmedBy = null,
   },
   db
 ) => {
@@ -85,12 +89,26 @@ export const createRecording = async (
         size_bytes,
         bucket_name,
         object_key,
-        status
+        status,
+        consent_confirmed_at,
+        consent_confirmed_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING ${RECORDING_COLUMNS}
     `,
-    [id, meetingId, uploadedBy, fileName, mimeType, sizeBytes, bucketName, objectKey, status]
+    [
+      id,
+      meetingId,
+      uploadedBy,
+      fileName,
+      mimeType,
+      sizeBytes,
+      bucketName,
+      objectKey,
+      status,
+      consentConfirmedAt,
+      consentConfirmedBy,
+    ]
   )
 
   return mapRecording(result.rows[0])

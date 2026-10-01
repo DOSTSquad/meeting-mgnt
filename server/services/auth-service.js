@@ -5,6 +5,7 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
+  updateUser,
 } from '../repositories/user-repository.js'
 
 const SALT_ROUNDS = 10
@@ -42,7 +43,11 @@ const signToken = (user) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   })
 
-export const registerUser = async ({ name, email, password }) => {
+// Self-service sign-up is closed unless an operator opts in; accounts are otherwise created by an
+// admin through POST /api/users.
+export const isSelfRegistrationEnabled = () => process.env.SELF_REGISTRATION_ENABLED === 'true'
+
+export const createAccount = async ({ name, email, password, role }) => {
   if (!name || !name.trim()) {
     throw createHttpError('Name is required', 400)
   }
@@ -65,7 +70,7 @@ export const registerUser = async ({ name, email, password }) => {
   let user
 
   try {
-    user = await createUser({ name, email, passwordHash })
+    user = await createUser({ name, email, passwordHash, role })
   } catch (error) {
     if (error.code === '23505') {
       throw createHttpError('A user with this email already exists', 409)
@@ -74,9 +79,16 @@ export const registerUser = async ({ name, email, password }) => {
     throw error
   }
 
+  return sanitizeUser(user)
+}
+
+// Never takes a role: a self-registered account is always staff.
+export const registerUser = async ({ name, email, password }) => {
+  const user = await createAccount({ name, email, password })
+
   return {
     token: signToken(user),
-    user: sanitizeUser(user),
+    user,
   }
 }
 
@@ -109,6 +121,35 @@ export const loginUser = async ({ email, password }) => {
     token: signToken(user),
     user: sanitizeUser(user),
   }
+}
+
+// Tokens are stateless, so a token issued before the change stays valid until it expires.
+export const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  if (!currentPassword) {
+    throw createHttpError('Current password is required', 400)
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    throw createHttpError('Password must be at least 8 characters long', 400)
+  }
+
+  if (newPassword === currentPassword) {
+    throw createHttpError('New password must be different from the current password', 400)
+  }
+
+  const user = await findUserById(userId)
+
+  if (!user) {
+    throw createHttpError('Authentication required', 401)
+  }
+
+  const currentPasswordMatches = await bcrypt.compare(currentPassword, user.passwordHash)
+
+  if (!currentPasswordMatches) {
+    throw createHttpError('Current password is incorrect', 403)
+  }
+
+  await updateUser(user.id, { passwordHash: await bcrypt.hash(newPassword, SALT_ROUNDS) })
 }
 
 export const verifyToken = (token) => jwt.verify(token, getJwtSecret())

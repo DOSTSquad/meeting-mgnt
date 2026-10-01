@@ -129,7 +129,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Smoke User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
             },
-            "description": "Creates a new user. Returns `{ token, user }` and sets the `token` collection variable on success."
+            "description": "Self-service sign-up, closed by default: returns 403 unless the server sets `SELF_REGISTRATION_ENABLED=true`. Creates a staff user and returns `{ token, user }`, setting the `token` collection variable on success. Use Users > Create user (admin) to add accounts otherwise."
           },
           "event": [
             {
@@ -196,6 +196,28 @@
             },
             "description": "Returns the user attached to the current bearer token."
           }
+        },
+        {
+          "name": "Change own password",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me", "password"]
+            },
+            "description": "Changes the password of the user behind the bearer token. `currentPassword` must match (403 otherwise); `newPassword` needs at least 8 characters and must differ from the current one (400). 401 without a token. Returns 204 with no body. Tokens are stateless, so tokens issued earlier stay valid until they expire.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"a-new-password-123\"\n}"
+            }
+          }
         }
       ]
     },
@@ -212,6 +234,28 @@
               "path": ["users"]
             },
             "description": "Returns `{ users: [...] }` (id, name, email, role, department, createdAt) for the user directory. Any signed-in user can call it."
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Admin only (403 for staff, 401 without a token). Creates an account: `name`, `email`, `password` (at least 8 characters) and optional `role` (`staff` default, or `admin`). 409 for a duplicate email, 400 for invalid input. Returns `201 { user }` (no token).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Staff Member\",\n  \"email\": \"new.staff@example.com\",\n  \"password\": \"{{password}}\",\n  \"role\": \"staff\"\n}"
+            }
           }
         },
         {
@@ -1066,6 +1110,12 @@
                   "description": "Select an MP3/WAV/M4A audio file ≤ 50 MB"
                 },
                 {
+                  "key": "consentConfirmed",
+                  "value": "true",
+                  "type": "text",
+                  "description": "Required. Must be true: confirms every participant agreed to the recording (otherwise 400)"
+                },
+                {
                   "key": "replace",
                   "value": "true",
                   "type": "text",
@@ -1073,7 +1123,7 @@
                 }
               ]
             },
-            "description": "Owner, organizer, or admin only. Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409."
+            "description": "Owner, organizer, or admin only. Uploads the one active recording used for minutes generation. Returns `{ recording, transcript: null, analysisRun: null }`; generation does not start until the Generate minutes request. Without `replace=true`, a second active recording returns 409. Every upload must send `consentConfirmed=true`, otherwise it returns 400."
           },
           "event": [
             {
