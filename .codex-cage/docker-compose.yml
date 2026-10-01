@@ -31,7 +31,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -49,7 +49,7 @@ services:
       retries: 5
 
   minio-init:
-    image: minio/mc:latest
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     depends_on:
       minio:
         condition: service_healthy
