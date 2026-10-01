@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { getRecordingProgress } from '../src/features/meetings/recordingProgress.js'
+import { formatDuration } from '../src/utils/duration.js'
 import { formatFileSize } from '../src/utils/fileSize.js'
 
 const recording = (status = 'uploaded', extra = {}) => ({ id: 'r1', status, ...extra })
@@ -176,6 +177,183 @@ test('a recording that failed before any transcript exists shows the recording e
   assert.equal(progress.pill, 'failed')
   assert.deepEqual(states(progress), ['done', 'failed', 'pending', 'pending'])
   assert.equal(step(progress, 'transcribing').description, 'AI pipeline is disabled')
+})
+
+const STARTED_AT = '2026-09-01T10:00:00.000Z'
+const startedAtMs = Date.parse(STARTED_AT)
+const secondsAfter = (seconds) => new Date(startedAtMs + seconds * 1000).toISOString()
+
+test('finished steps report how long each ran, from worker start to completion', () => {
+  const progress = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', startedAt: STARTED_AT, completedAt: secondsAfter(45) },
+    analysisRun: {
+      status: 'ready_for_review',
+      startedAt: secondsAfter(50),
+      completedAt: secondsAfter(50 + 12 * 60 + 5),
+    },
+  })
+
+  assert.equal(step(progress, 'transcribing').durationMs, 45_000)
+  assert.equal(step(progress, 'transcribing').runningSinceMs, null)
+  assert.equal(step(progress, 'analysing').durationMs, 725_000)
+  assert.equal(step(progress, 'analysing').runningSinceMs, null)
+})
+
+test('a running transcription counts up from its start using the injected now', () => {
+  const progress = getRecordingProgress({
+    recording: recording('transcribing'),
+    transcript: { status: 'processing', startedAt: STARTED_AT },
+    analysisRun: { status: 'queued' },
+    now: startedAtMs + 12_500,
+  })
+
+  assert.equal(step(progress, 'transcribing').durationMs, 12_500)
+  assert.equal(step(progress, 'transcribing').runningSinceMs, startedAtMs)
+  assert.equal(step(progress, 'analysing').durationMs, null)
+})
+
+test('a running analysis counts up from its start while transcribing keeps its final time', () => {
+  const progress = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', startedAt: STARTED_AT, completedAt: secondsAfter(30) },
+    analysisRun: { status: 'processing', startedAt: secondsAfter(35) },
+    now: startedAtMs + 95_000,
+  })
+
+  assert.equal(step(progress, 'transcribing').durationMs, 30_000)
+  assert.equal(step(progress, 'analysing').durationMs, 60_000)
+  assert.equal(step(progress, 'analysing').runningSinceMs, startedAtMs + 35_000)
+})
+
+test('the running duration is a pure function of the injected now', () => {
+  const input = {
+    recording: recording('transcribing'),
+    transcript: { status: 'processing', startedAt: STARTED_AT },
+  }
+
+  assert.equal(
+    step(getRecordingProgress({ ...input, now: startedAtMs + 1_000 }), 'transcribing').durationMs,
+    1_000
+  )
+  assert.equal(
+    step(getRecordingProgress({ ...input, now: startedAtMs + 61_000 }), 'transcribing').durationMs,
+    61_000
+  )
+})
+
+test('steps still waiting for the AI worker have no duration', () => {
+  const queuedTranscription = getRecordingProgress({
+    recording: recording('uploaded'),
+    transcript: { status: 'processing', startedAt: STARTED_AT },
+    analysisRun: { status: 'queued' },
+    now: startedAtMs + 5_000,
+  })
+  const queuedAnalysis = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', startedAt: STARTED_AT, completedAt: secondsAfter(30) },
+    analysisRun: { status: 'queued', startedAt: null },
+    now: startedAtMs + 60_000,
+  })
+
+  assert.equal(step(queuedTranscription, 'transcribing').durationMs, null)
+  assert.equal(step(queuedTranscription, 'transcribing').runningSinceMs, null)
+  assert.equal(step(queuedAnalysis, 'analysing').durationMs, null)
+  assert.equal(step(queuedAnalysis, 'analysing').runningSinceMs, null)
+})
+
+test('rows without startedAt, or a finished row without completedAt, have no duration', () => {
+  const legacy = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', completedAt: secondsAfter(45) },
+    analysisRun: { status: 'ready_for_review', startedAt: STARTED_AT },
+  })
+  const running = getRecordingProgress({
+    recording: recording('transcribing'),
+    transcript: { status: 'processing', startedAt: null },
+  })
+
+  assert.equal(step(legacy, 'transcribing').durationMs, null)
+  assert.equal(step(legacy, 'analysing').durationMs, null)
+  assert.equal(step(running, 'transcribing').durationMs, null)
+  assert.equal(step(running, 'transcribing').runningSinceMs, null)
+})
+
+test('failed and cancelled steps have no duration even when they had started', () => {
+  const failedTranscription = getRecordingProgress({
+    recording: recording('failed'),
+    transcript: { status: 'failed', startedAt: STARTED_AT },
+    now: startedAtMs + 10_000,
+  })
+  const failedAnalysis = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', startedAt: STARTED_AT, completedAt: secondsAfter(30) },
+    analysisRun: { status: 'failed', startedAt: secondsAfter(35) },
+    now: startedAtMs + 90_000,
+  })
+  const cancelledAnalysis = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', startedAt: STARTED_AT, completedAt: secondsAfter(30) },
+    analysisRun: { status: 'cancelled', startedAt: secondsAfter(35) },
+  })
+
+  assert.equal(step(failedTranscription, 'transcribing').durationMs, null)
+  assert.equal(step(failedAnalysis, 'analysing').durationMs, null)
+  assert.equal(step(failedAnalysis, 'transcribing').durationMs, 30_000)
+  assert.equal(step(cancelledAnalysis, 'analysing').durationMs, null)
+})
+
+test('pending steps and the uploading and completed steps never have a duration', () => {
+  const done = getRecordingProgress({
+    recording: recording('transcribed'),
+    transcript: { status: 'completed', startedAt: STARTED_AT, completedAt: secondsAfter(45) },
+    analysisRun: {
+      status: 'ready_for_review',
+      startedAt: secondsAfter(50),
+      completedAt: secondsAfter(80),
+    },
+  })
+  const idle = getRecordingProgress({ recording: recording() })
+  const uploading = getRecordingProgress({ pendingUpload: { extractProgress: null } })
+
+  for (const key of ['uploading', 'completed']) {
+    assert.equal(step(done, key).durationMs, null)
+    assert.equal(step(done, key).runningSinceMs, null)
+  }
+
+  for (const progress of [idle, uploading]) {
+    for (const candidate of progress.steps) {
+      assert.equal(candidate.durationMs, null)
+      assert.equal(candidate.runningSinceMs, null)
+    }
+  }
+})
+
+test('a start timestamp ahead of the clock never yields a negative duration', () => {
+  const progress = getRecordingProgress({
+    recording: recording('transcribing'),
+    transcript: { status: 'processing', startedAt: secondsAfter(10) },
+    now: startedAtMs,
+  })
+
+  assert.equal(step(progress, 'transcribing').durationMs, 0)
+})
+
+test('formatDuration', () => {
+  assert.equal(formatDuration(0), '0s')
+  assert.equal(formatDuration(999), '0s')
+  assert.equal(formatDuration(45_000), '45s')
+  assert.equal(formatDuration(59_999), '59s')
+  assert.equal(formatDuration(60_000), '1m 00s')
+  assert.equal(formatDuration(725_000), '12m 05s')
+  assert.equal(formatDuration(3_599_000), '59m 59s')
+  assert.equal(formatDuration(3_600_000), '1h 00m')
+  assert.equal(formatDuration(3_720_000), '1h 02m')
+  assert.equal(formatDuration(26 * 3_600_000 + 30 * 60_000), '26h 30m')
+  assert.equal(formatDuration(-5_000), '0s')
+  assert.equal(formatDuration(undefined), '')
+  assert.equal(formatDuration(null), '')
+  assert.equal(formatDuration(Number.NaN), '')
 })
 
 test('formatFileSize', () => {

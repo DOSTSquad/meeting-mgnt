@@ -52,7 +52,7 @@ const readRecording = async (id) => {
 
 const readTranscript = async (id) => {
   const result = await query(
-    'SELECT status, transcript_text, segments, duration_seconds, error_message, completed_at FROM meeting_transcripts WHERE id = $1',
+    'SELECT status, transcript_text, segments, duration_seconds, error_message, started_at, completed_at FROM meeting_transcripts WHERE id = $1',
     [id]
   )
 
@@ -60,7 +60,10 @@ const readTranscript = async (id) => {
 }
 
 const readAnalysisRun = async (id) => {
-  const result = await query('SELECT status, error_message FROM analysis_runs WHERE id = $1', [id])
+  const result = await query(
+    'SELECT status, error_message, started_at, completed_at FROM analysis_runs WHERE id = $1',
+    [id]
+  )
 
   return result.rows[0]
 }
@@ -165,6 +168,28 @@ dbDescribe('transcription workflow transitions', () => {
 
     expect(second.stale).toBe(false)
     expect(second.recording.status).toBe('transcribing')
+  })
+
+  it('stamps started_at when work starts and keeps the first one across a retry', async () => {
+    expect((await readTranscript(transcriptId)).started_at).toBeNull()
+
+    const started = await startTranscription({ recordingId, transcriptId })
+    const firstStartedAt = (await readTranscript(transcriptId)).started_at
+
+    expect(firstStartedAt).not.toBeNull()
+    expect(started.transcript.startedAt).toBe(firstStartedAt.toISOString())
+
+    await startTranscription({ recordingId, transcriptId })
+
+    expect((await readTranscript(transcriptId)).started_at).toEqual(firstStartedAt)
+  })
+
+  it('does not stamp started_at when the start is stale', async () => {
+    await query('UPDATE meeting_recordings SET archived_at = NOW() WHERE id = $1', [recordingId])
+
+    await startTranscription({ recordingId, transcriptId })
+
+    expect((await readTranscript(transcriptId)).started_at).toBeNull()
   })
 
   it('completes the transcript and the recording in one transaction', async () => {
@@ -416,6 +441,27 @@ dbDescribe('analysis workflow transitions', () => {
     expect(started.stale).toBe(false)
     expect(started.transcript.status).toBe('completed')
     expect((await readAnalysisRun(analysisRunId)).status).toBe('processing')
+  })
+
+  it('stamps started_at when the run starts and keeps the first one across a retry', async () => {
+    await completeTranscriptFirst()
+    expect((await readAnalysisRun(analysisRunId)).started_at).toBeNull()
+
+    const started = await startAnalysis({ analysisRunId, transcriptId, recordingId })
+    const firstStartedAt = (await readAnalysisRun(analysisRunId)).started_at
+
+    expect(firstStartedAt).not.toBeNull()
+    expect(started.analysisRun.startedAt).toBe(firstStartedAt.toISOString())
+
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+
+    expect((await readAnalysisRun(analysisRunId)).started_at).toEqual(firstStartedAt)
+  })
+
+  it('does not stamp started_at while the transcript is not completed', async () => {
+    await startAnalysis({ analysisRunId, transcriptId, recordingId })
+
+    expect((await readAnalysisRun(analysisRunId)).started_at).toBeNull()
   })
 
   it('persists the result, provenance, and proposed suggestions in one transaction', async () => {

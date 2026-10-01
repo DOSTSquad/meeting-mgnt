@@ -296,6 +296,8 @@ The endpoint accepts audio only (`audio/*`, up to 50 MB; other types return `415
 
 Uploading always stores audio metadata only and returns `transcript: null` and `analysisRun: null`. When `AI_PIPELINE_ENABLED=true`, `POST /generate` transactionally creates a `processing` transcript, a `queued` analysis run, and a durable `recording.generation_requested` outbox event. The server worker publishes a transcription command to Redis Streams; the Python `ai-worker` writes a result artifact to MinIO and emits a result event. The server consumes that event, completes the transcript in PostgreSQL, and creates the analysis outbox event in the same transaction. PostgreSQL statuses are the user-visible source of truth. Only one generation may run for a recording; another request while its transcript is `processing` or its analysis is `queued` or `processing` returns `409`. The recording changes to `transcribing` only when the AI worker emits a started event. Analysis runs use `queued`, `processing`, `ready_for_review`, `failed`, and `cancelled`; generated action-item suggestions start as `proposed`.
 
+`transcript` and `analysisRun` carry `createdAt`, `startedAt`, and `completedAt` (ISO strings or `null`). `startedAt` is stamped once, when the AI worker emits its started event (`transcription.started` / `analysis.started`); a retried job keeps the first value, so the duration covers every attempt. `completedAt - startedAt` is therefore the step's run time without queue wait, whereas `createdAt` is when generation was requested. `startedAt` is `null` while the step is queued and for rows created before the column existed (migration `0042_workflow_started_at.sql`, no backfill). The web client shows these durations on the recording progress stepper.
+
 The Python worker consumes transcription jobs through the provider selected by
 `AI_TRANSCRIPTION_PROVIDER`. Production should use `whisper`; `fixture` is available for local
 workflow checks. Audio is read from MinIO by the AI worker and is never stored in Redis.
@@ -487,10 +489,10 @@ Frames:
 | `error`       | The stream ended early, for example because access was revoked mid-stream.                                            |
 | `: heartbeat` | A comment frame, sent every `WORKFLOW_SSE_HEARTBEAT_MS` (default `15000`), so proxies do not reap an idle connection. |
 
-Payloads carry identifiers, statuses, error messages, timestamps, and
-`segmentCount` only — never transcript text, audio, credentials, or presigned
-URLs. A client that wants the transcript body refetches
-`GET /api/meetings/:meetingId/recording` after `settled`.
+Payloads carry identifiers, statuses, error messages, timestamps (`startedAt` and
+`completedAt` on `transcript` and `analysisRun`), and `segmentCount` only — never
+transcript text, audio, credentials, or presigned URLs. A client that wants the
+transcript body refetches `GET /api/meetings/:meetingId/recording` after `settled`.
 
 Because a reconnect always begins with a fresh `snapshot`, a Redis Pub/Sub
 message dropped while a client was away cannot leave the UI stale. Redis is an

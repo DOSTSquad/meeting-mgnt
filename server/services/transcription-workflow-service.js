@@ -12,6 +12,7 @@ import {
   completeTranscript,
   failTranscript,
   findTranscriptById,
+  markTranscriptStarted,
 } from '../repositories/transcript-repository.js'
 
 // A recording that has not started transcribing yet, or one already in flight
@@ -62,7 +63,15 @@ export const startTranscription = async ({ recordingId, transcriptId }) =>
       return STALE
     }
 
-    return { stale: false, recording, transcript: current.transcript }
+    // Stamped only after the recording guard passes: a stale return still commits,
+    // so writing first would leave a start time on a job that never ran.
+    const transcript = await markTranscriptStarted({ id: transcriptId, recordingId }, client)
+
+    if (!transcript) {
+      return STALE
+    }
+
+    return { stale: false, recording, transcript }
   })
 
 export const completeTranscription = async ({

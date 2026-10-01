@@ -31,11 +31,20 @@ const fullAggregate = {
     status: 'completed',
     errorMessage: null,
     durationSeconds: 60,
+    startedAt: '2026-08-26T23:59:00.000Z',
     completedAt: '2026-08-27T00:00:00.000Z',
     transcriptText: 'Highly confidential meeting content.',
     segments: [{ text: 'one' }, { text: 'two' }, { text: 'three' }],
   },
-  analysisRun: { id: 'run-1', status: 'queued', errorMessage: null, createdBy: CALLER_ID },
+  analysisRun: {
+    id: 'run-1',
+    status: 'processing',
+    errorMessage: null,
+    startedAt: '2026-08-27T00:00:30.000Z',
+    completedAt: null,
+    createdBy: CALLER_ID,
+    summary: 'Highly confidential summary.',
+  },
 }
 
 describe('workflow snapshot projection', () => {
@@ -58,9 +67,16 @@ describe('workflow snapshot projection', () => {
         errorMessage: null,
         durationSeconds: 60,
         segmentCount: 3,
+        startedAt: '2026-08-26T23:59:00.000Z',
         completedAt: '2026-08-27T00:00:00.000Z',
       },
-      analysisRun: { id: 'run-1', status: 'queued', errorMessage: null },
+      analysisRun: {
+        id: 'run-1',
+        status: 'processing',
+        errorMessage: null,
+        startedAt: '2026-08-27T00:00:30.000Z',
+        completedAt: null,
+      },
     })
   })
 

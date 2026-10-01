@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Check, CheckCircle2, CircleX, Loader2, X } from 'lucide-react'
+
+import { formatDuration } from '../../utils/duration.js'
 
 const PILL_STYLES = {
   processing: {
@@ -63,20 +66,54 @@ const StepCircle = ({ state }) => (
   </span>
 )
 
-const StepConnector = ({ state }) => (
-  <span className="ml-2 h-0.5 flex-1 rounded-full bg-slate-200" aria-hidden="true">
-    <span className={`block h-full rounded-full ${CONNECTOR_FILL[state]}`} />
+// Only mounted while a step is running, so the interval exists exactly as long as it is needed.
+const LiveDuration = ({ sinceMs }) => {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  return formatDuration(now - sinceMs)
+}
+
+const StepDuration = ({ step }) => {
+  const isRunning = step.runningSinceMs !== null
+  const hasDuration = isRunning || step.durationMs !== null
+
+  if (!hasDuration) {
+    return null
+  }
+
+  return (
+    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-slate-50 px-1.5 text-[11px] font-semibold leading-none tabular-nums text-slate-500">
+      <span className="sr-only">{isRunning ? 'Running for ' : 'Took '}</span>
+      {isRunning ? <LiveDuration sinceMs={step.runningSinceMs} /> : formatDuration(step.durationMs)}
+    </span>
+  )
+}
+
+// The duration sits on the line that leaves its step, so it reads as "this step took X
+// before the next one began". The label's background matches the stepper's to break the line.
+const StepConnector = ({ step }) => (
+  <span className="relative ml-2 flex-1">
+    <span className="block h-0.5 rounded-full bg-slate-200" aria-hidden="true">
+      <span className={`block h-full rounded-full ${CONNECTOR_FILL[step.state]}`} />
+    </span>
+    <StepDuration step={step} />
   </span>
 )
 
 export const RecordingProgress = ({ steps }) => (
-  <div className="relative overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+  <div className="relative overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
     <ol className="grid min-w-[34rem] grid-cols-4 gap-3" aria-label="Recording processing progress">
       {steps.map((step, index) => (
         <li key={step.key} aria-current={step.state === 'active' ? 'step' : undefined}>
           <div className="flex items-center">
             <StepCircle state={step.state} />
-            {index < steps.length - 1 ? <StepConnector state={step.state} /> : null}
+            {index < steps.length - 1 ? <StepConnector step={step} /> : null}
           </div>
           <p className="mt-2 text-sm font-bold text-slate-900">
             {step.label}

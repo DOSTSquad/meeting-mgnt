@@ -15,6 +15,7 @@ const TRANSCRIPT_COLUMNS = `
   error_message,
   created_at,
   updated_at,
+  started_at,
   completed_at
 `
 
@@ -38,6 +39,7 @@ const mapTranscript = (row) => {
     errorMessage: row.error_message,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    startedAt: mapNullableDate(row.started_at),
     completedAt: mapNullableDate(row.completed_at),
   }
 }
@@ -65,6 +67,25 @@ export const findTranscriptById = async (id, db) => {
       WHERE id = $1
     `,
     [id]
+  )
+
+  return mapTranscript(result.rows[0])
+}
+
+// Guarded like completion. COALESCE keeps the first start, so a retried job's
+// duration covers every attempt rather than only the last one.
+export const markTranscriptStarted = async ({ id, recordingId }, db) => {
+  const result = await executor(db).query(
+    `
+      UPDATE meeting_transcripts
+      SET started_at = COALESCE(started_at, NOW()),
+          updated_at = NOW()
+      WHERE id = $1
+        AND recording_id = $2
+        AND status = 'processing'
+      RETURNING ${TRANSCRIPT_COLUMNS}
+    `,
+    [id, recordingId]
   )
 
   return mapTranscript(result.rows[0])
