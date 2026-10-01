@@ -18,6 +18,7 @@ const ANALYSIS_RUN_COLUMNS = `
   prompt_version,
   created_at,
   updated_at,
+  started_at,
   completed_at
 `
 
@@ -44,6 +45,7 @@ const mapAnalysisRun = (row) => {
     promptVersion: row.prompt_version ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    startedAt: mapNullableDate(row.started_at),
     completedAt: mapNullableDate(row.completed_at),
   }
 }
@@ -128,6 +130,7 @@ export const startAnalysisRun = async ({ id, transcriptId }, db) => {
       UPDATE analysis_runs
       SET status = 'processing',
           error_message = NULL,
+          started_at = COALESCE(started_at, NOW()),
           updated_at = NOW()
       WHERE id = $1
         AND transcript_id = $2

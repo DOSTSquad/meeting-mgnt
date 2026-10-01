@@ -32,6 +32,7 @@ const toWorkflowSnapshot = ({ recording, transcript, analysisRun }) => ({
         errorMessage: transcript.errorMessage,
         durationSeconds: transcript.durationSeconds,
         segmentCount: Array.isArray(transcript.segments) ? transcript.segments.length : 0,
+        startedAt: transcript.startedAt,
         completedAt: transcript.completedAt,
       }
     : null,
@@ -40,6 +41,8 @@ const toWorkflowSnapshot = ({ recording, transcript, analysisRun }) => ({
         id: analysisRun.id,
         status: analysisRun.status,
         errorMessage: analysisRun.errorMessage,
+        startedAt: analysisRun.startedAt,
+        completedAt: analysisRun.completedAt,
       }
     : null,
 })
