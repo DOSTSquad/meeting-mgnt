@@ -50,10 +50,17 @@ The code is the same on every machine; only the Compose files differ. Set them o
 | macOS                          | `docker-compose.yml:docker-compose.mac.yml` | CPU     | Apple GPU (native Ollama) |
 | Linux or Windows WSL2 + NVIDIA | `docker-compose.yml:docker-compose.gpu.yml` | CUDA    | CUDA                      |
 
-- **macOS**: Docker cannot reach the Apple GPU, so install Ollama natively (`brew install ollama`,
-  then `ollama pull llama3`) and stop the container one (`docker compose stop ollama`).
+- **macOS**: Docker cannot reach the Apple GPU, so install Ollama natively (`brew install ollama`),
+  stop the container one (`docker compose stop ollama`), then `brew services start ollama` and
+  `ollama pull llama3`. Stop the container first: while it holds port 11434 the native service
+  fails to start, and `ollama` commands on the Mac silently talk to the container instead.
   [`docker-compose.mac.yml`](docker-compose.mac.yml) points the AI containers at
   `host.docker.internal:11434` and keeps the `ollama` container from starting.
+- **macOS without native Ollama**: there is no automatic fallback. Transcription still works, but
+  analysis fails after its retries. Either leave `COMPOSE_FILE` unset (everything in Docker, CPU
+  only), or keep it and set `COMPOSE_PROFILES=ai,ollama-container`: the container then publishes
+  port 11434 on the Mac, which is exactly where `host.docker.internal:11434` points. Never run the
+  native and the container Ollama together; they share the port.
 - **NVIDIA**: needs the NVIDIA driver (`nvidia-smi` works) and, on Linux, the NVIDIA Container
   Toolkit. Check the GPU is used as in the [GPU Benchmark Runbook](docs/gpu-benchmark-runbook.md):
   the `ai-worker` log shows `profile=gpu device=cuda`, and `ollama ps` shows `100% GPU` (Ollama
