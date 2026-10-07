@@ -7,8 +7,8 @@ Work Integrated Learning (WIL) Project Template
 | Project Title    | meeting-management                                                                                                                           |
 | Industry Partner | Department of Science and Technology (DOST), Government of the Philippines                                                                   |
 | Project Team     | CheHao, Liu (Jay); Hannah Law (Hannah); Paveen Anuntakulnatee (Pleum); Yuhan Lei (Johanna); Eunse Shim (Elsie); Nattanan Thepsatorn (Bonney) |
-| Version          | 1.0                                                                                                                                          |
-| Date             | 4 October 2026                                                                                                                               |
+| Version | 1.1 |
+| Date | 7 October 2026 |
 | System Name      | DOST Meeting Management                                                                                                                      |
 
 ## Document Control
@@ -16,6 +16,7 @@ Work Integrated Learning (WIL) Project Template
 | Version | Date              | Prepared by  | Change / Description |
 | ------- | ----------------- | ------------ | -------------------- |
 | 1.0     | 4 October 2026    | Project team | Initial version      |
+| 1.1 | 7 October 2026 | Project team | Option 3 changed to a priced DigitalOcean managed deployment; GPU status and acceleration guidance added; configuration for managed services added; Whisper and Ollama marked mandatory; statements on running several workers corrected; repository file paths and 10,000-user figures removed |
 
 ## Mandatory WIL Deployment Scope
 
@@ -109,7 +110,7 @@ The environment below is what the team used to develop, test and demonstrate the
 | Reverse proxy with TLS         | Network          | Caddy 2 (configuration in `deploy/Caddyfile`)                                                                           | Mandatory            | Any reverse proxy with TLS could be used, but only Caddy is configured and tested                                                                                                                  |
 | Domain name and DNS            | Network          | A DNS record pointing at the server                                                                                     | Optional             | Needed for automatic HTTPS. Without a domain the site is served over HTTP on the server IP address (pilot only)                                                                                    |
 | Email provider                 | External service | SMTP account or Resend account                                                                                          | Mandatory            | Needed for invitations and notifications. Credentials are supplied in `.env`                                                                                                                       |
-| Whisper and Ollama runtimes    | AI               | Whisper `small`, Ollama with `llama3`                                                                                   | Optional             | Required for the transcription and analysis workflow. Without them the rest of the system works                                                                                                    |
+| Whisper and Ollama runtimes | AI | Whisper `small`, Ollama with `llama3` | Mandatory | Required for the core recording-to-minutes workflow (transcription, summary and proposed action items). The rest of the system runs with `AI_PIPELINE_ENABLED=false`, but recordings are then stored without a transcript or analysis |
 | Internet access during install | Network          | npm registry, Docker registries, PyTorch and Ollama model downloads, apt                                                | Mandatory            | Offline installation would need internal mirrors, which have not been tested                                                                                                                       |
 | Firewall                       | Security         | Allow 80 and 443 from users, 22 from administrators only                                                                | Mandatory            | Also blocks direct access to port 3001 (see Section 10)                                                                                                                                            |
 | Backup storage                 | Infrastructure   | Separate disk, host or object store                                                                                     | Mandatory            | Not provided by the system (see Section 13)                                                                                                                                                        |
