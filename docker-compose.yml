@@ -113,8 +113,11 @@ services:
       - redis
       - minio
       - ollama
+    # Redis and object storage default to the Compose services. The AI_WORKER_* overrides point
+    # the worker at managed services; they are separate from REDIS_URL and MINIO_* because those
+    # hold the host-facing addresses the Node.js processes use.
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: ${AI_WORKER_REDIS_URL:-redis://redis:6379}
       AI_TRANSCRIPTION_STREAM: ${AI_TRANSCRIPTION_STREAM:-ai.transcription.jobs}
       AI_ANALYSIS_STREAM: ${AI_ANALYSIS_STREAM:-ai.analysis.jobs}
       AI_RESULT_STREAM: ${AI_RESULT_STREAM:-ai.results}
@@ -136,11 +139,11 @@ services:
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-1200}
       OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-8192}
       OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-2048}
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
+      MINIO_ENDPOINT: ${AI_WORKER_MINIO_ENDPOINT:-minio}
+      MINIO_PORT: ${AI_WORKER_MINIO_PORT:-9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      MINIO_USE_SSL: 'false'
+      MINIO_USE_SSL: ${AI_WORKER_MINIO_USE_SSL:-false}
       MINIO_BUCKET_AI_RESULTS: ${MINIO_BUCKET_AI_RESULTS:-meeting-ai-results}
     volumes:
       - whisper-models:/root/.cache/whisper
