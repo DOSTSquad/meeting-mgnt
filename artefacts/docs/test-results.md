@@ -11,25 +11,25 @@ most of the delivered code.
 | Area                            | Status                  | Evidence                                                                                       |
 | ------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
 | Linting                         | Passed                  | ESLint reported no errors in the client and server workspaces.                                 |
-| Server tests without a database | Passed                  | 35 suites and 453 tests passed; 144 database-backed tests were skipped.                        |
-| Server tests with PostgreSQL    | Passed                  | All 43 suites and 597 tests passed, including the database-backed tests.                       |
-| Client tests                    | Passed                  | 62 tests passed.                                                                               |
+| Server tests without a database | Passed                  | 36 suites and 459 tests passed; 159 database-backed tests were skipped.                        |
+| Server tests with PostgreSQL    | Passed                  | All 44 suites and 618 tests passed, including the database-backed tests.                       |
+| Client tests                    | Passed                  | 85 tests passed.                                                                               |
 | AI service tests                | Passed                  | 16 of 20 tests passed; 4 were skipped because they need PyTorch.                               |
-| Client production build         | Passed                  | Vite built the production bundle (2,796 modules).                                              |
+| Client production build         | Passed                  | Vite built the production bundle (2,800 modules).                                              |
 | Local smoke test (API level)    | Passed                  | 38 of 38 checks over HTTP on an isolated local stack, with real Whisper and Ollama processing. |
 | Browser walkthrough             | Not run for this report | Manual procedure; see "Validation not covered by this report".                                 |
 | Smoke test on a deployed host   | Not run for this report | Manual procedure; see "Validation not covered by this report".                                 |
 
 ## Test Environment
 
-| Item            | Value                                                                                                            |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Code version    | Commit `b075593` on branch `jhowliu/deployment-guide-managed-options`, based on `main` at `f9dd2ab`              |
-| Host            | macOS 15.7.4                                                                                                     |
-| Node.js         | 22.16.0 with npm 11.4.1; Jest 30.2.0 for server tests, the Node test runner for client tests                     |
-| Database        | PostgreSQL 16.15 (`postgres:16-alpine`) in a disposable container with the `pgcrypto` and `uuid-ossp` extensions |
-| Python          | 3.13.0 in a virtual environment with `ai-service/requirements.fixture.txt` installed (no PyTorch)                |
-| Mocked services | Redis and object storage are replaced by test doubles in the automated server tests                              |
+| Item            | Value                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Code version    | Commit `671403e` on branch `jhowliu/deployment-guide-managed-options`, based on `main` at `82b5736` (after pull request #114) |
+| Host            | macOS 15.7.4                                                                                                                  |
+| Node.js         | 22.16.0 with npm 11.4.1; Jest 30.2.0 for server tests, the Node test runner for client tests                                  |
+| Database        | PostgreSQL 16.15 (`postgres:16-alpine`) in a disposable container with the `pgcrypto` and `uuid-ossp` extensions              |
+| Python          | 3.13.0 in a virtual environment with `ai-service/requirements.fixture.txt` installed (no PyTorch)                             |
+| Mocked services | Redis and object storage are replaced by test doubles in the automated server tests                                           |
 
 The database-backed tests truncate tables, so they ran against the disposable database rather than a
 development database. Every migration in `server/db/migrations` was applied to the empty database
@@ -60,9 +60,9 @@ npm run test --workspace=server
 ```
 
 ```text
-Test Suites: 8 skipped, 35 passed, 35 of 43 total
-Tests:       144 skipped, 453 passed, 597 total
-Time:        3.361 s
+Test Suites: 8 skipped, 36 passed, 36 of 44 total
+Tests:       159 skipped, 459 passed, 618 total
+Time:        3.703 s
 ```
 
 ### Server tests with PostgreSQL
@@ -72,9 +72,9 @@ npm run test:db --workspace=server
 ```
 
 ```text
-Test Suites: 43 passed, 43 total
-Tests:       597 passed, 597 total
-Time:        21.699 s
+Test Suites: 44 passed, 44 total
+Tests:       618 passed, 618 total
+Time:        30.731 s
 ```
 
 ### Client tests
@@ -84,9 +84,9 @@ npm run test --workspace=client
 ```
 
 ```text
-# tests 62
+# tests 85
 # suites 3
-# pass 62
+# pass 85
 # fail 0
 # skipped 0
 ```
@@ -99,7 +99,7 @@ python -m unittest discover -s tests -t .
 ```
 
 ```text
-Ran 20 tests in 0.299s
+Ran 20 tests in 0.294s
 OK (skipped=4)
 ```
 
@@ -113,14 +113,14 @@ VITE_API_BASE_URL=/ npm run build --workspace=client
 ```
 
 ```text
-✓ 2796 modules transformed.
-✓ built in 655ms
+✓ 2800 modules transformed.
+✓ built in 609ms
 ```
 
 ## Local Smoke Test
 
 A smoke test drove the running system over HTTP with a script, on an isolated local stack, on
-7 October 2026. It used the same code as the automated tests (commit `b075593`) and real Whisper and
+7 October 2026. It used the same code as the automated tests (commit `671403e`) and real Whisper and
 Ollama processing. It did not use a browser, and it did not run behind Caddy or under systemd.
 
 | Item           | Value                                                                                                                                                            |
@@ -181,10 +181,9 @@ All 38 checks passed.
 
 ### Processing times
 
-From the AI worker log, for the 3-minute recording: transcription took 105.7 s and analysis took
-30.6 s. The analysis time is not a CPU-only figure, because Ollama used the Apple GPU. The script's
-own wall-clock time for this step is longer and is not a processing time: the AI worker was restarted
-once during the run (see "Findings"), and it picked up the queued job after the restart.
+From the AI worker log, for the 3-minute recording: transcription took 107.5 s and analysis took
+29.3 s. From the processing request to the analysis being ready for review took 145 s, and the whole
+script took 149 s. The analysis time is not a CPU-only figure, because Ollama used the Apple GPU.
 
 ## Coverage Against the Technical Specification
 
@@ -210,8 +209,8 @@ Section 9 of the Technical Specification lists the validation scope. The evidenc
 
 ## Changes Since the Previous Report
 
-- Server tests grew from 9 suites and 113 tests to 43 suites and 597 tests.
-- Client tests (62) and AI service tests (20) are now reported.
+- Server tests grew from 9 suites and 113 tests to 44 suites and 618 tests.
+- Client tests (85) and AI service tests (20) are now reported, together with a local smoke test.
 - New tests cover the upload size limit and the file content stream (`GET /api/files/:id/content`).
 
 ## Findings and Known Gaps
@@ -222,20 +221,17 @@ Section 9 of the Technical Specification lists the validation scope. The evidenc
   and the client build. The database-backed server tests and the AI service tests run only manually.
 - **Mocked services.** Redis and object storage are mocked in the automated tests; the local smoke
   test exercised the real services.
-- **Database connection loss stops the API and workflow worker.** While the smoke environment was
-  being reset, PostgreSQL terminated the open connections ("terminating connection due to
+- **Database connection loss stops the API and workflow worker.** While an earlier run of the smoke
+  environment was being reset, PostgreSQL terminated the open connections ("terminating connection due to
   administrator command"), and both the API and the workflow worker exited. The PostgreSQL connection
   pool (`server/db/postgres.js`) has no `error` handler, so an error on an idle connection ends the
   process. The systemd units restart a failed service (`Restart=on-failure`), but requests fail until
-  then. A database restart or a managed-database failover (Deployment Guide, Options 2 and 3) would
-  have the same effect.
-- **AI worker and a cleared Redis.** Clearing Redis during the reset also removed the AI worker's
-  consumer group, and the worker exited. After a restart it recreated the group and processed the job
-  that had been queued in the meantime.
+  then. A database restart or a managed-database failover (Deployment Guide, Options 2 and 3) is
+  expected to have the same effect; this was not tested.
 
 ## Conclusion
 
-All automated checks passed for commit `b075593`: linting, 597 server tests with PostgreSQL, 62 client
+All automated checks passed for commit `671403e`: linting, 618 server tests with PostgreSQL, 85 client
 tests, 16 AI service tests (4 skipped without PyTorch) and the client production build. The local
 smoke test passed all 38 checks, including a 3-minute recording processed by Whisper and Ollama. A
 browser walkthrough and a smoke test on a deployed host remain to be done.

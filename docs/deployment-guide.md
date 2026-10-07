@@ -40,9 +40,7 @@ This Deployment Guide documents how the DOST Meeting Management system could be 
 
 **Evidence labels.** Statements in this guide are one of: _verified_ (checked against the repository or an official source on the access date shown), _measured_ (observed in a test), or _recommendation_ (a proposal that has not been implemented or tested). Anything the team could not verify is stated as such.
 
-**Assumption about the partner's infrastructure.** DOST may operate its own data centre, but the team has not been told what infrastructure DOST has. This guide is therefore hosting-agnostic: it assumes a Linux virtual machine that DOST provides on its own infrastructure or rents from a provider.
-
-<!-- TODO(user): confirm with DOST what infrastructure is available (own data centre, government cloud, none), and what data classification applies to meeting recordings and transcripts. -->
+**Assumption about the partner's infrastructure.** DOST may operate its own data centre, but the team has not been told what infrastructure DOST has or which data classification applies to meeting recordings and transcripts. This guide is therefore hosting-agnostic: it assumes a Linux virtual machine that DOST provides on its own infrastructure or rents from a provider.
 
 ## 2. System Overview
 
@@ -116,8 +114,6 @@ The environment below is what the team used to develop, test and demonstrate the
 | Backup storage                 | Infrastructure   | Separate disk, host or object store                                                                                     | Mandatory            | Not provided by the system (see Section 13)                                                                                                                                                                                           |
 | Supported browsers             | Client           | Current desktop browsers                                                                                                | Mandatory            | Audio extraction from video runs in the browser; the supported browser list has not been established                                                                                                                                  |
 
-<!-- TODO(user): confirm which browsers DOST staff use and test recording upload (including video audio extraction) on them. -->
-
 ### 4.2 Sizing tiers
 
 These figures are starting points to be validated by DOST. They are not the result of a load test.
@@ -159,14 +155,14 @@ These steps run the prototype on one workstation with Node.js 22 or later, Docke
 
 ### Step 1: Obtain the source code / release package
 
+DOST receives the handover release, tag `v1.0.0`, as a release package: the source code archive of the GitHub release. Unpack it and change into its folder:
+
 ```bash
-git clone https://github.com/DOSTSquad/meeting-mgnt.git
-cd meeting-mgnt
+unzip meeting-mgnt-1.0.0.zip
+cd meeting-mgnt-1.0.0
 ```
 
-Expected result: the repository folders `client/`, `server/`, `ai-service/`, `deploy/` and `docs/` exist. The repository has no release tag yet, so the demonstration runs from the branch or commit that DOST is given.
-
-<!-- TODO(user): confirm the handover format (repository transfer, access grant, or a release archive) and create a release tag such as v1.0.0. -->
+Expected result: the folders `client/`, `server/`, `ai-service/`, `deploy/` and `docs/` exist. The package contains no Git history; Section 9.2 describes how to put it under version control for a production installation.
 
 ### Step 2: Install required dependencies
 
@@ -330,9 +326,9 @@ These are proposed future steps for DOST. The project team is not required to ex
 ### 9.2 Obtain the approved application release
 
 - **Responsible:** DOST engineering lead, with the project team's handover material.
-- **Prerequisites:** access to the repository or release archive; a chosen release identifier.
-- **Procedure:** the repository has no release tags yet, so use the agreed commit hash or a tag created at handover. On the host: `git clone <repository-url> /srv/meeting-mgnt`, then `git checkout <release>`. Build the client on a build machine rather than the production host: run `npm ci`, then `VITE_API_BASE_URL=/ npm run build --workspace=client`.
-- **Expected result:** the source at a known release and a built `client/dist` folder.
+- **Prerequisites:** the release package for tag `v1.0.0`; a Git server that DOST controls.
+- **Procedure:** the setup script (Section 9.3) and the update procedure (Section 9.7) work from a Git checkout, and the release package has no Git history. Unpack the package, import it into a repository on DOST's Git server (for example `git init`, `git add .`, `git commit -m "Release v1.0.0"`, `git tag v1.0.0`, then push), and on the host run `git clone <dost-repository-url> /srv/meeting-mgnt` and `git checkout v1.0.0`. Build the client on a build machine rather than the production host: run `npm ci`, then `VITE_API_BASE_URL=/ npm run build --workspace=client`.
+- **Expected result:** release `v1.0.0` in a DOST-controlled Git repository, checked out on the host, and a built `client/dist` folder.
 
 ### 9.3 Install production dependencies
 
@@ -456,9 +452,9 @@ These are proposed future steps for DOST. The project team is not required to ex
 
 ### 10.1 Ethics and Privacy Considerations
 
-**Scope and applicability.** The Australian Privacy Principles (APPs) in the Privacy Act 1988 (Cth) bind "APP entities" (see the OAIC guidance for the definition). DOST is a Philippine agency and its processing of personal data is governed by Philippine law (Section 8 lists the Data Privacy Act of 2012 sources), so this section uses the APPs as a benchmark for good practice, not as a claim of legal compliance. The team's own handling of personal data during development is subject to its university's policies. This is not legal advice.
+**Legal position.** The project follows the ACS Code of Professional Ethics and the Australian Privacy Act 1988 (Cth), applying the Australian Privacy Principles assessed below. DOST has not asked the team to assess Philippine law, including consent rules for recording meetings, and the team has not done so.
 
-<!-- TODO(user): ask DOST legal whether recording meetings needs additional consent under Philippine law (for example the Anti-Wiretapping Act). The team has not checked this. -->
+**Scope and applicability.** The Australian Privacy Principles (APPs) in the Privacy Act 1988 (Cth) bind "APP entities" (see the OAIC guidance for the definition). DOST is a Philippine agency and its processing of personal data is governed by Philippine law (Section 8 lists the Data Privacy Act of 2012 sources), so this section uses the APPs as a benchmark for good practice, not as a claim of legal compliance. The team's own handling of personal data during development is subject to its university's policies. This is not legal advice.
 
 **ACS Code of Professional Ethics.** The current code (adopted 14 March 2023) rests on Honesty (2.1), Trustworthiness (2.2) and Respect (2.3, for others and for the profession). Source: https://www.acs.org.au/content/dam/acs/rules-and-regulations/CodeOfProfessionalEthics_Mar_2023.pdf (accessed 1 October 2026).
 
@@ -467,7 +463,7 @@ These are proposed future steps for DOST. The project team is not required to ex
 | 2.1 Honesty: do not misrepresent capabilities or the situation                                   | Limitations are listed in Section 12; statements are labelled verified, measured or recommendation; unverified items are marked as such; the self-funded rehearsal host is disclosed in Section 3                                                                                                              | The sizing in Section 4.2 has not been load tested                                                                                                                                                                                                                                                                                                                                                       |
 | 2.2(a), (b) Accountability and integrity                                                         | Work is done through pull requests with a commit history                                                                                                                                                                                                                                                       | Declare the self-funded host to the coordinator (Section 3); AI-assistance disclosure below                                                                                                                                                                                                                                                                                                              |
 | 2.2(d) Respect the privacy and confidentiality of personal information                           | Measures in the APP table below: local AI processing, consent confirmation, deletion of stored objects, closed registration, no credentials in the interface or seed script                                                                                                                                    | No privacy notice, retention schedule or breach-response procedure (left for DOST, listed below)                                                                                                                                                                                                                                                                                                         |
-| 2.2(e)-(g) Communicate capabilities; be competent; strive for quality                            | Sizing and limits are stated with their evidence (Sections 4.2 and 12). The Testing Results Report (7 October 2026, commit `b075593`) records 597 server tests passing against a disposable PostgreSQL, 62 client tests and 20 AI-service tests (4 skipped without PyTorch), with linting and the client build | CI does not run the database-backed tests or the AI-service tests; there are no HTTP-level integration tests; object storage and Redis are mocked in automated tests; a local API-level smoke test (38 checks, including Whisper and Ollama processing) is recorded, but a browser walkthrough and a smoke test on a deployed host are not; a manual end-to-end script exists (`npm run check:workflow`) |
+| 2.2(e)-(g) Communicate capabilities; be competent; strive for quality                            | Sizing and limits are stated with their evidence (Sections 4.2 and 12). The Testing Results Report (7 October 2026, commit `671403e`) records 618 server tests passing against a disposable PostgreSQL, 85 client tests and 20 AI-service tests (4 skipped without PyTorch), with linting and the client build | CI does not run the database-backed tests or the AI-service tests; there are no HTTP-level integration tests; object storage and Redis are mocked in automated tests; a local API-level smoke test (38 checks, including Whisper and Ollama processing) is recorded, but a browser walkthrough and a smoke test on a deployed host are not; a manual end-to-end script exists (`npm run check:workflow`) |
 | 2.2(h) Develop robust, secure and user-friendly systems                                          | bcrypt password hashing, a central permission table, HTTPS through Caddy, API rate limiting, presigned downloads valid for 60 seconds, services on loopback, a consent gate for recordings                                                                                                                     | JWT in localStorage with no revocation, no security headers, CORS not restricted, no audit log (Sections 10 and 12). Accessibility was not assessed                                                                                                                                                                                                                                                      |
 | 2.3.1 Respect for others: minimise harm, mitigate risks to others; respect intellectual property | A recording cannot be stored without confirming that participants were told and agreed; audio and transcripts stay on infrastructure DOST controls; third-party licences are listed in Section 4.3                                                                                                             | The confirmation is a self-attestation by the uploader and participants without accounts never see a notice. Llama 3, Redis (RSALv2 / SSPLv1) and AGPL components need DOST legal review; npm and Python package licences were not audited                                                                                                                                                               |
 
@@ -556,9 +552,9 @@ Cost disclaimer: All costs are indicative only and must be independently verifie
 | The recording consent confirmation is a self-attestation by the uploader, and participants without an account never see a notice                                                                                                                  | Consent is not verifiable                                                                                                        | Agree the wording with DOST legal and add a participant notice                                                                                                                     | Medium   |
 | Deleting a meeting removes stored objects on a best-effort basis; a storage failure leaves an orphaned object. Deleting a user who still owns or joined anything is refused by the database, and the API response for that case was not verified  | Personal data can remain in object storage; an unclear error for administrators                                                  | Periodically check for orphaned objects; verify or add a friendly error for user deletion                                                                                          | Low      |
 | Any signed-in user can list every user's name, email, role and department (`GET /api/users`); users cannot edit their own name or email                                                                                                           | Wider disclosure than some policies allow; no self-service correction                                                            | Decide whether to narrow the directory and add profile editing                                                                                                                     | Low      |
-| Automated test coverage: CI runs lint, unit tests and the client build only, so the 144 database-backed server tests are skipped there; no HTTP-level integration tests; object storage and Redis are mocked; the AI-service tests are not in CI  | Regressions in database, storage and route behaviour can pass CI                                                                 | Add a PostgreSQL service to CI with `RUN_DB_TESTS=true`, add HTTP-level tests for key routes, and test against real object storage                                                 | Medium   |
+| Automated test coverage: CI runs lint, unit tests and the client build only, so the 159 database-backed server tests are skipped there; no HTTP-level integration tests; object storage and Redis are mocked; the AI-service tests are not in CI  | Regressions in database, storage and route behaviour can pass CI                                                                 | Add a PostgreSQL service to CI with `RUN_DB_TESTS=true`, add HTTP-level tests for key routes, and test against real object storage                                                 | Medium   |
 | Container images other than Silo are not pinned; images for the Node.js API, worker and web build do not exist                                                                                                                                    | Build results can change; a container platform such as Kubernetes needs extra packaging work                                     | Pin versions; create images if DOST moves to a container platform                                                                                                                  | Low      |
-| No release tags in the repository; the Testing Results Report (7 October 2026) was produced for commit `b075593`, not for a tagged release                                                                                                        | It is unclear which build DOST received                                                                                          | Tag the handover release and re-run the tests and the report if the tagged commit differs                                                                                          | Low      |
+| The handover release, tag `v1.0.0`, is delivered as a release package without Git history                                                                                                                                                         | The setup script and the update procedure need a Git checkout                                                                    | Import the package into a DOST-controlled Git repository before installation (Section 9.2)                                                                                         | Low      |
 
 ## 13. Backup, Recovery, Monitoring and Maintenance
 
@@ -637,14 +633,14 @@ Tick each item after deployment and before go-live.
 
 Items already present in the repository are ticked. Unticked items are not yet available.
 
-- [ ] Source code / repository and final release version (repository exists; no release tag yet)
+- [x] Source code and final release version (release package for tag `v1.0.0`)
 - [x] README and local installation instructions (README files for the repository, the server and the AI service)
 - [x] Deployment Guide (this document)
 - [x] System / deployment architecture diagram (`docs/images/architecture-overview.png` and `.svg`; technical specification diagrams)
 - [x] Database schema and migration files (`server/db/migrations`, 42 SQL migrations; database schema document)
 - [x] Configuration / environment template (`.env.example`)
 - [x] Dependency / package information (`package.json`, `package-lock.json`, `ai-service/requirements*.txt`)
-- [x] Test cases and results (tests in the repository; Testing Results Report of 7 October 2026, `artefacts/docs/testing-results-report.pdf`, for commit `b075593`)
+- [x] Test cases and results (tests in the repository; Testing Results Report of 7 October 2026, `artefacts/docs/testing-results-report.pdf`, for commit `671403e`)
 - [ ] User Manual (not present in the repository)
 - [x] Sample / test data where appropriate (`npm run seed --workspace=server`, local development only)
 - [x] Known issues and limitations (Section 12)
@@ -652,7 +648,7 @@ Items already present in the repository are ticked. Unticked items are not yet a
 
 The API reference is available as a Postman collection in `docs/postman` and in the server README.
 
-<!-- TODO(user): add a User Manual and a demonstration video or walkthrough, or record why they are not applicable; create the release tag. -->
+<!-- TODO(user): add a User Manual and a demonstration video or walkthrough, or record why they are not applicable. -->
 
 ## 16. References and Supporting Documentation
 
