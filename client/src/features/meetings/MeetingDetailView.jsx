@@ -4,6 +4,8 @@ import { AnalysisActionItemsPanel } from './AnalysisActionItemsPanel.jsx'
 import { AnalysisSummaryPanel } from './AnalysisSummaryPanel.jsx'
 import { RecordingProgress, RecordingStatusPill } from './RecordingProgress.jsx'
 import { RecordingConsentCheckbox } from './RecordingConsentCheckbox.jsx'
+import { RemoveRecordingDialog } from './RemoveRecordingDialog.jsx'
+import { isRemoveDialogOpen } from './recordingRemoval.js'
 import { TranscriptPanel } from './TranscriptPanel.jsx'
 import { MeetingChangeRequestDialog } from './MeetingChangeRequestDialog.jsx'
 import { MeetingChangeRequestInbox } from './MeetingChangeRequestInbox.jsx'
@@ -256,6 +258,8 @@ export const MeetingDetailView = ({
   const [recordingConsent, setRecordingConsent] = useState(false)
   const [pendingMeetingStatus, setPendingMeetingStatus] = useState(null)
   const [isGeneratingMinutes, setIsGeneratingMinutes] = useState(false)
+  const [removeDialogRecordingId, setRemoveDialogRecordingId] = useState(null)
+  const [isRemovingRecording, setIsRemovingRecording] = useState(false)
   const [currentTime] = useState(() => Date.now())
   const confirmationStorageKey = detail
     ? `meeting-confirmation:${detail.meeting.id}:${currentUserId}`
@@ -828,7 +832,7 @@ export const MeetingDetailView = ({
               <RecordingStatusPill pill={recordingProgress.pill} />
             </div>
 
-            {canManageMeeting && !pendingRecordingFile ? (
+            {canManageMeeting && !detail.recording && !pendingRecordingFile ? (
               <RecordingConsentCheckbox checked={recordingConsent} onChange={setRecordingConsent} />
             ) : null}
 
@@ -848,6 +852,9 @@ export const MeetingDetailView = ({
                     <p className="mt-0.5 text-xs text-slate-500">
                       Uploaded {formatDateOnly(detail.recording.createdAt)}
                       {recordingSize ? ` \u00b7 ${recordingSize}` : ''}
+                      {detail.recording.consentConfirmedAt
+                        ? ` \u00b7 Consent confirmed ${formatDateOnly(detail.recording.consentConfirmedAt)}`
+                        : ''}
                     </p>
                   </div>
                   {canManageMeeting ? (
@@ -868,33 +875,10 @@ export const MeetingDetailView = ({
                         <Play className="h-4 w-4 fill-current" aria-hidden="true" />
                         {isGeneratingMinutes ? 'Running...' : 'Process Recording'}
                       </button>
-                      <label
-                        className={`rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition ${
-                          recordingConsent
-                            ? 'cursor-pointer hover:border-blue-200 hover:text-blue-700'
-                            : 'cursor-not-allowed opacity-60'
-                        }`}
-                        title={recordingConsent ? undefined : 'Confirm participant consent first'}
-                      >
-                        Replace
-                        <input
-                          type="file"
-                          accept=".mp3,.wav,.m4a,.mp4,.mov,.webm,.mkv,audio/*,video/*"
-                          className="sr-only"
-                          disabled={!recordingConsent}
-                          onChange={(event) => {
-                            onUploadRecording(event.target.files, {
-                              replace: true,
-                              consentConfirmed: recordingConsent,
-                            })
-                            setRecordingConsent(false)
-                            event.target.value = ''
-                          }}
-                        />
-                      </label>
                       <button
                         type="button"
-                        onClick={onRemoveRecording}
+                        aria-haspopup="dialog"
+                        onClick={() => setRemoveDialogRecordingId(detail.recording.id)}
                         className="rounded-xl border border-rose-100 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 transition hover:bg-rose-50"
                       >
                         Remove
@@ -902,6 +886,21 @@ export const MeetingDetailView = ({
                     </div>
                   ) : null}
                 </div>
+                {isRemoveDialogOpen(detail.recording, removeDialogRecordingId) ? (
+                  <RemoveRecordingDialog
+                    fileName={detail.recording.fileName}
+                    isRemoving={isRemovingRecording}
+                    onClose={() => setRemoveDialogRecordingId(null)}
+                    onConfirm={async () => {
+                      setIsRemovingRecording(true)
+                      try {
+                        await onRemoveRecording()
+                      } finally {
+                        setIsRemovingRecording(false)
+                      }
+                    }}
+                  />
+                ) : null}
                 <RecordingProgress steps={recordingProgress.steps} />
                 <TranscriptPanel transcript={detail.transcript} />
                 <AnalysisSummaryPanel

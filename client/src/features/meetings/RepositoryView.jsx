@@ -12,6 +12,7 @@ import {
 import { PageHeader } from '../../components/layout/PageHeader.jsx'
 import { formatDateOnly } from '../../utils/date.js'
 import { formatMeetingStatus, getMeetingDisplayStatus } from '../../utils/meetingStatus.js'
+import { MeetingAiStatusIcon } from './MeetingAiStatusIcon.jsx'
 
 const tagPalette = [
   { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-100' },
@@ -394,8 +395,11 @@ export const RepositoryView = ({
                       <CalendarDays className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-bold text-slate-800">
-                        {meeting.title}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="min-w-0 truncate text-sm font-bold text-slate-800">
+                          {meeting.title}
+                        </span>
+                        <MeetingAiStatusIcon status={meeting.aiStatus} />
                       </span>
                       <span className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
                         <Users className="h-3.5 w-3.5 shrink-0 text-slate-400" />

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -882,6 +883,250 @@ dbDescribe('Meeting controller (DB-backed)', () => {
     expect(result.nextError).toBeDefined()
     expect(result.nextError.statusCode).toBe(404)
     expect(result.nextError.message).toBe('Minutes not found')
+  })
+})
+
+dbDescribe('Meeting list aiStatus (DB-backed)', () => {
+  const OLDER = new Date('2026-05-01T00:00:00Z')
+  const NEWER = new Date('2026-05-01T00:05:00Z')
+
+  const addRecording = async (meetingId, { archived = false } = {}) => {
+    const recordingId = randomUUID()
+
+    await query(
+      `
+        INSERT INTO meeting_recordings (
+          id, meeting_id, uploaded_by, file_name, mime_type, size_bytes,
+          bucket_name, object_key, archived_at
+        )
+        VALUES ($1, $2, $3, 'standup.m4a', 'audio/mp4', 1024, 'meeting-audio', $4, $5)
+      `,
+      [
+        recordingId,
+        meetingId,
+        testUser.id,
+        `meetings/${meetingId}/recordings/${recordingId}`,
+        archived ? new Date() : null,
+      ]
+    )
+
+    return recordingId
+  }
+
+  const addTranscript = async (meetingId, recordingId, status, createdAt = OLDER) => {
+    const transcriptId = randomUUID()
+
+    await query(
+      `
+        INSERT INTO meeting_transcripts (id, meeting_id, recording_id, created_by, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [transcriptId, meetingId, recordingId, testUser.id, status, createdAt]
+    )
+
+    return transcriptId
+  }
+
+  const addAnalysisRun = async (
+    meetingId,
+    recordingId,
+    transcriptId,
+    status,
+    createdAt = OLDER
+  ) => {
+    const isReady = status === 'ready_for_review'
+
+    await query(
+      `
+        INSERT INTO analysis_runs (
+          id, meeting_id, recording_id, transcript_id, created_by, status, created_at,
+          summary, provider, model, prompt_version
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `,
+      [
+        randomUUID(),
+        meetingId,
+        recordingId,
+        transcriptId,
+        testUser.id,
+        status,
+        createdAt,
+        isReady ? 'A generated summary.' : null,
+        isReady ? 'fixture' : null,
+        isReady ? 'fixture-analysis-v1' : null,
+        isReady ? '2026-08-27' : null,
+      ]
+    )
+  }
+
+  const listAiStatuses = async () => {
+    const { res, nextError } = await runHandler(list, buildRequest({ user: { id: testUser.id } }))
+    expect(nextError).toBeUndefined()
+
+    return Object.fromEntries(res.body.meetings.map((meeting) => [meeting.title, meeting.aiStatus]))
+  }
+
+  const scenarios = [
+    ['has no recording', async () => {}, null],
+    [
+      'has a recording that was never processed',
+      async (meetingId) => {
+        await addRecording(meetingId)
+      },
+      null,
+    ],
+    [
+      'latest transcript is processing',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        await addTranscript(meetingId, recordingId, 'processing')
+      },
+      'processing',
+    ],
+    [
+      'transcript completed and analysis is queued',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        const transcriptId = await addTranscript(meetingId, recordingId, 'completed')
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'queued')
+      },
+      'processing',
+    ],
+    [
+      'transcript completed and analysis is processing',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        const transcriptId = await addTranscript(meetingId, recordingId, 'completed')
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'processing')
+      },
+      'processing',
+    ],
+    [
+      'latest transcript failed',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        await addTranscript(meetingId, recordingId, 'failed')
+      },
+      'failed',
+    ],
+    [
+      'transcript completed and analysis failed',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        const transcriptId = await addTranscript(meetingId, recordingId, 'completed')
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'failed')
+      },
+      'failed',
+    ],
+    [
+      'transcript completed and analysis is ready for review',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        const transcriptId = await addTranscript(meetingId, recordingId, 'completed')
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'ready_for_review')
+      },
+      null,
+    ],
+    [
+      'analysis was cancelled',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        const transcriptId = await addTranscript(meetingId, recordingId, 'completed')
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'cancelled')
+      },
+      null,
+    ],
+    [
+      'only recording is archived, even with work recorded against it',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId, { archived: true })
+        await addTranscript(meetingId, recordingId, 'processing')
+      },
+      null,
+    ],
+    [
+      'archived recording failed but the active replacement is processing',
+      async (meetingId) => {
+        const archivedId = await addRecording(meetingId, { archived: true })
+        await addTranscript(meetingId, archivedId, 'failed')
+        const activeId = await addRecording(meetingId)
+        await addTranscript(meetingId, activeId, 'processing')
+      },
+      'processing',
+    ],
+    [
+      'an older failed transcript was superseded by a completed retry',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        await addTranscript(meetingId, recordingId, 'failed', OLDER)
+        await addTranscript(meetingId, recordingId, 'completed', NEWER)
+      },
+      null,
+    ],
+    [
+      'an older failed transcript was superseded by a processing retry',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        await addTranscript(meetingId, recordingId, 'failed', OLDER)
+        await addTranscript(meetingId, recordingId, 'processing', NEWER)
+      },
+      'processing',
+    ],
+    [
+      'an older failed analysis run was superseded by a finished one',
+      async (meetingId) => {
+        const recordingId = await addRecording(meetingId)
+        const transcriptId = await addTranscript(meetingId, recordingId, 'completed')
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'failed', OLDER)
+        await addAnalysisRun(meetingId, recordingId, transcriptId, 'ready_for_review', NEWER)
+      },
+      null,
+    ],
+  ]
+
+  it.each(scenarios)('reports aiStatus for a meeting that %s', async (_name, setup, expected) => {
+    const meeting = await createMeetingViaController()
+    await setup(meeting.id)
+
+    const statuses = await listAiStatuses()
+
+    expect(statuses[meeting.title]).toBe(expected)
+  })
+
+  it('reports each meeting independently without duplicating rows or counts', async () => {
+    const running = await createMeetingViaController({ title: 'Running meeting' })
+    const broken = await createMeetingViaController({
+      title: 'Broken meeting',
+      startsAt: '2026-05-02T09:00:00+10:00',
+      endsAt: '2026-05-02T10:00:00+10:00',
+    })
+    const plain = await createMeetingViaController({
+      title: 'Plain meeting',
+      startsAt: '2026-05-03T09:00:00+10:00',
+      endsAt: '2026-05-03T10:00:00+10:00',
+    })
+
+    const runningRecordingId = await addRecording(running.id)
+    await addTranscript(running.id, runningRecordingId, 'processing')
+    const brokenRecordingId = await addRecording(broken.id)
+    await addTranscript(broken.id, brokenRecordingId, 'failed')
+
+    const { res, nextError } = await runHandler(list, buildRequest({ user: { id: testUser.id } }))
+
+    expect(nextError).toBeUndefined()
+    expect(res.headers['X-Total-Count']).toBe('3')
+    expect(
+      res.body.meetings.map(({ title, aiStatus, participantCount }) => ({
+        title,
+        aiStatus,
+        participantCount,
+      }))
+    ).toEqual([
+      { title: 'Running meeting', aiStatus: 'processing', participantCount: 1 },
+      { title: 'Broken meeting', aiStatus: 'failed', participantCount: 1 },
+      { title: plain.title, aiStatus: null, participantCount: 1 },
+    ])
   })
 })
 

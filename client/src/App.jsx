@@ -14,6 +14,7 @@ import { MeetingDetailView } from './features/meetings/MeetingDetailView.jsx'
 import { InvitationResponseView } from './features/meetings/InvitationResponseView.jsx'
 import { RepositoryView } from './features/meetings/RepositoryView.jsx'
 import { MyMeetingsView } from './features/meetings/MyMeetingsView.jsx'
+import { AI_STATUS_POLL_INTERVAL_MS, shouldPollAiStatus } from './features/meetings/aiStatus.js'
 import { AdminView } from './features/admin/AdminView.jsx'
 import { useMeetingDetailController } from './features/meetings/useMeetingDetailController.js'
 import { useNotificationActions } from './features/notifications/useNotificationActions.js'
@@ -253,6 +254,33 @@ const AppShell = ({ token, user, onLogout }) => {
       isCancelled = true
     }
   }, [activeMeetingId, activePage, token, onLogout])
+
+  const isAiStatusPolling = shouldPollAiStatus({
+    isMeetingListShown: activePage === 'repository' && !activeMeetingId,
+    meetings,
+  })
+
+  useEffect(() => {
+    if (!isAiStatusPolling) {
+      return
+    }
+
+    let isReloading = false
+    const timer = setInterval(async () => {
+      if (isReloading) {
+        return
+      }
+
+      isReloading = true
+      try {
+        await reloadMeetingsData()
+      } finally {
+        isReloading = false
+      }
+    }, AI_STATUS_POLL_INTERVAL_MS)
+
+    return () => clearInterval(timer)
+  }, [isAiStatusPolling, reloadMeetingsData])
 
   useEffect(() => {
     if (activePage !== 'action-items') {
