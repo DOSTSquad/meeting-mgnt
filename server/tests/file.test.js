@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { Readable, Writable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 
 import { describe, beforeAll, beforeEach, afterAll, it, expect, jest } from '@jest/globals'
@@ -52,6 +53,7 @@ const {
   upload: uploadHandler,
   list: listHandler,
   download: downloadHandler,
+  downloadContent: downloadContentHandler,
   remove: removeHandler,
 } = await import('../controllers/file-controller.js')
 const {
@@ -987,6 +989,76 @@ dbDescribe('File controller (DB-backed)', () => {
       )
 
       expect(nextError).toBeDefined()
+      expect(nextError.statusCode).toBe(404)
+    })
+  })
+
+  describe('GET /api/files/:id/content', () => {
+    let uploadedFile
+
+    // The handler pipes the object stream into the response, so the recorder must be writable.
+    const runContentHandler = (req) =>
+      new Promise((resolve) => {
+        const chunks = []
+        const res = new Writable({
+          write(chunk, _encoding, callback) {
+            chunks.push(Buffer.from(chunk))
+            callback()
+          },
+        })
+        res.headers = {}
+        res.setHeader = (name, value) => {
+          res.headers[name] = value
+        }
+        res.on('finish', () => resolve({ res, body: Buffer.concat(chunks).toString() }))
+        downloadContentHandler(req, res, (error) => resolve({ res, nextError: error }))
+      })
+
+    beforeEach(async () => {
+      if (!runDatabaseTests) return
+
+      const { res } = await runHandler(
+        uploadHandler,
+        buildRequest({
+          params: { meetingId: baseMeeting.id },
+          user: { id: creatorUser.id },
+          file: makeFakeFile(),
+        })
+      )
+      uploadedFile = res.body.file
+    })
+
+    it('streams the stored object with its content type and file name', async () => {
+      mockGetObject.mockResolvedValueOnce(Readable.from(['fake-pdf-content']))
+
+      const { res, body, nextError } = await runContentHandler(
+        buildRequest({ params: { id: uploadedFile.id }, user: { id: participantUser.id } })
+      )
+
+      expect(nextError).toBeUndefined()
+      expect(body).toBe('fake-pdf-content')
+      expect(res.headers['Content-Type']).toBe('application/pdf')
+      expect(res.headers['Content-Disposition']).toMatch(/^attachment; filename="agenda\.pdf"/)
+      expect(mockGetObject).toHaveBeenCalledWith('meeting-files', expect.any(String))
+    })
+
+    it('returns 403 and reads nothing when caller is not a participant', async () => {
+      const { nextError } = await runContentHandler(
+        buildRequest({ params: { id: uploadedFile.id }, user: { id: outsiderUser.id } })
+      )
+
+      expect(nextError.statusCode).toBe(403)
+      expect(mockGetObject).not.toHaveBeenCalled()
+    })
+
+    it('returns 404 for an unknown file id', async () => {
+      const { nextError } = await runContentHandler(
+        buildRequest({
+          params: { id: '00000000-0000-0000-0000-000000000000' },
+          user: { id: creatorUser.id },
+        })
+      )
+
       expect(nextError.statusCode).toBe(404)
     })
   })

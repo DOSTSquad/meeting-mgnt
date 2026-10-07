@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1250" width="1440" height="1250" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+<defs><marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3F4BA8"/></marker><marker id="mr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#A8662E"/></marker><marker id="mx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8A8D96"/></marker></defs>
+<rect width="1440" height="1250" rx="26" fill="#F3F4F8"/>
+<rect x="30" y="30" width="1380" height="1190" rx="44" fill="#fff"/>
+<rect x="64" y="60" width="267" height="1060" rx="18" fill="#F6F7FA"/>
+<text x="197.5" y="100" font-size="19" font-weight="700" fill="#1A1D29" text-anchor="middle">Browser</text>
+<rect x="339" y="60" width="267" height="1060" rx="18" fill="#F6F7FA"/>
+<text x="472.5" y="100" font-size="19" font-weight="700" fill="#1A1D29" text-anchor="middle">Express API</text>
+<rect x="614" y="60" width="267" height="1060" rx="18" fill="#F6F7FA"/>
+<text x="747.5" y="100" font-size="19" font-weight="700" fill="#1A1D29" text-anchor="middle">Node workflow worker</text>
+<rect x="889" y="60" width="212" height="1060" rx="18" fill="#FDF8F3"/>
+<text x="995.0" y="100" font-size="19" font-weight="700" fill="#1A1D29" text-anchor="middle">Redis</text>
+<rect x="1109" y="60" width="267" height="1060" rx="18" fill="#F6F7FA"/>
+<text x="1242.5" y="100" font-size="19" font-weight="700" fill="#1A1D29" text-anchor="middle">Python AI worker</text>
+<path d="M310,202 H360" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
+<path d="M197,254 V290" fill="none" stroke="#8A8D96" stroke-width="3.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#mx)"/>
+<rect x="171.0" y="262" width="52" height="21" fill="#fff"/>
+<text x="197" y="277" font-size="14" fill="#8A8D96" text-anchor="middle">later</text>
+<path d="M310,342 H360" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
+<path d="M585,342 H747 V430" fill="none" stroke="#8A8D96" stroke-width="3.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#mx)"/>
+<rect x="701.0" y="373" width="92" height="21" fill="#fff"/>
+<text x="747" y="388" font-size="14" fill="#8A8D96" text-anchor="middle">outbox row</text>
+<path d="M860,482 H897" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M1093,482 H1130" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M1242,534 V622 H1093" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M897,622 H860" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M747,674 V762 H897" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M1093,762 H1130" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M1242,814 V902 H1093" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M897,902 H860" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M747,954 V1028 H897" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M897,1056 H585" fill="none" stroke="#A8662E" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mr)"/>
+<path d="M360,1042 H310" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
+<rect x="85" y="150" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="105" y="184" font-size="21" font-weight="700" fill="#1A1D29">Upload recording</text>
+<text x="105" y="208" font-size="15" fill="#5C6070">after consent check</text>
+<rect x="360" y="150" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="380" y="184" font-size="21" font-weight="700" fill="#1A1D29">Store audio</text>
+<text x="380" y="208" font-size="15" fill="#5C6070">audio + consent record</text>
+<rect x="380" y="220" width="52" height="22" rx="11" fill="#EAF3EE"/>
+<text x="406.0" y="235.5" font-size="13" font-weight="700" fill="#2E6B4F" text-anchor="middle">Silo</text>
+<rect x="440" y="220" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="489.0" y="235.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
+<circle cx="362" cy="152" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="362" y="158" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<rect x="85" y="290" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="105" y="324" font-size="21" font-weight="700" fill="#1A1D29">Process recording</text>
+<text x="105" y="348" font-size="15" fill="#5C6070">creator or organizer</text>
+<rect x="360" y="290" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="380" y="324" font-size="21" font-weight="700" fill="#1A1D29">Queue generation</text>
+<text x="380" y="348" font-size="15" fill="#5C6070">transcript, run + outbox</text>
+<rect x="380" y="360" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="429.0" y="375.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
+<circle cx="362" cy="292" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="362" y="298" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<rect x="635" y="430" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="655" y="464" font-size="21" font-weight="700" fill="#1A1D29">Relay outbox</text>
+<text x="655" y="488" font-size="15" fill="#5C6070">claims generation event</text>
+<rect x="655" y="500" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="704.0" y="515.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
+<circle cx="637" cy="432" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="637" y="438" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<rect x="1130" y="430" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="1150" y="464" font-size="21" font-weight="700" fill="#1A1D29">Transcribe audio</text>
+<text x="1150" y="488" font-size="15" fill="#5C6070">Whisper speech-to-text</text>
+<rect x="1150" y="500" width="52" height="22" rx="11" fill="#EAF3EE"/>
+<text x="1176.0" y="515.5" font-size="13" font-weight="700" fill="#2E6B4F" text-anchor="middle">Silo</text>
+<circle cx="1132" cy="432" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="1132" y="438" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<rect x="635" y="570" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="655" y="604" font-size="21" font-weight="700" fill="#1A1D29">Save transcript</text>
+<text x="655" y="628" font-size="15" fill="#5C6070">validate, queue analysis</text>
+<rect x="655" y="640" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="704.0" y="655.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
+<circle cx="637" cy="572" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="637" y="578" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+<rect x="1130" y="710" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="1150" y="744" font-size="21" font-weight="700" fill="#1A1D29">Analyse transcript</text>
+<text x="1150" y="768" font-size="15" fill="#5C6070">summary + action items</text>
+<rect x="1150" y="780" width="52" height="22" rx="11" fill="#EAF3EE"/>
+<text x="1176.0" y="795.5" font-size="13" font-weight="700" fill="#2E6B4F" text-anchor="middle">Silo</text>
+<rect x="1210" y="780" width="68" height="22" rx="11" fill="#F1ECF7"/>
+<text x="1244.0" y="795.5" font-size="13" font-weight="700" fill="#6E4FA0" text-anchor="middle">Ollama</text>
+<circle cx="1132" cy="712" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="1132" y="718" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<rect x="635" y="850" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="655" y="884" font-size="21" font-weight="700" fill="#1A1D29">Save analysis</text>
+<text x="655" y="908" font-size="15" fill="#5C6070">validate, mark complete</text>
+<rect x="655" y="920" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="704.0" y="935.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
+<circle cx="637" cy="852" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="637" y="858" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">7</text>
+<rect x="360" y="990" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="380" y="1024" font-size="21" font-weight="700" fill="#1A1D29">Push status</text>
+<text x="380" y="1048" font-size="15" fill="#5C6070">reload snapshot</text>
+<rect x="380" y="1060" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="429.0" y="1075.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
+<circle cx="362" cy="992" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
+<text x="362" y="998" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">7</text>
+<rect x="85" y="990" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="105" y="1024" font-size="21" font-weight="700" fill="#1A1D29">Show progress</text>
+<text x="105" y="1048" font-size="15" fill="#5C6070">live over SSE</text>
+<rect x="897" y="452" width="196" height="60" rx="12" fill="#FBF3EA" stroke="#A8662E" stroke-width="2"/>
+<text x="995.0" y="477" font-size="14" font-weight="700" fill="#A8662E" font-family="Menlo, Consolas, monospace" text-anchor="middle">ai.transcription.jobs</text>
+<text x="995.0" y="498" font-size="13" fill="#5C6070" font-family="Menlo, Consolas, monospace" text-anchor="middle">transcription.requested</text>
+<rect x="897" y="592" width="196" height="60" rx="12" fill="#FBF3EA" stroke="#A8662E" stroke-width="2"/>
+<text x="995.0" y="617" font-size="14" font-weight="700" fill="#A8662E" font-family="Menlo, Consolas, monospace" text-anchor="middle">ai.results</text>
+<text x="995.0" y="638" font-size="13" fill="#5C6070" font-family="Menlo, Consolas, monospace" text-anchor="middle">transcription.completed</text>
+<rect x="897" y="732" width="196" height="60" rx="12" fill="#FBF3EA" stroke="#A8662E" stroke-width="2"/>
+<text x="995.0" y="757" font-size="14" font-weight="700" fill="#A8662E" font-family="Menlo, Consolas, monospace" text-anchor="middle">ai.analysis.jobs</text>
+<text x="995.0" y="778" font-size="13" fill="#5C6070" font-family="Menlo, Consolas, monospace" text-anchor="middle">analysis.requested</text>
+<rect x="897" y="872" width="196" height="60" rx="12" fill="#FBF3EA" stroke="#A8662E" stroke-width="2"/>
+<text x="995.0" y="897" font-size="14" font-weight="700" fill="#A8662E" font-family="Menlo, Consolas, monospace" text-anchor="middle">ai.results</text>
+<text x="995.0" y="918" font-size="13" fill="#5C6070" font-family="Menlo, Consolas, monospace" text-anchor="middle">analysis.completed</text>
+<rect x="897" y="1012" width="196" height="60" rx="12" fill="#FBF3EA" stroke="#A8662E" stroke-width="2"/>
+<text x="995.0" y="1037" font-size="14" font-weight="700" fill="#A8662E" font-family="Menlo, Consolas, monospace" text-anchor="middle">Pub/Sub</text>
+<text x="995.0" y="1058" font-size="13" fill="#5C6070" font-family="Menlo, Consolas, monospace" text-anchor="middle">status invalidation</text>
+<line x1="150" y1="1172" x2="210" y2="1172" stroke="#3F4BA8" stroke-width="3.2"/>
+<text x="222" y="1177" font-size="16" fill="#5C6070">HTTPS and SSE</text>
+<line x1="383.8" y1="1172" x2="443.8" y2="1172" stroke="#A8662E" stroke-width="3.2"/>
+<text x="455.8" y="1177" font-size="16" fill="#5C6070">Redis Streams and Pub/Sub</text>
+<line x1="720.8" y1="1172" x2="780.8" y2="1172" stroke="#8A8D96" stroke-width="3.2" stroke-dasharray="8 6"/>
+<text x="792.8" y="1177" font-size="16" fill="#5C6070">PostgreSQL outbox</text>
+<circle cx="1004.0" cy="1172" r="14" fill="#1A1D29"/>
+<text x="1004.0" y="1178" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">n</text>
+<text x="1029.0" y="1177" font-size="16" fill="#5C6070">Step n in section 4.5</text>
+</svg>

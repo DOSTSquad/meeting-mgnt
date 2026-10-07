@@ -1,6 +1,6 @@
 # DOST Meeting Management Technical Specification
 
-Last updated: 2026-09-16
+Last updated: 2026-10-07
 
 ## 1. Purpose
 
@@ -9,17 +9,8 @@ availability, confirming final meeting times, managing meeting materials and rec
 maintaining minutes, tracking action items, and showing dashboard notifications.
 
 This specification is written for client review. It describes the delivered system behavior,
-planned Semester 2 extensions, deployment expectations, security requirements, and an initial
-on-premise sizing guide for 10,000 registered users.
-
-### 1.1 Feature Status Flags
-
-| Flag                   | Meaning                                                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| `[Implemented]`        | Available in the current application and included in the delivered scope.               |
-| `[Scaffolded]`         | Foundation exists, but the complete user-facing workflow is not yet delivered.          |
-| `[Semester 2 Planned]` | Planned for Semester 2 and should not be treated as part of the current delivery scope. |
-| `[Future Enhancement]` | Potential improvement outside the currently confirmed delivery scope.                   |
+architecture, data model, API, security requirements, and how the deployment scales. Installation
+and operating procedures are covered in the separate Deployment Guide.
 
 ## 2. User Characteristics
 
@@ -29,6 +20,8 @@ on-premise sizing guide for 10,000 registered users.
 | Meeting creator   | User who creates a meeting or meeting request.                  | Create meeting requests, add time options, invite participants, confirm meetings, manage meeting records. | Full control of their created meetings and requests.  |
 | Meeting organizer | Participant with an organizer role.                             | Help manage participants, files, recordings, and minutes for a meeting.                                   | Elevated meeting-scoped permissions.                  |
 | Attendee          | Participant with an attendee role.                              | View meeting detail, access files/minutes, complete action items.                                         | Meeting-scoped read/collaboration permissions.        |
+| Administrator     | Staff user with the `admin` account role.                       | Create and manage user accounts and roles, view and manage all meetings.                                  | All meetings and user administration.                 |
+| External invitee  | Person invited to a meeting request who has no account.         | Submit availability for the proposed times.                                                               | Emailed invitation link only; no sign-in.             |
 | IT administrator  | Client-side system or infrastructure administrator.             | Configure environments, operate deployments, manage capacity, validate service health.                    | Infrastructure and application administration access. |
 
 The system supports general user profile fields such as role and department. Meeting-level
@@ -38,57 +31,49 @@ authorization is primarily based on meeting creator and participant role.
 
 ### 3.1 High-Level Architecture
 
-```mermaid
-flowchart LR
-  Browser["Browser"] -->|HTTPS| Caddy["Caddy reverse proxy"]
-  Caddy -->|serves static application| React["React web application"]
-  Caddy -->|proxies API, SSE, and health traffic| API["Express API service"]
-  API --> Postgres["PostgreSQL database"]
-  API --> MinIO["MinIO object storage"]
-  API -->|status invalidation| Redis["Redis service"]
-  API --> Auth["Token-based authentication"]
-  ServerWorker["Node workflow worker"] -->|outbox and result state| Postgres
-  ServerWorker -->|Redis Streams| Redis
-  AIWorker["Python AI worker"] -->|Redis Streams| Redis
-  AIWorker -->|audio and result artifacts| MinIO
-  AIWorker --> Ollama["Ollama LLM runtime"]
-```
+![System and deployment architecture](images/architecture-overview.png)
 
 Caddy is the public browser-facing entrypoint. The browser loads the React application from Caddy
-and sends same-origin API requests back to Caddy. Caddy then forwards API and health requests to the
-private Express API service. The browser does not call the private API service directly.
+and sends same-origin API requests back to Caddy. Caddy then forwards API, SSE, and health requests
+to the private Express API service. The browser does not call the private API service directly.
+
+The Express API and the Node workflow worker run as systemd services. PostgreSQL, Redis, and Silo
+object storage run under Docker Compose, and the Python AI worker and Ollama run under the Compose
+`ai` profile. Email is sent through an external SMTP or Resend account.
 
 ### 3.2 System Components
 
-| Component            | Technology / approach          | Status          | Client-facing responsibility                                                                 |
-| -------------------- | ------------------------------ | --------------- | -------------------------------------------------------------------------------------------- |
-| Web application      | React single-page application  | `[Implemented]` | Dashboard, meeting repository, meeting detail, scheduling, minutes, files, and action items. |
-| API service          | Node.js and Express            | `[Implemented]` | Business rules, authorization, validation, workflow transitions, file orchestration, SSE.    |
-| Node workflow worker | Node.js worker runtime         | `[Implemented]` | Dispatches durable workflow outbox events and persists AI result transitions.                |
-| Python AI worker     | Python, Whisper, Redis Streams | `[Implemented]` | Transcribes recordings and generates structured summaries and proposed action items.         |
-| Ollama               | Private local LLM runtime      | `[Implemented]` | Provides local structured analysis for completed transcripts.                                |
-| Database             | PostgreSQL                     | `[Implemented]` | Authoritative meeting and workflow status, transcripts, analysis results, and outbox events. |
-| Object storage       | MinIO                          | `[Implemented]` | Meeting files, recordings, and generated transcript and analysis artifacts.                  |
-| Redis                | Redis Streams and Pub/Sub      | `[Implemented]` | Delivers AI commands/results and broadcasts workflow-status invalidations.                   |
-| Reverse proxy        | Caddy                          | `[Implemented]` | TLS termination, static web delivery, API routing, SSE, and browser-facing traffic control.  |
+| Component            | Technology / approach                       | Client-facing responsibility                                                                 |
+| -------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Web application      | React single-page application               | Dashboard, meeting repository, meeting detail, scheduling, minutes, files, and action items. |
+| API service          | Node.js and Express                         | Business rules, authorization, validation, workflow transitions, file orchestration, SSE.    |
+| Node workflow worker | Node.js worker runtime                      | Dispatches durable workflow outbox events and persists AI result transitions.                |
+| Python AI worker     | Python, Whisper, Redis Streams              | Transcribes recordings and generates structured summaries and proposed action items.         |
+| Ollama               | Private local LLM runtime                   | Provides local structured analysis for completed transcripts.                                |
+| Database             | PostgreSQL                                  | Authoritative meeting and workflow status, transcripts, analysis results, and outbox events. |
+| Object storage       | Silo (S3-compatible, MinIO-compatible fork) | Meeting files, recordings, and generated transcript and analysis artifacts.                  |
+| Redis                | Redis Streams and Pub/Sub                   | Delivers AI commands/results and broadcasts workflow-status invalidations.                   |
+| Reverse proxy        | Caddy                                       | TLS termination, static web delivery, API routing, SSE, and browser-facing traffic control.  |
+| Email                | External SMTP or Resend account             | Sends meeting invitations, confirmations, and calendar updates.                              |
 
 ### 3.3 Application Modules
 
-| Module                         | Status                 | Summary                                                                                          |
-| ------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| Authentication                 | `[Implemented]`        | Staff login, session validation, authenticated API access.                                       |
-| Dashboard                      | `[Implemented]`        | Upcoming meetings, pending meeting requests, availability requests, action items, notifications. |
-| Meeting repository             | `[Implemented]`        | Searchable and filterable meeting list with meeting file visibility.                             |
-| Meeting detail                 | `[Implemented]`        | Meeting metadata, participants, materials, minutes, recording, and action items.                 |
-| Scheduling requests            | `[Implemented]`        | Candidate time options, invitee availability, deadline handling, final confirmation.             |
-| Participant management         | `[Implemented]`        | Add/remove participants and manage meeting-scoped participant roles.                             |
-| File management                | `[Implemented]`        | Upload, list, download, stream, and delete meeting materials.                                    |
-| Minutes management             | `[Implemented]`        | Meeting minutes record with editable content and publication fields.                             |
-| Action items                   | `[Implemented]`        | Meeting-linked and user-linked action-item tracking.                                             |
-| In-app notifications           | `[Implemented]`        | Notification feed, read/unread state, archive actions.                                           |
-| Recording-to-minutes workflow  | `[Implemented]`        | Durable recording, transcription, analysis, review, and status-update workflow.                  |
-| AI transcription and summaries | `[Implemented]`        | Whisper transcripts, structured AI summaries, and reviewable action-item suggestions.            |
-| Expanded RBAC/admin controls   | `[Semester 2 Planned]` | App-wide administrative controls and role-aware management workflows.                            |
+| Module                         | Summary                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Authentication                 | Staff login, session validation, password change, authenticated API access.                                               |
+| Dashboard                      | Upcoming meetings, pending meeting requests, availability requests, action items, notifications.                          |
+| Meeting repository             | Searchable and filterable meeting list with meeting file visibility.                                                      |
+| Meeting detail                 | Meeting metadata, participants, materials, minutes, recording, and action items.                                          |
+| Scheduling requests            | Candidate time options, invitee availability, deadline handling, final confirmation.                                      |
+| Participant management         | Add/remove participants and manage meeting-scoped participant roles.                                                      |
+| Meeting change requests        | Attendees send the meeting owner a private request to change a meeting; the owner is notified and marks requests as read. |
+| File management                | Upload, list, download, stream, and delete meeting materials.                                                             |
+| Minutes management             | Meeting minutes record with editable content and publication fields.                                                      |
+| Action items                   | Meeting-linked and user-linked action-item tracking.                                                                      |
+| Notifications                  | In-app feed with read/unread and archive actions; email invitations and calendar updates.                                 |
+| Recording-to-minutes workflow  | Durable recording, transcription, analysis, review, and status-update workflow.                                           |
+| AI transcription and summaries | Whisper transcripts, structured AI summaries, and reviewable action-item suggestions.                                     |
+| Administration and RBAC        | Centralized account and meeting-role permissions; administrators create and manage accounts.                              |
 
 ## 4. Core Workflows
 
@@ -100,8 +85,8 @@ private Express API service. The browser does not call the private API service d
 4. The web application uses the token for subsequent protected API calls.
 5. The API rejects unauthenticated or unauthorized requests.
 
-Registration policy should follow the client's operating model. For closed staff-only deployments,
-account creation should be limited to approved administrative processes.
+Self-registration is disabled by default (`SELF_REGISTRATION_ENABLED=false`). Administrators create
+staff accounts, and the first administrator is created during host setup.
 
 ### 4.2 Meeting Request Scheduling
 
@@ -122,7 +107,8 @@ stateDiagram-v2
 Important behavior:
 
 - Meeting requests exist before a confirmed meeting is created.
-- Invitees submit availability for offered time options.
+- Invitees submit availability for offered time options. Invitees without an account respond through an
+  emailed link that carries an invitation token, without signing in.
 - The response deadline closes invitee submissions but does not automatically cancel the request.
 - The creator may confirm a meeting after the deadline even when some invitees did not respond.
 - Confirming creates the scheduled meeting and adds known invitee users as participants.
@@ -148,25 +134,34 @@ Status transitions are forward-only. Archived meetings are treated as terminal r
 - Organizers and creators can manage meeting materials and recordings.
 - Download links are short-lived.
 - Minutes are stored as a dedicated meeting resource.
-- Recording upload creates a durable workflow record when the AI pipeline is enabled.
+- Uploading a recording requires the uploader to confirm participant consent and stores only the
+  audio. Transcription and analysis start when the meeting creator or an organizer requests
+  generation.
 - Transcripts, AI summaries, decisions, and proposed action items are available for review before they
   are applied to meeting minutes.
 
 ### 4.5 Recording Analysis Workflow
 
-When `AI_PIPELINE_ENABLED=true`, recording processing is asynchronous and uses PostgreSQL as the
-authoritative workflow state:
+![Recording analysis workflow](images/recording-analysis-workflow.png)
 
-1. The API stores the recording in MinIO and, in one PostgreSQL transaction, creates a recording, a
-   processing transcript, a queued analysis run, and a `recording.uploaded` workflow-outbox event.
-2. The Node workflow worker relays the outbox event to the `ai.transcription.jobs` Redis Stream.
-3. The Python AI worker downloads the audio from MinIO, runs Whisper, writes a transcript artifact to
-   MinIO, and publishes lifecycle/result events to the `ai.results` Redis Stream.
-4. The Node workflow worker validates and persists the transcript, then creates and dispatches an
-   `analysis.requested` outbox event.
-5. The Python AI worker reads the transcript artifact, calls Ollama for a structured summary, key
+Recording processing is asynchronous and uses PostgreSQL as the authoritative workflow state. The
+numbered steps match the diagram:
+
+1. A meeting creator or organizer uploads the recording after confirming participant consent. The API
+   stores the audio in object storage and records the recording and the consent in PostgreSQL.
+   Uploading does not start processing.
+2. The creator or an organizer starts processing ("Process Recording" in the interface), which requires
+   `AI_PIPELINE_ENABLED=true`. In one PostgreSQL transaction the API creates a processing transcript,
+   a queued analysis run, and a `recording.generation_requested` workflow-outbox event.
+3. The Node workflow worker relays the outbox event to the `ai.transcription.jobs` Redis Stream as a
+   `transcription.requested` job.
+4. The Python AI worker downloads the audio from object storage, runs Whisper, writes a transcript
+   artifact to object storage, and publishes lifecycle/result events to the `ai.results` Redis Stream.
+5. The Node workflow worker validates and persists the transcript, then creates and dispatches an
+   `analysis.requested` outbox event to the `ai.analysis.jobs` Redis Stream.
+6. The Python AI worker reads the transcript artifact, calls Ollama for a structured summary, key
    discussions, decisions, and proposed action items, then publishes the analysis result.
-6. The Node workflow worker validates and persists the analysis result, then publishes Redis Pub/Sub
+7. The Node workflow worker validates and persists the analysis result, then publishes Redis Pub/Sub
    invalidations. Connected clients receive refreshed PostgreSQL status snapshots over SSE.
 
 Audio and transcript text are never placed in Redis. Redis carries commands, results, and status
@@ -190,6 +185,7 @@ erDiagram
    RECORDING ||--o{ TRANSCRIPT : produces
    RECORDING ||--o{ ANALYSIS_RUN : produces
    TRANSCRIPT ||--o{ ANALYSIS_RUN : informs
+  PARTICIPANT ||--o{ MEETING_CHANGE_REQUEST : submits
   TAG ||--o{ MEETING : classifies
   USER ||--o{ MEETING_REQUEST : creates
   MEETING_REQUEST ||--o{ TIME_OPTION : offers
@@ -201,24 +197,25 @@ erDiagram
 
 ### 5.2 Logical Data Model
 
-| Entity                | Purpose                                                           | Main relationships                                             |
-| --------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| User                  | Authenticated staff account and profile.                          | Creates meetings and requests; receives action items.          |
-| Meeting               | Confirmed or scheduled meeting record.                            | Has participants, files, minutes, recordings, action items.    |
-| Participant           | Meeting membership and meeting-scoped role.                       | Links users to meetings.                                       |
-| Meeting file          | Metadata for uploaded meeting materials.                          | Belongs to one meeting and one uploader.                       |
-| Action item           | Task created from or attached to a meeting.                       | Belongs to one meeting; may be assigned to one user.           |
-| Meeting request       | Scheduling poll before a meeting is confirmed.                    | Has invitees and candidate time options.                       |
-| Time option           | Candidate date/time option for a meeting request.                 | Receives invitee availability responses.                       |
-| Invitee               | Person invited to respond to a meeting request.                   | May link to an existing user account.                          |
-| Availability response | Invitee response for a candidate time option.                     | Belongs to one invitee and one time option.                    |
-| Tag                   | Meeting repository classification.                                | Classifies meetings.                                           |
-| Recording             | Dedicated meeting recording metadata.                             | Belongs to one meeting; may produce transcripts.               |
-| Transcript            | Persisted Whisper transcript, segments, provenance, and status.   | Belongs to one recording and meeting.                          |
-| Analysis run          | Generated summary, decisions, and reviewable action suggestions.  | Uses one transcript and may reference one recording.           |
-| Workflow outbox       | Durable command awaiting Redis Stream dispatch.                   | Records recording and analysis workflow events.                |
-| Minutes               | One meeting minutes record containing prepared meeting notes.     | Belongs to one meeting.                                        |
-| Notification          | Persisted in-app notification shown in dashboard/topbar contexts. | Belongs to one recipient user and may reference system events. |
+| Entity                 | Purpose                                                                | Main relationships                                             |
+| ---------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
+| User                   | Authenticated staff account and profile.                               | Creates meetings and requests; receives action items.          |
+| Meeting                | Confirmed or scheduled meeting record.                                 | Has participants, files, minutes, recordings, action items.    |
+| Participant            | Meeting membership and meeting-scoped role.                            | Links users to meetings.                                       |
+| Meeting file           | Metadata for uploaded meeting materials.                               | Belongs to one meeting and one uploader.                       |
+| Action item            | Task created from or attached to a meeting.                            | Belongs to one meeting; may be assigned to one user.           |
+| Meeting request        | Scheduling poll before a meeting is confirmed.                         | Has invitees and candidate time options.                       |
+| Time option            | Candidate date/time option for a meeting request.                      | Receives invitee availability responses.                       |
+| Invitee                | Person invited to respond to a meeting request.                        | May link to an existing user account.                          |
+| Availability response  | Invitee response for a candidate time option.                          | Belongs to one invitee and one time option.                    |
+| Tag                    | Meeting repository classification.                                     | Classifies meetings.                                           |
+| Recording              | Dedicated meeting recording metadata.                                  | Belongs to one meeting; may produce transcripts.               |
+| Transcript             | Persisted Whisper transcript, segments, provenance, and status.        | Belongs to one recording and meeting.                          |
+| Analysis run           | Generated summary, decisions, and reviewable action suggestions.       | Uses one transcript and may reference one recording.           |
+| Workflow outbox        | Durable command awaiting Redis Stream dispatch.                        | Records recording and analysis workflow events.                |
+| Meeting change request | Private message from an attendee asking the owner to change a meeting. | Belongs to one meeting participant; read by the meeting owner. |
+| Minutes                | One meeting minutes record containing prepared meeting notes.          | Belongs to one meeting.                                        |
+| Notification           | Persisted in-app notification shown in dashboard/topbar contexts.      | Belongs to one recipient user and may reference system events. |
 
 ### 5.3 Data Integrity Requirements
 
@@ -239,63 +236,82 @@ The detailed API specification, including endpoint grouping, sample requests, pa
 and expected responses, is maintained in the Postman collection at
 `docs/postman/dost-meeting-mgnt.postman_collection.json`.
 
-### 6.1 Authentication and User Session
+### 6.1 Authentication, Session, and User Accounts
 
-| Method | Path          | Resource             | Purpose                                      |
-| ------ | ------------- | -------------------- | -------------------------------------------- |
-| POST   | `/auth/login` | Authentication login | Authenticate a user and issue a session.     |
-| GET    | `/auth/me`    | Current user         | Return the current authenticated user.       |
-| GET    | `/users`      | User directory       | List users for assignment and participation. |
+| Method | Path                | Resource              | Purpose                                                                      |
+| ------ | ------------------- | --------------------- | ---------------------------------------------------------------------------- |
+| POST   | `/auth/login`       | Authentication login  | Authenticate a user and issue a session.                                     |
+| GET    | `/auth/me`          | Current user          | Return the current authenticated user.                                       |
+| POST   | `/auth/register`    | Self-registration     | Create a staff account; returns 403 unless `SELF_REGISTRATION_ENABLED=true`. |
+| PUT    | `/auth/me/password` | Current user password | Change the current user's password.                                          |
+| GET    | `/users`            | User directory        | List users for assignment and participation.                                 |
+| POST   | `/users`            | User accounts         | Create a user account (administrators).                                      |
+| PUT    | `/users/:id`        | User account          | Update a user's profile or account role (administrators).                    |
+| DELETE | `/users/:id`        | User account          | Delete a user account (administrators).                                      |
 
 ### 6.2 Meetings
 
-| Method | Path                                        | Resource             | Purpose                                                                    |
-| ------ | ------------------------------------------- | -------------------- | -------------------------------------------------------------------------- |
-| POST   | `/meetings`                                 | Meetings             | Create a scheduled meeting.                                                |
-| GET    | `/meetings`                                 | Meetings             | List accessible meetings with pagination, status/date filters, and search. |
-| GET    | `/meetings/:id`                             | Meeting detail       | Read one accessible meeting with participants and related records.         |
-| PUT    | `/meetings/:id`                             | Meeting detail       | Update meeting fields and enforce valid status transitions.                |
-| DELETE | `/meetings/:id`                             | Meeting detail       | Delete a meeting where the user has sufficient permission.                 |
-| GET    | `/meetings/:meetingId/participants`         | Meeting participants | List participants.                                                         |
-| POST   | `/meetings/:meetingId/participants`         | Meeting participants | Add participants by user and role.                                         |
-| PATCH  | `/meetings/:meetingId/participants/:userId` | Meeting participant  | Update a participant role.                                                 |
-| DELETE | `/meetings/:meetingId/participants/:userId` | Meeting participant  | Remove a participant while preserving organizer safeguards.                |
+| Method | Path                                                   | Resource                | Purpose                                                                    |
+| ------ | ------------------------------------------------------ | ----------------------- | -------------------------------------------------------------------------- |
+| POST   | `/meetings`                                            | Meetings                | Create a scheduled meeting.                                                |
+| GET    | `/meetings`                                            | Meetings                | List accessible meetings with pagination, status/date filters, and search. |
+| GET    | `/meetings/:id`                                        | Meeting detail          | Read one accessible meeting with participants and related records.         |
+| PUT    | `/meetings/:id`                                        | Meeting detail          | Update meeting fields and enforce valid status transitions.                |
+| DELETE | `/meetings/:id`                                        | Meeting detail          | Delete a meeting where the user has sufficient permission.                 |
+| GET    | `/meetings/:meetingId/participants`                    | Meeting participants    | List participants.                                                         |
+| POST   | `/meetings/:meetingId/participants`                    | Meeting participants    | Add participants by user and role.                                         |
+| PATCH  | `/meetings/:meetingId/participants/:userId`            | Meeting participant     | Update a participant role.                                                 |
+| DELETE | `/meetings/:meetingId/participants/:userId`            | Meeting participant     | Remove a participant while preserving organizer safeguards.                |
+| POST   | `/meetings/:meetingId/change-requests`                 | Meeting change requests | Send the owner a change request (attendees).                               |
+| GET    | `/meetings/:meetingId/change-requests`                 | Meeting change requests | List the meeting's change requests (meeting owner).                        |
+| GET    | `/meetings/:meetingId/change-requests/:userId`         | Meeting change requests | List one participant's change requests (meeting owner).                    |
+| PATCH  | `/meetings/:meetingId/change-requests/:requestId/read` | Meeting change request  | Mark a change request as read (meeting owner).                             |
 
 ### 6.3 Meeting Requests
 
-| Method | Path                                                            | Resource               | Purpose                                                  |
-| ------ | --------------------------------------------------------------- | ---------------------- | -------------------------------------------------------- |
-| POST   | `/meeting-requests`                                             | Meeting requests       | Create a scheduling request.                             |
-| GET    | `/meeting-requests/:requestId`                                  | Meeting request detail | Read request detail, time options, invitees, and status. |
-| GET    | `/meeting-requests/:requestId/invitees/:inviteeId`              | Invitee request detail | Read invitee-specific request detail.                    |
-| PUT    | `/meeting-requests/:requestId/time-options`                     | Request time options   | Replace candidate time options.                          |
-| PUT    | `/meeting-requests/:requestId/invitees`                         | Request invitees       | Replace invitees.                                        |
-| PUT    | `/meeting-requests/:requestId/invitees/:inviteeId/availability` | Invitee availability   | Submit availability responses.                           |
-| POST   | `/meeting-requests/:requestId/confirm`                          | Request confirmation   | Confirm selected time and create a meeting.              |
-| DELETE | `/meeting-requests/:requestId`                                  | Meeting request        | Cancel the request and linked meeting when applicable.   |
+| Method | Path                                                            | Resource               | Purpose                                                        |
+| ------ | --------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------- |
+| POST   | `/meeting-requests`                                             | Meeting requests       | Create a scheduling request.                                   |
+| GET    | `/meeting-requests/:requestId`                                  | Meeting request detail | Read request detail, time options, invitees, and status.       |
+| PUT    | `/meeting-requests/:requestId`                                  | Meeting request        | Update request details.                                        |
+| POST   | `/meeting-requests/:requestId/send-invitations`                 | Request invitations    | Email invitations to the invitees.                             |
+| GET    | `/meeting-requests/:requestId/invitees/:inviteeId`              | Invitee request detail | Read invitee-specific request detail.                          |
+| PUT    | `/meeting-requests/:requestId/time-options`                     | Request time options   | Replace candidate time options.                                |
+| PUT    | `/meeting-requests/:requestId/invitees`                         | Request invitees       | Replace invitees.                                              |
+| PUT    | `/meeting-requests/:requestId/invitees/:inviteeId/availability` | Invitee availability   | Submit availability responses.                                 |
+| POST   | `/meeting-requests/:requestId/confirm`                          | Request confirmation   | Confirm selected time and create a meeting.                    |
+| DELETE | `/meeting-requests/:requestId`                                  | Meeting request        | Cancel the request and linked meeting when applicable.         |
+| GET    | `/public/invitations/:token`                                    | Public invitation      | Read an invitation from an emailed link; no sign-in required.  |
+| PUT    | `/public/invitations/:token/availability`                       | Public invitation      | Submit availability from an emailed link; no sign-in required. |
 
 ### 6.4 Files, Recordings, Minutes, and Action Items
 
-| Method | Path                                              | Resource             | Purpose                                                    |
-| ------ | ------------------------------------------------- | -------------------- | ---------------------------------------------------------- |
-| POST   | `/meetings/:meetingId/files`                      | Meeting files        | Upload a meeting material.                                 |
-| GET    | `/meetings/:meetingId/files`                      | Meeting files        | List meeting files.                                        |
-| GET    | `/files/:id/download`                             | File download        | Return an authorized download link.                        |
-| GET    | `/files/:id/content`                              | File content         | Stream authorized file content.                            |
-| DELETE | `/files/:id`                                      | File                 | Delete file metadata and object storage record.            |
-| GET    | `/meetings/:meetingId/recording`                  | Meeting recording    | Get the active recording and latest generation status.     |
-| PUT    | `/meetings/:meetingId/recording`                  | Meeting recording    | Upload or replace a dedicated recording.                   |
-| DELETE | `/meetings/:meetingId/recording`                  | Meeting recording    | Archive or remove the active recording.                    |
-| POST   | `/meetings/:meetingId/recording/generate-minutes` | Generate minutes     | `[Scaffolded]` Start recording-to-minutes generation.      |
-| GET    | `/meetings/:meetingId/minutes`                    | Meeting minutes      | Read or initialize meeting minutes.                        |
-| PUT    | `/meetings/:meetingId/minutes`                    | Meeting minutes      | Update meeting minutes.                                    |
-| PUT    | `/meetings/:meetingId/minutes/:minutesId`         | Meeting minutes      | Update a specific minutes record.                          |
-| GET    | `/meetings/:meetingId/action-items`               | Meeting action items | List meeting action items.                                 |
-| POST   | `/meetings/:meetingId/action-items`               | Meeting action items | Create an action item.                                     |
-| GET    | `/action-items`                                   | User action items    | List current user's action items.                          |
-| GET    | `/action-items/:id`                               | Action item          | Read one action item.                                      |
-| PUT    | `/action-items/:id`                               | Action item          | Update action item content, assignee, status, or priority. |
-| DELETE | `/action-items/:id`                               | Action item          | Delete an action item.                                     |
+| Method | Path                                                             | Resource               | Purpose                                                      |
+| ------ | ---------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------ |
+| POST   | `/meetings/:meetingId/files`                                     | Meeting files          | Upload a meeting material.                                   |
+| GET    | `/meetings/:meetingId/files`                                     | Meeting files          | List meeting files.                                          |
+| GET    | `/files/:id/download`                                            | File download          | Return an authorized download link.                          |
+| GET    | `/files/:id/content`                                             | File content           | Stream authorized file content.                              |
+| DELETE | `/files/:id`                                                     | File                   | Delete file metadata and object storage record.              |
+| GET    | `/meetings/:meetingId/recording`                                 | Meeting recording      | Get the active recording and latest generation status.       |
+| PUT    | `/meetings/:meetingId/recording`                                 | Meeting recording      | Upload or replace a dedicated recording.                     |
+| DELETE | `/meetings/:meetingId/recording`                                 | Meeting recording      | Archive or remove the active recording.                      |
+| GET    | `/meetings/:meetingId/recording/analysis`                        | Recording analysis     | Read the latest transcript analysis for review.              |
+| POST   | `/meetings/:meetingId/recording/generate`                        | Generate minutes       | Start or retry transcription and analysis.                   |
+| GET    | `/meetings/:meetingId/workflow/events`                           | Workflow status stream | Server-sent events with recording workflow status snapshots. |
+| PATCH  | `/meetings/:meetingId/analysis-suggestions/:suggestionId`        | Action-item suggestion | Edit a proposed action item before review.                   |
+| POST   | `/meetings/:meetingId/analysis-suggestions/:suggestionId/accept` | Action-item suggestion | Accept a proposed action item and create it.                 |
+| POST   | `/meetings/:meetingId/analysis-suggestions/:suggestionId/reject` | Action-item suggestion | Reject a proposed action item.                               |
+| GET    | `/meetings/:meetingId/minutes`                                   | Meeting minutes        | Read or initialize meeting minutes.                          |
+| PUT    | `/meetings/:meetingId/minutes`                                   | Meeting minutes        | Update meeting minutes.                                      |
+| PUT    | `/meetings/:meetingId/minutes/:minutesId`                        | Meeting minutes        | Update a specific minutes record.                            |
+| POST   | `/meetings/:meetingId/minutes/apply-generated`                   | Meeting minutes        | Apply a reviewed AI analysis to the minutes.                 |
+| GET    | `/meetings/:meetingId/action-items`                              | Meeting action items   | List meeting action items.                                   |
+| POST   | `/meetings/:meetingId/action-items`                              | Meeting action items   | Create an action item.                                       |
+| GET    | `/action-items`                                                  | User action items      | List current user's action items.                            |
+| GET    | `/action-items/:id`                                              | Action item            | Read one action item.                                        |
+| PUT    | `/action-items/:id`                                              | Action item            | Update action item content, assignee, status, or priority.   |
+| DELETE | `/action-items/:id`                                              | Action item            | Delete an action item.                                       |
 
 ### 6.5 Dashboard, Notifications, Tags, and Health
 
@@ -327,8 +343,7 @@ Dashboard, notification, and tag paths use the `/api` prefix. Health paths are e
 - Configure session lifetime according to the client's risk profile.
 - Store only hashed passwords.
 - Never return password hashes, secret values, or infrastructure credentials in API responses.
-- Apply a closed-registration policy for staff-only deployments unless the client explicitly requires
-  self-service account creation.
+- Keep self-registration disabled for staff-only deployments; administrators create accounts.
 
 ### 7.2 Authorization
 
@@ -338,7 +353,9 @@ Dashboard, notification, and tag paths use the `/api` prefix. Health paths are e
 - Restrict meeting request management to the request creator.
 - Allow invitee-specific availability submission only for the relevant invitee or request creator.
 - Prevent removal or demotion of the last organizer for a meeting.
-- `[Semester 2 Planned]` Expand app-wide role-based access control and administrator workflows.
+- Allow only attendees to send meeting change requests, and only the meeting owner to read them.
+- Apply account-level (`staff`, `admin`) and meeting-level role permissions from one central
+  permission map; administrators have consistent access across meetings and user management.
 
 ### 7.3 Input Validation
 
@@ -362,147 +379,43 @@ Dashboard, notification, and tag paths use the `/api` prefix. Health paths are e
 - Use short-lived download links where presigned access is required.
 - Store object storage credentials securely in the deployment environment.
 - Separate ordinary meeting files from recording/audio artifacts at the bucket or policy level.
-- Treat large recording uploads as a high-risk workflow and use chunked or direct-to-object-storage
-  patterns in Semester 2.
+- Treat recording uploads as a high-risk workflow: require uploader consent and enforce the upload size
+  limit.
 
-## 8. Deployment Guide
+## 8. Deployment and Scalability
 
-### 8.1 Deployment Model
+Installation, configuration, and operating procedures are in the separate Deployment Guide. This
+section covers only how the current deployment scales.
 
-The recommended production model is:
+### 8.1 Current Deployment
 
-1. Browser traffic reaches Caddy over HTTPS.
-2. Caddy serves the built React application.
-3. Caddy forwards API and health requests to the private API service.
-4. The API service connects to PostgreSQL, Redis, and MinIO over private network paths.
-5. When AI is enabled, the Node workflow worker dispatches outbox events and consumes results, while the
-   Python `ai-worker` executes Whisper and Ollama jobs.
+The delivered system runs on a single host (Deployment Guide, Option 1), as shown in Section 3.1.
+This suits demonstrations and small pilots. It is not highly available: a host or disk failure
+stops the service. No load test has been run, so no capacity figure is claimed.
 
-The recommended future direction is containerized deployment. Docker Compose is acceptable for the
-current MVP, local development, and small non-HA demonstrations. For client pilot and production, the
-system should move to an orchestrated container deployment or equivalent managed platform, such as
-Kubernetes or OpenShift when the client already operates those platforms.
+### 8.2 Scalability by Component
 
-The production topology should not rely on the development Compose file as its high-availability
-architecture. PostgreSQL, Redis, and MinIO still require explicit HA, persistent storage, backup, and
-failover design whether they run on dedicated hosts, managed services, or Kubernetes.
+| Component            | Can it scale today? | How it scales                                                                                                                                                                                                                                                                                              |
+| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Express API          | Yes                 | Run more instances behind Caddy. Sessions are stateless JWTs and SSE status updates fan out through Redis Pub/Sub, so any instance can serve any client. Rate limiting is counted in each process's memory, so each instance applies its own limit; a shared Redis store gives one limit across instances. |
+| Node workflow worker | Yes                 | Run more worker processes. Outbox rows are claimed with `FOR UPDATE SKIP LOCKED`, and AI results are read through a Redis Streams consumer group with a unique consumer name per process.                                                                                                                  |
+| Python AI worker     | Yes                 | Add worker containers or hosts. Transcription and analysis jobs are shared through Redis Streams consumer groups, and jobs left by a stopped worker are reclaimed. Each worker runs one job at a time.                                                                                                     |
+| Ollama               | Vertically          | Use more CPU cores or a GPU, or move Ollama to its own host through `OLLAMA_BASE_URL`.                                                                                                                                                                                                                     |
+| PostgreSQL           | Vertically          | Runs as one Compose container. Scale the host up, or move to a managed or replicated PostgreSQL by changing `DATABASE_URL`.                                                                                                                                                                                |
+| Redis                | Vertically          | Runs as one node. Use a managed or Sentinel-based Redis with the `noeviction` policy for high availability, set through `REDIS_URL` and, for the AI worker container, `AI_WORKER_REDIS_URL`.                                                                                                               |
+| Object storage       | Vertically          | Runs as one Silo node. Any S3-compatible store, including managed object storage, can replace it through the `MINIO_*` settings and, for the AI worker container, the `AI_WORKER_MINIO_*` settings.                                                                                                        |
 
-### 8.2 Environment Configuration
+Recording and file uploads are buffered in API memory (up to 50 MB per request), so API memory should
+grow with the number of concurrent uploads.
 
-Production environments should define the following configuration values. Secret values must be
-generated per environment and stored in the client's approved secret-management mechanism.
+### 8.3 Scaling Path
 
-| Configuration               | Purpose                                                             |
-| --------------------------- | ------------------------------------------------------------------- |
-| `NODE_ENV`                  | Runtime mode; production deployments should use `production`.       |
-| `PORT`                      | Private API service port behind Caddy.                              |
-| `RATE_LIMIT_WINDOW_MS`      | API rate-limit time window.                                         |
-| `RATE_LIMIT_MAX`            | Maximum API requests allowed within the rate-limit window.          |
-| `TRUST_PROXY`               | Enables proxy-aware client IP handling when running behind Caddy.   |
-| `DATABASE_URL`              | PostgreSQL connection string used by the API service.               |
-| `POSTGRES_USER`             | PostgreSQL user for provisioned database environments.              |
-| `POSTGRES_PASSWORD`         | PostgreSQL password for provisioned database environments.          |
-| `POSTGRES_DB`               | PostgreSQL database name.                                           |
-| `REDIS_URL`                 | Redis service connection URL.                                       |
-| `MINIO_ENDPOINT`            | MinIO service hostname or endpoint.                                 |
-| `MINIO_PORT`                | MinIO service port.                                                 |
-| `MINIO_USE_SSL`             | Whether the API should use TLS when connecting to MinIO.            |
-| `MINIO_ACCESS_KEY`          | MinIO access key for application object-storage access.             |
-| `MINIO_SECRET_KEY`          | MinIO secret key for application object-storage access.             |
-| `MINIO_BUCKET_FILES`        | Bucket for ordinary meeting files.                                  |
-| `MINIO_BUCKET_AUDIO`        | Bucket for recordings and audio artifacts.                          |
-| `JWT_SECRET`                | Token-signing secret for authenticated sessions.                    |
-| `JWT_EXPIRES_IN`            | Session token lifetime.                                             |
-| `VITE_API_BASE_URL`         | Web application API base URL; use same-origin routing behind Caddy. |
-| `AI_PIPELINE_ENABLED`       | Enables the asynchronous recording-to-analysis workflow.            |
-| `AI_TRANSCRIPTION_PROVIDER` | Transcription provider; production uses `whisper`.                  |
-| `AI_ANALYSIS_PROVIDER`      | Analysis provider; production uses `llm`.                           |
-| `OLLAMA_MODEL`              | Local Ollama model used for structured transcript analysis.         |
-| `WHISPER_MODEL`             | Whisper model used by the Python AI worker.                         |
-
-Deployment automation, where used, should also define the deployment host, deployment user,
-deployment path, deployment service name, connection port, and private deployment credential. These
-values should be stored as protected CI/CD variables or secrets, not in source-controlled files.
-
-### 8.3 Deployment Guideline A: MVP VPS with Docker Compose
-
-This guideline is recommended for the current MVP, demonstrations, coursework submission, and small
-non-HA pilots. It is the simplest path to operate and debug.
-
-#### 8.3.1 Target Use
-
-| Use case                  | Fit             | Notes                                                               |
-| ------------------------- | --------------- | ------------------------------------------------------------------- |
-| Local development         | Recommended     | Fast setup with local PostgreSQL, Redis, and MinIO.                 |
-| MVP / demo VPS            | Recommended     | Suitable for showing the product and validating workflows.          |
-| Small internal pilot      | Acceptable      | Use only when downtime and manual recovery are acceptable.          |
-| 10,000-user HA production | Not recommended | Does not provide the required high-availability topology by itself. |
-
-#### 8.3.2 MVP VPS Topology
-
-```mermaid
-flowchart LR
-  Browser["Browser"] --> Caddy["Caddy on VPS"]
-  Caddy --> React["React static build"]
-  Caddy --> API["Express API on private port"]
-  Caddy -->|SSE| API
-  API --> Postgres["PostgreSQL via Docker Compose"]
-  API --> Redis["Redis via Docker Compose"]
-  API --> MinIO["MinIO via Docker Compose"]
-  Worker["Node workflow worker"] --> Postgres
-  Worker --> Redis
-  AIWorker["Python AI worker"] --> Redis
-  AIWorker --> MinIO
-  AIWorker --> Ollama["Ollama"]
-```
-
-Docker Compose is used for local/supporting dependencies. The application can run as a host service
-or development process, while Caddy remains the public browser-facing entrypoint.
-
-#### 8.3.3 MVP Deployment Steps
-
-1. Provision one VPS with Node.js, npm, Docker, Docker Compose, Caddy, and Git.
-2. Create the application directory and clone or pull the repository.
-3. Populate `.env` with environment-specific values.
-4. Start supporting services with Docker Compose.
-5. Install dependencies from the lockfile.
-6. Run database migrations.
-7. Build the React application with same-origin API routing.
-8. Start or restart the private Express API service and Node workflow worker.
-9. When AI processing is enabled, start the private Python `ai-worker` and Ollama services.
-10. Configure Caddy to serve the built React app and proxy `/api/*` and `/health*`.
-11. Validate liveness, readiness, login, dashboard, meeting detail, and file access.
-
-Example release CLI:
-
-```bash
-cd <app-path>
-git fetch --all --prune
-git checkout main
-git pull --ff-only origin main
-docker compose up -d postgres redis minio minio-init
-docker compose --profile ai up -d --build ai-service ai-worker ollama
-npm ci
-VITE_API_BASE_URL=/ npm run build --workspace=client
-npm run migrate --workspace=server
-sudo systemctl restart meeting-mgnt-server.service
-sudo systemctl restart meeting-mgnt-worker.service
-sudo systemctl reload caddy
-curl -fsS http://127.0.0.1:<api-port>/health/live
-curl -fsS http://127.0.0.1:<api-port>/health/ready
-curl -fsS https://<domain>/health/live
-```
-
-The existing `Deploy` GitHub Actions workflow supports this host/VPS deployment model.
-
-#### 8.3.4 MVP Limitations
-
-- Docker Compose is single-host oriented and should not be described as the HA production
-  architecture.
-- PostgreSQL, Redis, and MinIO in the MVP topology are single-node dependencies unless separately
-  configured.
-- Host failure, disk failure, or local Docker volume loss can cause service outage or data loss.
-- Backups, restore testing, and manual recovery procedures are required even for a pilot.
+1. Scale the single host up: more vCPU and RAM, or a GPU for Whisper and Ollama.
+2. Move PostgreSQL and object storage to managed services and keep one application host
+   (Deployment Guide, Option 2).
+3. Run two or more application hosts behind a load balancer, with managed PostgreSQL, a managed
+   Redis-compatible cache, managed object storage, and a separate AI host (Deployment Guide, Option 3).
+   Move rate limiting to the shared Redis store so that one limit applies across hosts.
 
 ## 9. Testing and Validation
 
@@ -514,24 +427,6 @@ The existing `Deploy` GitHub Actions workflow supports this host/VPS deployment 
 | File testing             | Upload, download, stream, delete, size limits, unauthorized access rejection.            |
 | Security testing         | Authenticated route protection, meeting-scoped permissions, rate limiting.               |
 | Deployment smoke testing | Liveness/readiness health, login, dashboard, core meeting workflow, file access.         |
-| Load testing             | Dashboard, meeting repository search, meeting detail, uploads, and action-item updates.  |
 
 Readiness health should fail when required dependencies are unavailable. Liveness health should only
 confirm that the application process is running.
-
-## 10. Delivered Scope and Planned Improvements
-
-| Item                                    | Status                 | Client-facing note                                                                                                                            |
-| --------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Core meeting management                 | `[Implemented]`        | Meeting creation, list/search, detail, participants, files, minutes, and action items are in scope.                                           |
-| Meeting request scheduling              | `[Implemented]`        | Invitees can respond to candidate times; creators can confirm after responses or deadline.                                                    |
-| Dashboard and notifications             | `[Implemented]`        | Dashboard aggregates upcoming meetings, requests, action items, and notification state.                                                       |
-| Recording-to-analysis workflow          | `[Implemented]`        | Outbox-backed transcription and analysis workflow persists reviewable results.                                                                |
-| Large recording upload reliability      | `[Semester 2 Planned]` | Large recording workflows should use chunking or direct object-storage upload patterns.                                                       |
-| Speech-to-text transcription            | `[Implemented]`        | Whisper generates persisted transcript text and timestamped segments from recordings.                                                         |
-| AI summaries and extracted action items | `[Implemented]`        | Local LLM analysis generates reviewable summaries, decisions, and proposed action items.                                                      |
-| On-prem AI model evaluation             | `[Future Enhancement]` | Model, GPU, latency, accuracy, and data-governance trade-offs should continue to be assessed.                                                 |
-| Expanded RBAC and admin controls        | `[Semester 2 Planned]` | Broader administrative role management and app-wide route checks are planned.                                                                 |
-| External notification delivery channels | `[Future Enhancement]` | Email, push, Slack, Teams, or similar outbound channels are outside the current scope.                                                        |
-| Backend-driven repository pagination    | `[Future Enhancement]` | May be required when the meeting repository grows beyond comfortable client-side filtering.                                                   |
-| Containerized production deployment     | `[Future Enhancement]` | Recommended future direction. Use Docker Compose for MVP/demo only, or Kubernetes/OpenShift where the client already has platform capability. |
