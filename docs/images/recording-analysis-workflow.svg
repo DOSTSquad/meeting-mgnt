@@ -13,7 +13,10 @@
 <rect x="1109" y="60" width="267" height="1060" rx="18" fill="#F6F7FA"/>
 <text x="1242.5" y="100" font-size="19" font-weight="700" fill="#1A1D29" text-anchor="middle">Python AI worker</text>
 <path d="M310,202 H360" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
-<path d="M472,254 V290" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
+<path d="M197,254 V290" fill="none" stroke="#8A8D96" stroke-width="3.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#mx)"/>
+<rect x="171.0" y="262" width="52" height="21" fill="#fff"/>
+<text x="197" y="277" font-size="14" fill="#8A8D96" text-anchor="middle">later</text>
+<path d="M310,342 H360" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
 <path d="M585,342 H747 V430" fill="none" stroke="#8A8D96" stroke-width="3.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#mx)"/>
 <rect x="701.0" y="373" width="92" height="21" fill="#fff"/>
 <text x="747" y="388" font-size="14" fill="#8A8D96" text-anchor="middle">outbox row</text>
@@ -30,42 +33,47 @@
 <path d="M360,1042 H310" fill="none" stroke="#3F4BA8" stroke-width="3.2" stroke-linejoin="round" marker-end="url(#mb)"/>
 <rect x="85" y="150" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="105" y="184" font-size="21" font-weight="700" fill="#1A1D29">Upload recording</text>
-<text x="105" y="208" font-size="15" fill="#5C6070">HTTPS, after consent</text>
+<text x="105" y="208" font-size="15" fill="#5C6070">after consent check</text>
 <rect x="360" y="150" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="380" y="184" font-size="21" font-weight="700" fill="#1A1D29">Store audio</text>
-<text x="380" y="208" font-size="15" fill="#5C6070">meeting-audio bucket</text>
+<text x="380" y="208" font-size="15" fill="#5C6070">audio + consent record</text>
 <rect x="380" y="220" width="52" height="22" rx="11" fill="#EAF3EE"/>
 <text x="406.0" y="235.5" font-size="13" font-weight="700" fill="#2E6B4F" text-anchor="middle">Silo</text>
+<rect x="440" y="220" width="98" height="22" rx="11" fill="#EEF0FA"/>
+<text x="489.0" y="235.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
 <circle cx="362" cy="152" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
 <text x="362" y="158" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<rect x="85" y="290" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
+<text x="105" y="324" font-size="21" font-weight="700" fill="#1A1D29">Process recording</text>
+<text x="105" y="348" font-size="15" fill="#5C6070">creator or organizer</text>
 <rect x="360" y="290" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
-<text x="380" y="324" font-size="21" font-weight="700" fill="#1A1D29">Create records</text>
-<text x="380" y="348" font-size="15" fill="#5C6070">one transaction + outbox</text>
+<text x="380" y="324" font-size="21" font-weight="700" fill="#1A1D29">Queue generation</text>
+<text x="380" y="348" font-size="15" fill="#5C6070">transcript, run + outbox</text>
 <rect x="380" y="360" width="98" height="22" rx="11" fill="#EEF0FA"/>
 <text x="429.0" y="375.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
 <circle cx="362" cy="292" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="362" y="298" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<text x="362" y="298" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">2</text>
 <rect x="635" y="430" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="655" y="464" font-size="21" font-weight="700" fill="#1A1D29">Relay outbox</text>
-<text x="655" y="488" font-size="15" fill="#5C6070">claims recording.uploaded</text>
+<text x="655" y="488" font-size="15" fill="#5C6070">claims generation event</text>
 <rect x="655" y="500" width="98" height="22" rx="11" fill="#EEF0FA"/>
 <text x="704.0" y="515.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
 <circle cx="637" cy="432" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="637" y="438" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<text x="637" y="438" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">3</text>
 <rect x="1130" y="430" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="1150" y="464" font-size="21" font-weight="700" fill="#1A1D29">Transcribe audio</text>
 <text x="1150" y="488" font-size="15" fill="#5C6070">Whisper speech-to-text</text>
 <rect x="1150" y="500" width="52" height="22" rx="11" fill="#EAF3EE"/>
 <text x="1176.0" y="515.5" font-size="13" font-weight="700" fill="#2E6B4F" text-anchor="middle">Silo</text>
 <circle cx="1132" cy="432" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="1132" y="438" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<text x="1132" y="438" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">4</text>
 <rect x="635" y="570" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="655" y="604" font-size="21" font-weight="700" fill="#1A1D29">Save transcript</text>
 <text x="655" y="628" font-size="15" fill="#5C6070">validate, queue analysis</text>
 <rect x="655" y="640" width="98" height="22" rx="11" fill="#EEF0FA"/>
 <text x="704.0" y="655.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
 <circle cx="637" cy="572" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="637" y="578" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<text x="637" y="578" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">5</text>
 <rect x="1130" y="710" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="1150" y="744" font-size="21" font-weight="700" fill="#1A1D29">Analyse transcript</text>
 <text x="1150" y="768" font-size="15" fill="#5C6070">summary + action items</text>
@@ -74,21 +82,21 @@
 <rect x="1210" y="780" width="68" height="22" rx="11" fill="#F1ECF7"/>
 <text x="1244.0" y="795.5" font-size="13" font-weight="700" fill="#6E4FA0" text-anchor="middle">Ollama</text>
 <circle cx="1132" cy="712" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="1132" y="718" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+<text x="1132" y="718" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">6</text>
 <rect x="635" y="850" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="655" y="884" font-size="21" font-weight="700" fill="#1A1D29">Save analysis</text>
 <text x="655" y="908" font-size="15" fill="#5C6070">validate, mark complete</text>
 <rect x="655" y="920" width="98" height="22" rx="11" fill="#EEF0FA"/>
 <text x="704.0" y="935.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
 <circle cx="637" cy="852" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="637" y="858" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<text x="637" y="858" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">7</text>
 <rect x="360" y="990" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="380" y="1024" font-size="21" font-weight="700" fill="#1A1D29">Push status</text>
 <text x="380" y="1048" font-size="15" fill="#5C6070">reload snapshot</text>
 <rect x="380" y="1060" width="98" height="22" rx="11" fill="#EEF0FA"/>
 <text x="429.0" y="1075.5" font-size="13" font-weight="700" fill="#3F4BA8" text-anchor="middle">PostgreSQL</text>
 <circle cx="362" cy="992" r="15" fill="#1A1D29" stroke="#fff" stroke-width="3"/>
-<text x="362" y="998" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<text x="362" y="998" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">7</text>
 <rect x="85" y="990" width="225" height="104" rx="10" fill="#fff" stroke="#C9CCD6" stroke-width="2"/>
 <text x="105" y="1024" font-size="21" font-weight="700" fill="#1A1D29">Show progress</text>
 <text x="105" y="1048" font-size="15" fill="#5C6070">live over SSE</text>
