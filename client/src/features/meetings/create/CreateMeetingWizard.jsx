@@ -9,11 +9,8 @@ import { ConfirmMeetingStep } from './ConfirmMeetingStep.jsx'
 import { CreateRequestStep } from './CreateRequestStep.jsx'
 import { InviteParticipantsStep } from './InviteParticipantsStep.jsx'
 import { ReviewResponsesStep } from './ReviewResponsesStep.jsx'
-import {
-  getDateValueInTimeZone,
-  MEETING_TIMEZONE_OPTIONS,
-  zonedDateTimeToUtcDate,
-} from '../../../utils/timezone.js'
+import { MEETING_TIMEZONE_OPTIONS, zonedDateTimeToUtcDate } from '../../../utils/timezone.js'
+import { updateTimeOptionDurations } from './timeOptions.js'
 
 const steps = ['Meeting Setup', 'Invite', 'Review', 'Confirm']
 
@@ -79,18 +76,6 @@ const getEarliestTimeOptionStart = (timeOptions) =>
       !earliest || new Date(option.startsAt) < new Date(earliest) ? option.startsAt : earliest,
     ''
   )
-
-const updateTimeOptionsForMeetingTime = (options, { startTime, durationMinutes, timezoneName }) =>
-  options.map((option) => {
-    const date = getDateValueInTimeZone(option.startsAt, timezoneName)
-    const startsAt = zonedDateTimeToUtcDate({ date, time: startTime, timeZone: timezoneName })
-
-    return {
-      ...option,
-      startsAt: startsAt.toISOString(),
-      endsAt: new Date(startsAt.getTime() + durationMinutes * 60 * 1000).toISOString(),
-    }
-  })
 
 const getRequestFormFromMeetingRequest = (request) => ({
   title: request.title ?? '',
@@ -446,8 +431,8 @@ export const CreateMeetingWizard = ({
     setRequestForm(nextRequestForm)
 
     if (patch.startTime !== undefined || patch.endTime !== undefined) {
-      setTimeOptions((prev) => updateTimeOptionsForMeetingTime(prev, nextRequestForm))
-      setSavedTimeOptions((prev) => updateTimeOptionsForMeetingTime(prev, nextRequestForm))
+      setTimeOptions((prev) => updateTimeOptionDurations(prev, nextRequestForm))
+      setSavedTimeOptions((prev) => updateTimeOptionDurations(prev, nextRequestForm))
     }
 
     if (patch.timezoneName !== undefined && patch.timezoneName !== requestForm.timezoneName) {
