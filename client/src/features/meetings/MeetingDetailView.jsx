@@ -977,76 +977,80 @@ export const MeetingDetailView = ({
             <div>
               <h2 className="text-2xl font-semibold text-slate-700">Action Items</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Follow-ups captured from this meeting, with ownership and deadline at a glance.
+                {canManageMeeting
+                  ? 'Follow-ups captured from this meeting, with ownership and deadline at a glance.'
+                  : 'Action items are read-only for meeting participants.'}
               </p>
             </div>
           </div>
 
-          <form
-            onSubmit={submitNewActionItem}
-            className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_8rem_auto]"
-          >
-            <label className="block">
-              <span className="sr-only">New action item task</span>
-              <input
-                value={newActionItem.title}
-                onChange={(event) =>
-                  setNewActionItem((prev) => ({ ...prev, title: event.target.value }))
-                }
-                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                placeholder="Add a new follow-up task..."
-              />
-            </label>
-            <label className="block">
-              <span className="sr-only">New action item owner</span>
-              <select
-                value={newActionItem.assigneeId}
-                onChange={(event) =>
-                  setNewActionItem((prev) => ({ ...prev, assigneeId: event.target.value }))
-                }
-                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
-              >
-                <option value="">Owner</option>
-                {detail.participants.map((participant) => (
-                  <option key={participant.userId} value={participant.userId}>
-                    {participant.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="sr-only">New action item due date</span>
-              <input
-                type="date"
-                value={newActionItem.dueDate}
-                onChange={(event) =>
-                  setNewActionItem((prev) => ({ ...prev, dueDate: event.target.value }))
-                }
-                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
-              />
-            </label>
-            <label className="block">
-              <span className="sr-only">New action item priority</span>
-              <select
-                value={newActionItem.priority}
-                onChange={(event) =>
-                  setNewActionItem((prev) => ({ ...prev, priority: event.target.value }))
-                }
-                className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium capitalize text-slate-700"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </label>
-            <button
-              type="submit"
-              disabled={!newActionItem.title.trim()}
-              className="h-10 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+          {canManageMeeting ? (
+            <form
+              onSubmit={submitNewActionItem}
+              className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_8rem_auto]"
             >
-              Add
-            </button>
-          </form>
+              <label className="block">
+                <span className="sr-only">New action item task</span>
+                <input
+                  value={newActionItem.title}
+                  onChange={(event) =>
+                    setNewActionItem((prev) => ({ ...prev, title: event.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Add a new follow-up task..."
+                />
+              </label>
+              <label className="block">
+                <span className="sr-only">New action item owner</span>
+                <select
+                  value={newActionItem.assigneeId}
+                  onChange={(event) =>
+                    setNewActionItem((prev) => ({ ...prev, assigneeId: event.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
+                >
+                  <option value="">Owner</option>
+                  {detail.participants.map((participant) => (
+                    <option key={participant.userId} value={participant.userId}>
+                      {participant.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="sr-only">New action item due date</span>
+                <input
+                  type="date"
+                  value={newActionItem.dueDate}
+                  onChange={(event) =>
+                    setNewActionItem((prev) => ({ ...prev, dueDate: event.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium text-slate-700"
+                />
+              </label>
+              <label className="block">
+                <span className="sr-only">New action item priority</span>
+                <select
+                  value={newActionItem.priority}
+                  onChange={(event) =>
+                    setNewActionItem((prev) => ({ ...prev, priority: event.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-blue-100 bg-white px-3 text-sm font-medium capitalize text-slate-700"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+              <button
+                type="submit"
+                disabled={!newActionItem.title.trim()}
+                className="h-10 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+              >
+                Add
+              </button>
+            </form>
+          ) : null}
 
           <div className="mt-3 space-y-3">
             {detail.actionItems.map((item) => {
@@ -1066,6 +1070,8 @@ export const MeetingDetailView = ({
                       <span className="sr-only">Task</span>
                       <input
                         value={item.title}
+                        readOnly={!canManageMeeting}
+                        aria-readonly={!canManageMeeting}
                         onChange={(event) => onActionItemChange(item.id, event.target.value)}
                         onBlur={() => onActionItemSave(item.id)}
                         onKeyDown={(event) => {
@@ -1080,14 +1086,16 @@ export const MeetingDetailView = ({
                         }`}
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => onActionItemRemove(item.id)}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                      aria-label="Remove action item"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                    {canManageMeeting ? (
+                      <button
+                        type="button"
+                        onClick={() => onActionItemRemove(item.id)}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Remove action item"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    ) : null}
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1098,7 +1106,8 @@ export const MeetingDetailView = ({
                         onChange={(event) =>
                           onActionItemPatch(item.id, { assigneeId: event.target.value || null })
                         }
-                        className="h-8 max-w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+                        disabled={!canManageMeeting}
+                        className="h-8 max-w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
                       >
                         <option value="">Unassigned</option>
                         {detail.participants.map((participant) => (
@@ -1120,7 +1129,8 @@ export const MeetingDetailView = ({
                             : null
                           onActionItemPatch(item.id, { dueDate })
                         }}
-                        className="h-8 w-36 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+                        disabled={!canManageMeeting}
+                        className="h-8 w-36 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
                       />
                     </label>
 
@@ -1128,8 +1138,9 @@ export const MeetingDetailView = ({
                       <span className="sr-only">Status</span>
                       <select
                         value={item.status}
+                        disabled={!canManageMeeting}
                         onChange={(event) => onActionItemStatusChange(item.id, event.target.value)}
-                        className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold ${
+                        className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold disabled:cursor-not-allowed disabled:opacity-70 ${
                           actionStatusStyles[item.status]?.className ||
                           actionStatusStyles.todo.className
                         }`}
@@ -1147,7 +1158,8 @@ export const MeetingDetailView = ({
                         onChange={(event) =>
                           onActionItemPatch(item.id, { priority: event.target.value })
                         }
-                        className={`h-8 w-28 rounded-md border border-transparent px-2 text-xs font-extrabold capitalize ${
+                        disabled={!canManageMeeting}
+                        className={`h-8 w-28 rounded-md border border-transparent px-2 text-xs font-extrabold capitalize disabled:cursor-not-allowed disabled:opacity-70 ${
                           priorityStyles[item.priority] || priorityStyles.medium
                         }`}
                       >
