@@ -8,6 +8,7 @@ import {
   markNotificationRead,
   sortNotificationsUnreadFirst,
 } from '../../services/notificationService.js'
+import { getNotificationPath } from './notificationTarget.js'
 
 export const useNotificationActions = ({
   token,
@@ -162,28 +163,13 @@ export const useNotificationActions = ({
   const openNotificationTarget = async (notification) => {
     await markNotificationReadInMenu(notification, { suppressError: true })
 
-    if (!notification?.entityType || !notification.entityId) {
+    const notificationPath = getNotificationPath(notification)
+    if (notificationPath) {
+      navigate(notificationPath)
       return
     }
 
-    if (notification.entityType === 'meeting') {
-      navigate(
-        `/meetings/${notification.entityId}${notification.type === 'meeting_change_requested' ? '?changeRequests=1' : ''}`
-      )
-      return
-    }
-
-    if (notification.entityType === 'action_item') {
-      navigate(`/action-items?item=${notification.entityId}`)
-      return
-    }
-
-    if (notification.entityType === 'meeting_request') {
-      if (notification.type === 'meeting_request_invited') {
-        navigate('/dashboard')
-        return
-      }
-
+    if (notification?.entityType === 'meeting_request') {
       setActiveMeetingRequestId(notification.entityId)
       setIsCreateModalOpen(true)
     }
