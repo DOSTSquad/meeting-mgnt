@@ -25,7 +25,8 @@ after(async () => {
 const render = (
   currentUserId,
   canManageMeeting = false,
-  inbox = { items: [], status: 'ready', error: '' }
+  inbox = { items: [], status: 'ready', error: '' },
+  actionItems = []
 ) =>
   renderToStaticMarkup(
     createElement(MeetingDetailView, {
@@ -48,7 +49,7 @@ const render = (
           { userId: 'optional', name: 'Optional Attendee', role: 'optional' },
         ],
         files: [],
-        actionItems: [],
+        actionItems,
       },
     })
   )
@@ -108,6 +109,23 @@ test('owner inbox displays all messages without changing attendee review status'
   assert.ok(html.includes('Not reviewed'))
   assert.ok(!render('admin', true, inbox).includes('Change the location'))
   assert.ok(!render('attendee', false, inbox).includes('Change the location'))
+})
+
+test('attendees see read-only action items in meeting detail', () => {
+  const actionItem = {
+    id: 'action-item-1',
+    title: 'Prepare the agenda',
+    assigneeId: 'attendee',
+    dueDate: '2026-10-15T00:00:00Z',
+    status: 'todo',
+    priority: 'medium',
+  }
+  const html = render('attendee', false, undefined, [actionItem])
+
+  assert.ok(html.includes('Action items are read-only for meeting participants.'))
+  assert.ok(!html.includes('Add a new follow-up task...'))
+  assert.match(html, /readOnly=""[^>]*value="Prepare the agenda"/)
+  assert.doesNotMatch(html, /aria-label="Remove action item"/)
 })
 test('inbox renders loading and retryable errors', () => {
   assert.ok(
