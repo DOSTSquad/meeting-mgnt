@@ -9,7 +9,12 @@ import {
   updateActionItem,
 } from '../../services/actionItemService.js'
 import { downloadFileContent, uploadMeetingFile } from '../../services/fileService.js'
-import { getMeetingDetail, updateMeeting } from '../../services/meetingService.js'
+import {
+  addMeetingParticipants,
+  getMeetingDetail,
+  removeMeetingParticipant,
+  updateMeeting,
+} from '../../services/meetingService.js'
 import {
   submitMeetingChangeRequest,
   getMeetingChangeRequests,
@@ -219,6 +224,79 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
       await patchMeetingFields({ [field]: normalizedValue ?? null })
     },
     [onError, patchMeetingFields, selectedMeetingDetail]
+  )
+
+  const updateMeetingStatus = useCallback(
+    async (status) => {
+      if (!selectedMeetingDetail) {
+        return
+      }
+
+      try {
+        const client = getApiClient(token)
+        const meeting = await updateMeeting(client, selectedMeetingDetail.meeting.id, { status })
+        setSelectedMeetingDetail((prev) => (prev ? { ...prev, meeting } : prev))
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to update meeting status')
+      }
+    },
+    [onError, selectedMeetingDetail, token]
+  )
+
+  const addParticipant = useCallback(
+    async (userId) => {
+      if (!selectedMeetingId || !userId) {
+        return
+      }
+
+      try {
+        const participants = await addMeetingParticipants(getApiClient(token), selectedMeetingId, {
+          userIds: [userId],
+        })
+        setSelectedMeetingDetail((prev) =>
+          prev && prev.meeting.id === selectedMeetingId
+            ? {
+                ...prev,
+                participants: [
+                  ...prev.participants,
+                  ...participants.filter(
+                    (participant) =>
+                      !prev.participants.some((current) => current.userId === participant.userId)
+                  ),
+                ],
+              }
+            : prev
+        )
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to add attendee')
+      }
+    },
+    [onError, selectedMeetingId, token]
+  )
+
+  const removeParticipant = useCallback(
+    async (userId) => {
+      if (!selectedMeetingId || !userId) {
+        return
+      }
+
+      try {
+        await removeMeetingParticipant(getApiClient(token), selectedMeetingId, userId)
+        setSelectedMeetingDetail((prev) =>
+          prev && prev.meeting.id === selectedMeetingId
+            ? {
+                ...prev,
+                participants: prev.participants.filter(
+                  (participant) => participant.userId !== userId
+                ),
+              }
+            : prev
+        )
+      } catch (error) {
+        onError(error.response?.data?.error || 'Unable to remove attendee')
+      }
+    },
+    [onError, selectedMeetingId, token]
   )
 
   const updateMeetingMinutesField = useCallback((field, value) => {
@@ -872,6 +950,9 @@ export const useMeetingDetailController = ({ token, activeMeetingId, currentUser
     setIsPreviewOpen,
     updateMeetingDetailField,
     saveMeetingField,
+    updateMeetingStatus,
+    addParticipant,
+    removeParticipant,
     updateMeetingMinutesField,
     saveMeetingMinutesFields,
     addActionItemInDetail,

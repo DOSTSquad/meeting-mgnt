@@ -298,6 +298,9 @@ export const MeetingDetailView = ({
     return null
   }
 
+  const isMeetingCompleted = detail.meeting.status === 'completed'
+  const canEditMeeting = canManageMeeting && !isMeetingCompleted
+
   const submitNewActionItem = (event) => {
     event.preventDefault()
     if (!newActionItem.title.trim()) {
@@ -463,7 +466,7 @@ export const MeetingDetailView = ({
               </span>
             ) : null}
           </div>
-          {canManageMeeting ? (
+          {canEditMeeting ? (
             <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-2">
               <span className="px-1 text-xs font-bold text-slate-600">Manage attendees</span>
               <select
@@ -506,7 +509,16 @@ export const MeetingDetailView = ({
         </div>
       </header>
 
-      {canManageMeeting ? (
+      {isMeetingCompleted ? (
+        <div
+          role="status"
+          className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"
+        >
+          This meeting is completed. Details are read-only.
+        </div>
+      ) : null}
+
+      {canEditMeeting ? (
         <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -597,12 +609,14 @@ export const MeetingDetailView = ({
         <div id="meeting-information" className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="text-2xl font-semibold text-slate-700">Meeting Information</h2>
           <p className="mt-1 text-sm text-slate-500">
-            {canManageMeeting
+            {canEditMeeting
               ? 'Title and location/meeting link save when the field loses focus.'
-              : 'Meeting information is read-only for participants.'}
+              : isMeetingCompleted
+                ? 'This meeting is completed and cannot be edited.'
+                : 'Meeting information is read-only for participants.'}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {canEditMeetingTag ? (
+            {canEditMeeting && canEditMeetingTag ? (
               <MeetingTagEditor
                 key={detail.meeting.id}
                 currentTag={detail.meeting.tag}
@@ -627,11 +641,11 @@ export const MeetingDetailView = ({
               </span>
               <input
                 value={detail.meeting.title || ''}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => onChange('title', event.target.value)}
                 onBlur={() => onSaveMeetingField('title')}
                 onKeyDown={(event) => saveOnEnter(event, 'title')}
-                className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 disabled:bg-slate-100 disabled:text-slate-500"
                 placeholder="Meeting title"
               />
             </label>
@@ -641,11 +655,11 @@ export const MeetingDetailView = ({
               </span>
               <input
                 value={detail.meeting.location || ''}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => onChange('location', event.target.value)}
                 onBlur={() => onSaveMeetingField('location')}
                 onKeyDown={(event) => saveOnEnter(event, 'location')}
-                className="h-11 w-full rounded-xl border border-slate-200 px-3"
+                className="h-11 w-full rounded-xl border border-slate-200 px-3 disabled:bg-slate-100 disabled:text-slate-500"
                 placeholder="Room 4.1 or https://teams.microsoft.com/..."
               />
             </label>
@@ -682,11 +696,11 @@ export const MeetingDetailView = ({
           <textarea
             rows={4}
             value={detail.meeting.description || ''}
-            disabled={!canManageMeeting}
+            disabled={!canEditMeeting}
             onChange={(event) => onChange('description', event.target.value)}
             onBlur={() => onSaveMeetingField('description')}
             onKeyDown={(event) => saveTextareaOnShortcut(event, 'description')}
-            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2"
+            className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
           />
         </div>
 
@@ -712,7 +726,7 @@ export const MeetingDetailView = ({
               </span>
               <select
                 value={detail.minutes?.status || 'draft'}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => {
                   onMinutesChange('status', event.target.value)
                   onSaveMinutes({ status: event.target.value })
@@ -730,7 +744,7 @@ export const MeetingDetailView = ({
               </span>
               <select
                 value={detail.minutes?.facilitatorId || ''}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => {
                   const facilitatorId = event.target.value || null
                   onMinutesChange('facilitatorId', facilitatorId)
@@ -752,7 +766,7 @@ export const MeetingDetailView = ({
               </span>
               <select
                 value={detail.minutes?.recorderId || ''}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => {
                   const recorderId = event.target.value || null
                   onMinutesChange('recorderId', recorderId)
@@ -777,7 +791,7 @@ export const MeetingDetailView = ({
             <textarea
               rows={7}
               value={detail.minutes?.content || ''}
-              disabled={!canManageMeeting}
+              disabled={!canEditMeeting}
               onChange={(event) => onMinutesChange('content', event.target.value)}
               onBlur={() => onSaveMinutes({ content: detail.minutes?.content || '' })}
               onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'content')}
@@ -794,7 +808,7 @@ export const MeetingDetailView = ({
               <textarea
                 rows={5}
                 value={detail.minutes?.keyDiscussions || ''}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => onMinutesChange('keyDiscussions', event.target.value)}
                 onBlur={() =>
                   onSaveMinutes({ keyDiscussions: detail.minutes?.keyDiscussions || '' })
@@ -811,7 +825,7 @@ export const MeetingDetailView = ({
               <textarea
                 rows={5}
                 value={detail.minutes?.decisions || ''}
-                disabled={!canManageMeeting}
+                disabled={!canEditMeeting}
                 onChange={(event) => onMinutesChange('decisions', event.target.value)}
                 onBlur={() => onSaveMinutes({ decisions: detail.minutes?.decisions || '' })}
                 onKeyDown={(event) => saveMinutesTextareaOnShortcut(event, 'decisions')}
@@ -832,7 +846,7 @@ export const MeetingDetailView = ({
               <RecordingStatusPill pill={recordingProgress.pill} />
             </div>
 
-            {canManageMeeting && !detail.recording && !pendingRecordingFile ? (
+            {canEditMeeting && !detail.recording && !pendingRecordingFile ? (
               <RecordingConsentCheckbox checked={recordingConsent} onChange={setRecordingConsent} />
             ) : null}
 
@@ -857,7 +871,7 @@ export const MeetingDetailView = ({
                         : ''}
                     </p>
                   </div>
-                  {canManageMeeting ? (
+                  {canEditMeeting ? (
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -886,7 +900,7 @@ export const MeetingDetailView = ({
                     </div>
                   ) : null}
                 </div>
-                {isRemoveDialogOpen(detail.recording, removeDialogRecordingId) ? (
+                {canEditMeeting && isRemoveDialogOpen(detail.recording, removeDialogRecordingId) ? (
                   <RemoveRecordingDialog
                     fileName={detail.recording.fileName}
                     isRemoving={isRemovingRecording}
@@ -905,14 +919,14 @@ export const MeetingDetailView = ({
                 <TranscriptPanel transcript={detail.transcript} />
                 <AnalysisSummaryPanel
                   review={analysisReview}
-                  canApply={canManageMeeting}
+                  canApply={canEditMeeting}
                   applyState={applyMinutesState}
                   onApply={onApplyGeneratedMinutes}
                   onDismissApplyState={onDismissApplyMinutesState}
                 />
                 <AnalysisActionItemsPanel
                   review={analysisReview}
-                  canReview={canManageMeeting}
+                  canReview={canEditMeeting}
                   onAcceptSuggestion={onAcceptSuggestion}
                   onRejectSuggestion={onRejectSuggestion}
                 />
@@ -921,7 +935,7 @@ export const MeetingDetailView = ({
               <div className="mt-4">
                 <RecordingProgress steps={recordingProgress.steps} />
               </div>
-            ) : canManageMeeting ? (
+            ) : canEditMeeting ? (
               <label
                 className={`mt-4 flex min-h-28 flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
                   !recordingConsent
@@ -977,14 +991,14 @@ export const MeetingDetailView = ({
             <div>
               <h2 className="text-2xl font-semibold text-slate-700">Action Items</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {canManageMeeting
+                {canEditMeeting
                   ? 'Follow-ups captured from this meeting, with ownership and deadline at a glance.'
                   : 'Action items are read-only for meeting participants.'}
               </p>
             </div>
           </div>
 
-          {canManageMeeting ? (
+          {canEditMeeting ? (
             <form
               onSubmit={submitNewActionItem}
               className="mt-4 grid gap-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 lg:grid-cols-[minmax(0,1fr)_10rem_9rem_8rem_auto]"
@@ -1070,12 +1084,16 @@ export const MeetingDetailView = ({
                       <span className="sr-only">Task</span>
                       <input
                         value={item.title}
-                        readOnly={!canManageMeeting}
-                        aria-readonly={!canManageMeeting}
+                        readOnly={!canEditMeeting}
+                        aria-readonly={!canEditMeeting}
                         onChange={(event) => onActionItemChange(item.id, event.target.value)}
-                        onBlur={() => onActionItemSave(item.id)}
+                        onBlur={() => {
+                          if (canEditMeeting) {
+                            onActionItemSave(item.id)
+                          }
+                        }}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
+                          if (canEditMeeting && event.key === 'Enter') {
                             event.currentTarget.blur()
                           }
                         }}
@@ -1086,7 +1104,7 @@ export const MeetingDetailView = ({
                         }`}
                       />
                     </label>
-                    {canManageMeeting ? (
+                    {canEditMeeting ? (
                       <button
                         type="button"
                         onClick={() => onActionItemRemove(item.id)}
@@ -1106,7 +1124,7 @@ export const MeetingDetailView = ({
                         onChange={(event) =>
                           onActionItemPatch(item.id, { assigneeId: event.target.value || null })
                         }
-                        disabled={!canManageMeeting}
+                        disabled={!canEditMeeting}
                         className="h-8 max-w-48 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
                       >
                         <option value="">Unassigned</option>
@@ -1129,7 +1147,7 @@ export const MeetingDetailView = ({
                             : null
                           onActionItemPatch(item.id, { dueDate })
                         }}
-                        disabled={!canManageMeeting}
+                        disabled={!canEditMeeting}
                         className="h-8 w-36 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
                       />
                     </label>
@@ -1138,7 +1156,7 @@ export const MeetingDetailView = ({
                       <span className="sr-only">Status</span>
                       <select
                         value={item.status}
-                        disabled={!canManageMeeting}
+                        disabled={!canEditMeeting}
                         onChange={(event) => onActionItemStatusChange(item.id, event.target.value)}
                         className={`h-8 w-32 rounded-md border px-2 text-xs font-extrabold disabled:cursor-not-allowed disabled:opacity-70 ${
                           actionStatusStyles[item.status]?.className ||
@@ -1158,7 +1176,7 @@ export const MeetingDetailView = ({
                         onChange={(event) =>
                           onActionItemPatch(item.id, { priority: event.target.value })
                         }
-                        disabled={!canManageMeeting}
+                        disabled={!canEditMeeting}
                         className={`h-8 w-28 rounded-md border border-transparent px-2 text-xs font-extrabold capitalize disabled:cursor-not-allowed disabled:opacity-70 ${
                           priorityStyles[item.priority] || priorityStyles.medium
                         }`}
@@ -1185,40 +1203,46 @@ export const MeetingDetailView = ({
           <p className="mt-1 text-sm text-slate-500">
             Meeting documents, images, audio, and supporting files.
           </p>
-          <label
-            className={`mt-3 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
-              isDragOverMaterialFiles
-                ? 'border-blue-400 bg-blue-50 text-blue-700'
-                : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
-            }`}
-            onDragOver={(event) => {
-              event.preventDefault()
-              setIsDragOverMaterialFiles(true)
-            }}
-            onDragLeave={() => setIsDragOverMaterialFiles(false)}
-            onDrop={(event) => {
-              event.preventDefault()
-              setIsDragOverMaterialFiles(false)
-              onAddPendingMaterialFiles(event.dataTransfer?.files)
-            }}
-          >
-            <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
-              <UploadCloud className="h-5 w-5" />
-            </div>
-            <span className="font-semibold">Drag & drop files here or click to browse</span>
-            <span className="mt-1 text-xs text-slate-400">
-              Audio uploaded here stays as an attachment.
-            </span>
-            <input
-              type="file"
-              multiple
-              className="sr-only"
-              onChange={(event) => {
-                onAddPendingMaterialFiles(event.target.files)
-                event.target.value = ''
+          {isMeetingCompleted ? (
+            <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500">
+              Meeting materials are read-only after completion.
+            </p>
+          ) : (
+            <label
+              className={`mt-3 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-5 text-center text-sm transition ${
+                isDragOverMaterialFiles
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:bg-blue-50/50'
+              }`}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setIsDragOverMaterialFiles(true)
               }}
-            />
-          </label>
+              onDragLeave={() => setIsDragOverMaterialFiles(false)}
+              onDrop={(event) => {
+                event.preventDefault()
+                setIsDragOverMaterialFiles(false)
+                onAddPendingMaterialFiles(event.dataTransfer?.files)
+              }}
+            >
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full border border-slate-300">
+                <UploadCloud className="h-5 w-5" />
+              </div>
+              <span className="font-semibold">Drag & drop files here or click to browse</span>
+              <span className="mt-1 text-xs text-slate-400">
+                Audio uploaded here stays as an attachment.
+              </span>
+              <input
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={(event) => {
+                  onAddPendingMaterialFiles(event.target.files)
+                  event.target.value = ''
+                }}
+              />
+            </label>
+          )}
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
             {materialFiles.map((file) => (
               <li
@@ -1284,7 +1308,7 @@ export const MeetingDetailView = ({
             </div>
           </div>
         ) : null}
-        {!canManageMeeting ? (
+        {!canManageMeeting && !isMeetingCompleted ? (
           <div className="flex flex-wrap justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             {canRequestChange ? (
               <button

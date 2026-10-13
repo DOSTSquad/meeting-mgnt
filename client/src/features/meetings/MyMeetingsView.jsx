@@ -180,10 +180,14 @@ export const MyMeetingsView = ({
         <div className="flex items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-extrabold tracking-tight text-slate-900">
-              Meeting progress
+              Action item progress
             </h2>
             <p className="mt-1 text-sm font-medium text-slate-500">
-              A simple view of where each owned meeting stands.
+              Track follow-up task completion across your owned meetings.
+            </p>
+            <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-400">
+              Progress is based on completed action items, not the meeting status. Complete all
+              action items to reach 100%.
             </p>
           </div>
           <span className="hidden rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 sm:inline-flex">
@@ -197,6 +201,9 @@ export const MyMeetingsView = ({
             const meetingActionItems =
               loadedActionItems || actionItems.filter((item) => item.meetingId === meeting.id)
             const progress = getMeetingProgress(meeting.id, meetingActionItems)
+            const completedActionItems = meetingActionItems.filter(
+              (item) => item.status === 'completed'
+            ).length
             const meetingStatus = getMeetingDisplayStatus(meeting)
             return (
               <details
@@ -234,6 +241,11 @@ export const MyMeetingsView = ({
                       {progress}%
                     </span>
                   </div>
+                  <p className="mt-2 text-xs font-semibold text-slate-400">
+                    {meetingActionItems.length === 0
+                      ? 'No action items yet — add follow-up tasks to track progress.'
+                      : `${completedActionItems} of ${meetingActionItems.length} action items completed.`}
+                  </p>
                 </summary>
                 <div className="border-t border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-white px-4 py-4 sm:px-5">
                   {loadingDetails[meeting.id] ? (
