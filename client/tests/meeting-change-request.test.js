@@ -26,7 +26,8 @@ const render = (
   currentUserId,
   canManageMeeting = false,
   inbox = { items: [], status: 'ready', error: '' },
-  actionItems = []
+  actionItems = [],
+  meetingStatus = 'scheduled'
 ) =>
   renderToStaticMarkup(
     createElement(MeetingDetailView, {
@@ -39,7 +40,7 @@ const render = (
           id: 'meeting',
           ownerId: 'owner',
           title: 'Planning',
-          status: 'scheduled',
+          status: meetingStatus,
           startsAt: '2099-01-01T10:00:00Z',
           endsAt: '2099-01-01T11:00:00Z',
         },
@@ -126,6 +127,44 @@ test('attendees see read-only action items in meeting detail', () => {
   assert.ok(!html.includes('Add a new follow-up task...'))
   assert.match(html, /readOnly=""[^>]*value="Prepare the agenda"/)
   assert.doesNotMatch(html, /aria-label="Remove action item"/)
+})
+
+test('completed meetings are read-only even for the owner', () => {
+  const html = render(
+    'owner',
+    true,
+    undefined,
+    [
+      {
+        id: 'action-item-1',
+        title: 'Prepare the agenda',
+        assigneeId: 'owner',
+        dueDate: '2026-10-15T00:00:00Z',
+        status: 'todo',
+        priority: 'medium',
+      },
+    ],
+    'completed'
+  )
+
+  assert.ok(html.includes('This meeting is completed. Details are read-only.'))
+  assert.ok(!html.includes('Manage attendees'))
+  assert.ok(!html.includes('Send review request'))
+  assert.ok(!html.includes('Add a new follow-up task...'))
+  assert.ok(!html.includes('Drag &amp; drop files here or click to browse'))
+  assert.ok(!html.includes('Mark as completed'))
+  assert.doesNotMatch(html, /aria-label="Remove action item"/)
+  assert.match(html, /disabled=""[^>]*value="Planning"/)
+})
+
+test('completed meetings hide uploads and review actions from attendees', () => {
+  const html = render('attendee', false, undefined, [], 'completed')
+
+  assert.ok(html.includes('This meeting is completed. Details are read-only.'))
+  assert.ok(html.includes('Meeting materials are read-only after completion.'))
+  assert.ok(!html.includes('Drag &amp; drop files here or click to browse'))
+  assert.ok(!html.includes('Request to change'))
+  assert.ok(!html.includes('Mark meeting detail as reviewed'))
 })
 test('inbox renders loading and retryable errors', () => {
   assert.ok(
