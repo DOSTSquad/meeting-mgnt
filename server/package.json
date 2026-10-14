@@ -18,6 +18,8 @@
     "test:db": "RUN_DB_TESTS=true NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1151.0",
+    "@aws-sdk/s3-request-presigner": "^3.1151.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -27,9 +29,8 @@
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "markdown-it": "^15.0.0",
-    "minio": "^8.0.5",
     "multer": "^2.0.1",
-    "nodemailer": "^9.0.4",
+    "nodemailer": "^10.1.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {
@@ -37,6 +38,6 @@
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.5.0",
-    "jest": "^30.3.0"
+    "jest": "^30.5.2"
   }
 }

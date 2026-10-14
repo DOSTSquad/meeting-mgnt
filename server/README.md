@@ -9,6 +9,27 @@ Start the Python `ai-worker` from `ai-service/` as well when real or fixture AI 
 
 The default port is `3001`, configurable through `PORT` in `.env`.
 
+## Object Storage
+
+The server uses the AWS SDK for JavaScript v3 to connect to Silo/MinIO or another S3-compatible
+store. The existing `MINIO_*` settings configure the endpoint, credentials, TLS, and bucket names;
+no AWS account is needed for Silo/MinIO. `MINIO_REGION` defaults to `us-east-1`. Set it to the
+storage provider's region if the provider requires a different signing region.
+
+Storage requests use path-style bucket URLs. Uploads create missing buckets when the credentials
+allow it. Downloads and AI result reads return Node.js streams, and presigned download URLs retain
+their 60-second expiry, content type, and attachment filename.
+
+The previous `minio` JavaScript package was replaced because its latest release still depends on
+vulnerable `stream-json` and `decode-uri-component` versions. Their patched versions change module
+exports/API and cannot be substituted safely with dependency overrides. This changes the server SDK;
+the storage service, stored objects, and public file endpoints stay the same.
+
+Jest is updated within version 30. A root npm override pins `js-yaml@4.3.2`, removing the vulnerable
+`argparse`/`sprintf-js` chain under `@istanbuljs/load-nyc-config` while preserving its YAML
+`load()` API. The coverage configuration regression test checks this compatibility. Tailwind 3's
+build-tool advisories are deferred separately.
+
 ## Rate Limiting
 
 All `/api/*` routes are rate limited by client IP. Defaults are `100` requests per

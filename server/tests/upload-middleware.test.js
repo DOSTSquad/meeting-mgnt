@@ -43,12 +43,11 @@ describe('upload size limit', () => {
     expect(body.size).toBe(MAX_FILE_SIZE - 1)
   })
 
-  // busboy stops a file once it reaches the limit, so exactly 50 MB is already rejected.
-  it('returns 413 for a file of exactly 50 MB', async () => {
+  it('accepts a file of exactly 50 MB', async () => {
     const { status, body } = await postFile(MAX_FILE_SIZE)
 
-    expect(status).toBe(413)
-    expect(body.error).toBe('File exceeds the 50 MB limit')
+    expect(status).toBe(201)
+    expect(body.size).toBe(MAX_FILE_SIZE)
   })
 
   it('returns 413 for a file one byte over 50 MB', async () => {
