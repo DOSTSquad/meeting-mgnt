@@ -1,0 +1,6 @@
+all: true
+extension: .js
+include:
+  - services/**/*.js
+exclude:
+  - tests/**/*.test.js
