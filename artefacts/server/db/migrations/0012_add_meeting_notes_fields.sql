@@ -1,5 +1,0 @@
-ALTER TABLE meetings
-  ADD COLUMN IF NOT EXISTS key_discussions TEXT,
-  ADD COLUMN IF NOT EXISTS decisions TEXT,
-  ADD COLUMN IF NOT EXISTS facilitator TEXT,
-  ADD COLUMN IF NOT EXISTS recorder TEXT;
