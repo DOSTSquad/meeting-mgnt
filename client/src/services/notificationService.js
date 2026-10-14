@@ -33,22 +33,10 @@ export const markNotificationRead = async (client, notificationId) => {
   return response.data?.notification ?? null
 }
 
-export const markNotificationsRead = async (client, ids) => {
-  const response = await client.post('/api/notifications/read', { ids })
-
-  return response.data?.updatedCount ?? 0
-}
-
 export const markAllNotificationsRead = async (client) => {
   const response = await client.post('/api/notifications/read-all')
 
   return response.data?.updatedCount ?? 0
-}
-
-export const archiveNotification = async (client, notificationId) => {
-  const response = await client.post(`/api/notifications/${notificationId}/archive`)
-
-  return response.data?.notification ?? null
 }
 
 export const archiveReadNotifications = async (client) => {

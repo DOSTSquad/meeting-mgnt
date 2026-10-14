@@ -3,12 +3,7 @@ export const listMeetings = async (client, params = {}) => {
   return response.data?.meetings || []
 }
 
-export const createMeeting = async (client, payload) => {
-  const response = await client.post('/api/meetings', payload)
-  return response.data.meeting
-}
-
-export const getMeeting = async (client, meetingId) => {
+const getMeeting = async (client, meetingId) => {
   const response = await client.get(`/api/meetings/${meetingId}`)
   return response.data.meeting
 }
@@ -18,7 +13,7 @@ export const updateMeeting = async (client, meetingId, payload) => {
   return response.data.meeting
 }
 
-export const listMeetingParticipants = async (client, meetingId) => {
+const listMeetingParticipants = async (client, meetingId) => {
   const response = await client.get(`/api/meetings/${meetingId}/participants`)
   return response.data?.participants || []
 }
@@ -32,12 +27,12 @@ export const removeMeetingParticipant = async (client, meetingId, userId) => {
   await client.delete(`/api/meetings/${meetingId}/participants/${userId}`)
 }
 
-export const listMeetingActionItems = async (client, meetingId) => {
+const listMeetingActionItems = async (client, meetingId) => {
   const response = await client.get(`/api/meetings/${meetingId}/action-items`)
   return response.data?.actionItems || []
 }
 
-export const listMeetingFiles = async (client, meetingId) => {
+const listMeetingFiles = async (client, meetingId) => {
   const response = await client.get(`/api/meetings/${meetingId}/files`)
   return response.data?.files || []
 }
