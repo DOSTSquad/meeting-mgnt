@@ -3,11 +3,6 @@ export const listActionItems = async (client, scope = 'mine') => {
   return response.data?.actionItems || []
 }
 
-export const getActionItem = async (client, actionItemId) => {
-  const response = await client.get(`/api/action-items/${actionItemId}`)
-  return response.data.actionItem
-}
-
 export const createMeetingActionItem = async (client, meetingId, payload) => {
   const response = await client.post(`/api/meetings/${meetingId}/action-items`, payload)
   return response.data.actionItem

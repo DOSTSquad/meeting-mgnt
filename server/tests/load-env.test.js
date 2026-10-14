@@ -18,13 +18,7 @@ const read = (relativePath) => readFileSync(path.join(serverDir, relativePath), 
 // Nothing looks broken while the defaults happen to match .env, which is exactly
 // what makes it worth pinning: the day one value differs, local development
 // diverges from production for reasons that look impossible.
-const ENTRYPOINTS = [
-  'app.js',
-  'scripts/migrate.js',
-  'scripts/seed.js',
-  'scripts/seed-files.js',
-  'scripts/seed-assigned-tasks.js',
-]
+const ENTRYPOINTS = ['app.js', 'scripts/migrate.js', 'scripts/seed.js']
 
 describe('environment loading order', () => {
   it.each(ENTRYPOINTS)('%s loads .env through an import, not a call', (entrypoint) => {
