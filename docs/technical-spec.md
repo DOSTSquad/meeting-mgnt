@@ -1,6 +1,6 @@
 # DOST Meeting Management Technical Specification
 
-Last updated: 2026-10-07
+Last updated: 2026-10-14
 
 ## 1. Purpose
 
@@ -14,15 +14,15 @@ and operating procedures are covered in the separate Deployment Guide.
 
 ## 2. User Characteristics
 
-| User type         | Characteristics                                                 | Main goals                                                                                                | System access                                         |
-| ----------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Staff user        | Authenticated DOST staff member with an email/password account. | View dashboard, access assigned meetings, submit availability, manage assigned action items.              | Authenticated web app and API access.                 |
-| Meeting creator   | User who creates a meeting or meeting request.                  | Create meeting requests, add time options, invite participants, confirm meetings, manage meeting records. | Full control of their created meetings and requests.  |
-| Meeting organizer | Participant with an organizer role.                             | Help manage participants, files, recordings, and minutes for a meeting.                                   | Elevated meeting-scoped permissions.                  |
-| Attendee          | Participant with an attendee role.                              | View meeting detail, access files/minutes, complete action items.                                         | Meeting-scoped read/collaboration permissions.        |
-| Administrator     | Staff user with the `admin` account role.                       | Create and manage user accounts and roles, view and manage all meetings.                                  | All meetings and user administration.                 |
-| External invitee  | Person invited to a meeting request who has no account.         | Submit availability for the proposed times.                                                               | Emailed invitation link only; no sign-in.             |
-| IT administrator  | Client-side system or infrastructure administrator.             | Configure environments, operate deployments, manage capacity, validate service health.                    | Infrastructure and application administration access. |
+| User type         | Characteristics                                                 | Main goals                                                                                                            | System access                                         |
+| ----------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Staff user        | Authenticated DOST staff member with an email/password account. | View dashboard, access assigned meetings, submit availability, manage assigned action items.                          | Authenticated web app and API access.                 |
+| Meeting creator   | User who creates a meeting or meeting request.                  | Create meeting requests, add time options, invite participants, confirm meetings, manage meeting records.             | Full control of their created meetings and requests.  |
+| Meeting organizer | Participant with an organizer role.                             | Help manage participants, files, recordings, and minutes for a meeting.                                               | Elevated meeting-scoped permissions.                  |
+| Attendee          | Participant with an attendee role.                              | View meeting detail (action items read-only), access files/minutes, update the status of their assigned action items. | Meeting-scoped read/collaboration permissions.        |
+| Administrator     | Staff user with the `admin` account role.                       | Create and manage user accounts and roles, view and manage all meetings.                                              | All meetings and user administration.                 |
+| External invitee  | Person invited to a meeting request who has no account.         | Submit availability for the proposed times.                                                                           | Emailed invitation link only; no sign-in.             |
+| IT administrator  | Client-side system or infrastructure administrator.             | Configure environments, operate deployments, manage capacity, validate service health.                                | Infrastructure and application administration access. |
 
 The system supports general user profile fields such as role and department. Meeting-level
 authorization is primarily based on meeting creator and participant role.

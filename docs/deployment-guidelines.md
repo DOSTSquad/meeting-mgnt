@@ -3,17 +3,18 @@
 This document is the operational guide for the current single-host deployment. It
 supports demonstrations and small internal pilots, not a high-availability
 production topology. The authoritative application configuration reference is
-[`.env.example`](../.env.example).
+[`.env.example`](../.env.example). The full installation, hosting options, costs and handover
+checklist are in the [Deployment Guide](deployment-guide.md).
 
 ## Architecture And Trust Boundaries
 
 - Caddy is the only public entry point. It serves the React build and proxies
   `/api/*` and `/health*` to the Express API.
-- The Express API and server worker run as separate systemd services.
-- PostgreSQL, Redis, and MinIO run through the root Compose file on private
-  loopback ports.
-- When enabled, the Python `ai-worker` consumes Redis Streams and uses MinIO.
-  Ollama provides Llama 3 analysis. Both remain private-only services.
+- The Express API and workflow worker run as separate systemd services.
+- PostgreSQL, Redis, and Silo object storage (`pgsty/silo`, a MinIO fork; the Compose service is
+  still named `minio`) run through the root Compose file on private loopback ports.
+- The Python `ai-worker` consumes Redis Streams and uses Silo, and Ollama provides Llama 3
+  analysis. Both are required for the recording workflow and remain private-only services.
 
 ```mermaid
 flowchart TB
@@ -23,16 +24,16 @@ flowchart TB
     Caddy["Caddy<br/>Public HTTPS entry point"]
     Client[React static build]
     API["Express API<br/>systemd"]
-    Worker["Server worker<br/>systemd"]
+    Worker["Workflow worker<br/>systemd"]
 
     subgraph State[Private stateful services]
       Postgres[(PostgreSQL)]
       Redis[(Redis)]
-      MinIO[(MinIO)]
+      MinIO[(Silo)]
     end
 
-    subgraph AI[Optional private AI services]
-      AIWorker["Python AI worker<br/>CPU default, GPU benchmark optional"]
+    subgraph AI[Private AI services]
+      AIWorker["Python AI worker<br/>CPU default, GPU overlay optional"]
       Ollama["Ollama<br/>Llama 3"]
     end
   end
@@ -52,12 +53,12 @@ flowchart TB
 
 Caddy is the public trust boundary. All other services are private to the host
 or container network. PostgreSQL is the source of truth for user-visible
-workflow state, Redis Streams transports AI jobs and results, and MinIO stores
-recordings plus AI artifacts. The GPU profile is an optional benchmark path; the
-CPU worker remains the currently verified deployment path.
+workflow state, Redis Streams transports AI jobs and results, and Silo stores
+recordings plus AI artifacts. The GPU overlay (`docker-compose.gpu.yml`) is optional and not
+validated; the CPU worker remains the verified deployment path.
 
 Do not treat the root Compose file as an HA architecture. PostgreSQL, Redis, and
-MinIO volumes are single-host state and require backups plus a tested restore
+Silo volumes are single-host state and require backups plus a tested restore
 process.
 
 ## Host Bootstrap
@@ -76,7 +77,7 @@ sudo systemctl enable meeting-mgnt-server meeting-mgnt-worker
 The deploy user must retain write access to `/srv/meeting-mgnt` for `git`, npm,
 and `rsync`; do not assign exclusive ownership to a different service account.
 Use a firewall to expose only Caddy's HTTP/HTTPS ports. Do not expose the API,
-PostgreSQL, Redis, MinIO, FastAPI, or Ollama ports publicly.
+PostgreSQL, Redis, Silo, FastAPI, or Ollama ports publicly.
 
 Use a verified SSH host-key fingerprint for automated deployment. Do not rely on
 an unverified `ssh-keyscan` result when preparing the host.
@@ -95,7 +96,7 @@ Required production settings include:
 | Authentication | Unique high-entropy `JWT_SECRET` and a deliberate `JWT_EXPIRES_IN`                                                   |
 | Database       | Provisioned `DATABASE_URL`, PostgreSQL user/password/database, and required extensions                               |
 | Redis          | Private authenticated endpoint where available; `maxmemory-policy noeviction` when AI Streams are enabled            |
-| Object storage | Non-default MinIO credentials, all three buckets, and a browser-reachable HTTPS endpoint for presigned downloads     |
+| Object storage | Non-default `MINIO_*` credentials, all three buckets, and a browser-reachable HTTPS endpoint for presigned downloads |
 | Email          | Verified sender address and valid SMTP or Resend credentials                                                         |
 | AI             | `AI_PIPELINE_ENABLED=true`, `AI_TRANSCRIPTION_PROVIDER=whisper`, `AI_ANALYSIS_PROVIDER=llm`, and no fixture override |
 
@@ -105,7 +106,7 @@ the approved secret-management process. Test each rotation outside an incident.
 ## Stateful Services
 
 Before a release that includes migrations, take and verify a PostgreSQL backup.
-Back up MinIO objects and configuration on a defined schedule, set a retention
+Back up Silo objects and configuration on a defined schedule, set a retention
 period, and perform restore drills. Redis Streams support workflow recovery but
 are not a replacement for a PostgreSQL or object-storage backup.
 
@@ -117,7 +118,7 @@ docker compose up -d postgres redis minio minio-init
 docker compose ps
 ```
 
-Verify MinIO initialization completed and all configured buckets exist before
+Verify `minio-init` completed and all configured buckets exist before
 allowing uploads or AI jobs.
 
 ## Release Procedure
@@ -128,7 +129,7 @@ allowing uploads or AI jobs.
 3. Update the repository, install production dependencies, and apply migrations.
 4. Build the same-origin client bundle and deploy it to Caddy's configured
    `CLIENT_DIST` directory.
-5. Restart the API and, when AI is enabled, the server worker.
+5. Restart the API and, when AI is enabled, the workflow worker.
 6. Run liveness, readiness, browser, and workflow smoke checks before declaring
    the release complete.
 
@@ -145,15 +146,15 @@ curl --fail http://127.0.0.1:3001/health/ready
 ```
 
 `/health/live` only confirms the process is running. Require `/health/ready`
-before accepting the release because it tests PostgreSQL, Redis, and MinIO
+before accepting the release because it tests PostgreSQL, Redis, and Silo
 connectivity. If migration, readiness, or core browser checks fail, stop the
 release and use the documented database/application rollback decision for that
 version.
 
 ## AI Operations
 
-AI requires three separate runtimes: the API, the server worker, and the Python
-`ai-worker`. The server worker dispatches outbox events and consumes results;
+The recording workflow requires the API, the workflow worker, the Python `ai-worker`, and
+Ollama. The workflow worker dispatches outbox events and consumes results;
 the Python worker must be running before recordings can progress.
 
 For an AI image or dependency update:
@@ -182,9 +183,9 @@ Use one AI worker for the initial CPU deployment: Whisper decoding is serialized
 inside a worker and concurrent long recordings need explicit capacity testing.
 An 8-vCPU/16-GiB-RAM host is a low-volume starting point; 16 vCPU/32 GiB is a
 safer small-pilot starting point. Allocate persistent disk separately for the
-Ollama model, Whisper cache, containers, and retained MinIO audio/artifacts.
+Ollama model, Whisper cache, containers, and retained Silo audio/artifacts.
 
-The optional GPU profile targets a benchmark host, not the current production
+The optional GPU overlay (`docker-compose.gpu.yml`) targets a benchmark host, not the current production
 deployment. It uses `WHISPER_DEVICE=cuda` and fails the worker at startup unless
 PyTorch can access CUDA. A 12-GiB RTX 4070 Super is suitable for an initial
 single-worker benchmark, but 8K Llama context and both models must be checked
@@ -193,9 +194,9 @@ been completed. See [GPU Benchmark Runbook](gpu-benchmark-runbook.md).
 
 ## Pre-Release Checklist
 
-- PostgreSQL and MinIO backups have completed and a restore has been tested.
+- PostgreSQL and Silo backups have completed and a restore has been tested.
 - Required secrets are present, non-default, and readable by the service only.
-- The API, Redis, MinIO, AI, and database ports are private.
+- The API, Redis, Silo, AI, and database ports are private.
 - Database migrations have been reviewed and applied once.
 - `/health/live` and `/health/ready` return success.
 - Login, dashboard, meeting upload/download, and one recording workflow have
